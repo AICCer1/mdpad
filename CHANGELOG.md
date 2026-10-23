@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.21.0
+
+Two things every writing app has and this one did not: visible zoom and a working spellchecker.
+
+- **Zoom** with Ctrl+= / Ctrl+- / Ctrl+0, a percentage chip in the status bar while zoomed (click to
+  reset), and the level remembered across restarts. The View menu's roles were there, but nothing
+  told you the page *was* zoomed, which reads as a font bug.
+- **Spelling**: a native context menu on a misspelled word with up to six suggestions, **Add to
+  dictionary** and **Ignore**; without that handler Electron shows nothing on right click. A
+  **Check spelling** toggle in Settings turns it off, applied to every open window (the checker
+  lives on the session, so writing the setting alone was not enough — the first version kept
+  checking after being switched off).
+- 244 smoke checks (two new: `zoom-controls` for in/in/reset and the indicator, `spellcheck-setting`
+  for the stored value and the live session state), 153 unit tests.
+
 ## 1.20.0
 
 The recovery surfaces stop looking like debug output.

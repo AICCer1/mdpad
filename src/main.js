@@ -295,11 +295,19 @@ function publicSettings() {
     filesCollapsed: Boolean(s.filesCollapsed),
     exportFont: FONT_KEYS.includes(s.exportFont) ? s.exportFont : 'serif',
     exportMargin: EXPORT_MARGINS.includes(s.exportMargin) ? s.exportMargin : 'normal',
+    spellcheck: s.spellcheck !== false,
+    zoomLevel: clampZoom(s.zoomLevel),
   };
 }
 
 const DEFAULT_CONFIRM_TOKENS = 20000;
 const AI_SCOPES = ['doc', 'paragraph', 'none'];
+
+function clampZoom(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(-3, Math.min(5, Math.round(n * 10) / 10));
+}
 
 function clampConfirmTokens(value) {
   const n = Number(value);
@@ -1057,6 +1065,33 @@ function createWindow({ show = true, restore = null, cascade = 0, bounds: explic
     }
   });
 
+  // Spell suggestions live in a native menu; without this handler right-clicking a misspelled
+  // word does nothing at all.
+  const spellEnabled = readSettings().spellcheck !== false;
+  win.webContents.session.setSpellCheckerEnabled(spellEnabled);
+  win.webContents.on('context-menu', (_event, params) => {
+    if (!params.misspelledWord) return;
+    if (readSettings().spellcheck === false) return;
+    const template = [];
+    for (const suggestion of (params.dictionarySuggestions || []).slice(0, 6)) {
+      template.push({
+        label: suggestion,
+        click: () => win.webContents.replaceMisspelling(suggestion),
+      });
+    }
+    if (!template.length) template.push({ label: 'No suggestions', enabled: false });
+    template.push({ type: 'separator' });
+    template.push({
+      label: 'Add to dictionary',
+      click: () => win.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord),
+    });
+    template.push({
+      label: 'Ignore',
+      click: () => win.webContents.replaceMisspelling(params.misspelledWord),
+    });
+    Menu.buildFromTemplate(template).popup({ window: win });
+  });
+
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (event, url) => {
     if (url === win.webContents.getURL()) return;
@@ -1068,6 +1103,8 @@ function createWindow({ show = true, restore = null, cascade = 0, bounds: explic
   });
 
   win.webContents.on('did-finish-load', () => {
+    const storedZoom = clampZoom(readSettings().zoomLevel);
+    if (storedZoom) win.webContents.setZoomLevel(storedZoom);
     session.startupMs = Date.now() - PROCESS_STARTED_AT;
     logLine('startup', `${session.startupMs} ms to first paint (${app.isPackaged ? 'packaged' : 'dev'})`);
     if (!readSettings().onboarded) {
@@ -1234,6 +1271,21 @@ function registerIpc() {
     }
     splitPairs.delete(win.id);
     return { ok: true };
+  });
+
+  ipcMain.handle('app:zoom', (event, { direction = 'in' } = {}) => {
+    const contents = event.sender;
+    const step = direction === 'reset' ? 0 : direction === 'in' ? 0.5 : -0.5;
+    const level = direction === 'reset' ? 0 : clampZoom(contents.getZoomLevel() + step);
+    contents.setZoomLevel(level);
+    const settings = readSettings();
+    writeSettings({ ...settings, zoomLevel: level });
+    return { level, percent: Math.round(100 * Math.pow(1.2, level)) };
+  });
+
+  ipcMain.handle('app:zoomState', (event) => {
+    const level = event.sender.getZoomLevel();
+    return { level, percent: Math.round(100 * Math.pow(1.2, level)) };
   });
 
   ipcMain.handle('app:toggleFullscreen', (event) => {
@@ -1441,6 +1493,8 @@ function registerIpc() {
     if (['narrow', 'normal', 'wide'].includes(patch.lineWidth)) next.lineWidth = patch.lineWidth;
     if (['blue', 'teal', 'violet', 'amber'].includes(patch.accent)) next.accent = patch.accent;
     if (patch.filesCollapsed !== undefined) next.filesCollapsed = patch.filesCollapsed === true;
+    if (patch.spellcheck !== undefined) next.spellcheck = patch.spellcheck === true;
+    if (patch.zoomLevel !== undefined) next.zoomLevel = clampZoom(patch.zoomLevel);
     if (FONT_KEYS.includes(patch.exportFont)) next.exportFont = patch.exportFont;
     if (EXPORT_MARGINS.includes(patch.exportMargin)) next.exportMargin = patch.exportMargin;
     if (patch.collapsedSections && typeof patch.collapsedSections === 'object') {
@@ -1460,6 +1514,16 @@ function registerIpc() {
     }
     writeSettings(next);
     if (next.language) buildMenu();
+    // The checker lives on the session, so a settings change has to reach every open window.
+    if (patch.spellcheck !== undefined) {
+      for (const openWin of BrowserWindow.getAllWindows()) {
+        try {
+          openWin.webContents.session.setSpellCheckerEnabled(next.spellcheck !== false);
+        } catch {
+          /* a window may be closing */
+        }
+      }
+    }
     return publicSettings();
   });
 
@@ -7664,6 +7728,54 @@ async function runSmoke() {
       draftsPanelUi.hasHint === true &&
       Number(draftsPanelUi.count) >= 1,
     draftsPanelUi
+  );
+
+  // 97a. zoom in, out and reset, with an indicator that only appears when zoomed
+  const zoom = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const start = await window.api.zoomState();
+    await window.__mdpad.zoom('in');
+    await window.__mdpad.zoom('in');
+    await sleep(200);
+    const zoomed = window.__mdpad.zoomIndicator();
+    const mid = await window.api.zoomState();
+    await window.__mdpad.zoom('reset');
+    await sleep(200);
+    const reset = window.__mdpad.zoomIndicator();
+    const end = await window.api.zoomState();
+    return { start, mid, zoomed, reset, end };
+  })()`);
+  step(
+    'zoom-controls',
+    zoom.start.level === 0 &&
+      zoom.mid.level > 0 &&
+      zoom.zoomed.hidden === false &&
+      /%/.test(zoom.zoomed.text) &&
+      zoom.end.level === 0 &&
+      zoom.reset.hidden === true,
+    zoom
+  );
+
+  // 97b. the spelling checker follows the setting
+  const spell = await (async () => {
+    const session = win.webContents.session;
+    const before = session.isSpellCheckerEnabled();
+    const off = await win.webContents.executeJavaScript(`window.api.setSettings({ spellcheck: false })`);
+    await sleep(200);
+    const afterOff = session.isSpellCheckerEnabled();
+    const on = await win.webContents.executeJavaScript(`window.api.setSettings({ spellcheck: true })`);
+    await sleep(200);
+    const afterOn = session.isSpellCheckerEnabled();
+    return { before, storedOff: off.spellcheck, afterOff, storedOn: on.spellcheck, afterOn };
+  })();
+  step(
+    'spellcheck-setting',
+    spell.before === true &&
+      spell.storedOff === false &&
+      spell.afterOff === false &&
+      spell.storedOn === true &&
+      spell.afterOn === true,
+    spell
   );
 
   // 30k. the settings filter narrows the visible fields

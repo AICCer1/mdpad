@@ -2572,6 +2572,7 @@ async function openSettings(section = 'appearance') {
   const settings = await window.api.getSettings();
   const aiCfg = await window.api.aiConfig();
   $('#set-theme').value = settings.theme || 'light';
+  $('#set-spellcheck').checked = settings.spellcheck !== false;
   $('#set-language').value = normalizeLang(settings.language || 'en');
   $('#set-font').value = FONTS.includes(settings.editorFont) ? settings.editorFont : 'serif';
   $('#set-width').value = WIDTHS.includes(settings.lineWidth) ? settings.lineWidth : 'normal';
@@ -2622,6 +2623,7 @@ async function openSettings(section = 'appearance') {
 
 async function saveSettings() {
   const theme = $('#set-theme').value;
+  const spellcheck = $('#set-spellcheck').checked;
   const editorFont = $('#set-font').value;
   const lineWidth = $('#set-width').value;
   const accent = $('#set-accent').value;
@@ -2665,6 +2667,7 @@ async function saveSettings() {
     editorFont,
     lineWidth,
     accent,
+    spellcheck: $('#set-spellcheck').checked,
   });
   aiConfirmThreshold = Number($('#set-ai-confirm').value);
   applyAppearance({ editorFont, lineWidth, accent });
@@ -3771,6 +3774,41 @@ document.addEventListener('mousemove', (event) => {
   scheduleHideTableHover();
 });
 
+// ---- zoom ------------------------------------------------------------------
+
+const zoomIndicator = document.querySelector('#zoom-indicator');
+
+function renderZoom({ level, percent }) {
+  if (!zoomIndicator) return;
+  const changed = Math.abs(level) > 0.01;
+  zoomIndicator.hidden = !changed;
+  zoomIndicator.textContent = percent + '%';
+  zoomIndicator.title = 'Zoom ' + percent + '% (Ctrl+0 resets)';
+}
+
+async function zoomAction(direction) {
+  const state = await window.api.zoomAction(direction).catch(() => null);
+  if (state) renderZoom(state);
+  return state;
+}
+
+zoomIndicator?.addEventListener('click', () => zoomAction('reset'));
+window.api.zoomState().then(renderZoom).catch(() => {});
+
+document.addEventListener('keydown', (event) => {
+  if (!(event.ctrlKey || event.metaKey)) return;
+  if (event.key === '=' || event.key === '+') {
+    event.preventDefault();
+    zoomAction('in');
+  } else if (event.key === '-') {
+    event.preventDefault();
+    zoomAction('out');
+  } else if (event.key === '0') {
+    event.preventDefault();
+    zoomAction('reset');
+  }
+});
+
 // ---- save indicator --------------------------------------------------------
 
 const saveStateEl = $('#save-state');
@@ -4438,6 +4476,11 @@ window.__mdpad = {
   }),
   relativeAge: (iso) => relativeAge(iso, lang),
   saveState: () => (saveStateEl ? saveStateEl.textContent : ''),
+  zoom: (direction) => zoomAction(direction),
+  zoomIndicator: () => {
+    const el = document.querySelector('#zoom-indicator');
+    return { hidden: el.hidden, text: el.textContent };
+  },
   selectText: (from, to) => editor.chain().focus().setTextSelection({ from, to }).run(),
   sectionState: () => sectionState(),
   refreshAiSetup: () => refreshAiSetup(),

@@ -30,7 +30,7 @@
       <button data-action="exportHtml" data-i18n="ui.exportHtml">HTML</button>
       <button data-action="exportPdf" data-i18n="ui.exportPdf">PDF</button>
     </div>
-    <div class="bar-right"><button id="drafts-badge" class="status-link" title="Recovery drafts" hidden></button><span id="save-state" class="status save-state" hidden></span><span id="backup-info" class="status" title="Restore a backup"></span><span id="status" class="status"></span></div>
+    <div class="bar-right"><button id="drafts-badge" class="status-link" title="Recovery drafts" hidden></button><span id="save-state" class="status save-state" hidden></span><button id="zoom-indicator" class="status zoom-indicator" hidden title="Zoom"></button><span id="backup-info" class="status" title="Restore a backup"></span><span id="status" class="status"></span></div>
   </header>
 
   <div id="backup-popover" class="backup-popover" hidden>
@@ -358,6 +358,11 @@
       <div class="field">
         <label for="set-autosave" data-i18n="settings.autosave">Autosave (seconds)</label>
         <input id="set-autosave" type="number" min="1" max="60" step="1">
+      </div>
+
+      <div class="field field-inline">
+        <label for="set-spellcheck" data-i18n="settings.spellcheck">Check spelling</label>
+        <input id="set-spellcheck" type="checkbox">
       </div>
 
       <div class="field">

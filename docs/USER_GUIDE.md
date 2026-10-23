@@ -150,6 +150,15 @@ many will go.
 Data lives in `%APPDATA%\mdpad`: `backups/`, `draftsRecover/`, `session.json`,
 `settings.json`, `ai-history.json`, `logs/mdpad.log`.
 
+## Zoom and spelling
+
+**Ctrl+=** zooms in, **Ctrl+–** zooms out and **Ctrl+0** resets. While the page is zoomed, a small
+percentage chip appears in the status bar; click it to reset. The level is remembered across
+restarts.
+
+**Check spelling** (Settings → Appearance) turns the checker on or off; right-click a word with a
+red underline for suggestions, **Add to dictionary** or **Ignore**.
+
 ## Two windows side by side
 
 **View → Split into two windows** (Ctrl+Alt+2, or the palette) tiles the current window and a new

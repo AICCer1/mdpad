@@ -973,6 +973,14 @@ Object.assign(DICT.zh, {
   'menu.unsplitFailed': '当前窗口不是分屏状态。',
 });
 
+Object.assign(DICT.en, {
+  'settings.spellcheck': 'Check spelling',
+});
+
+Object.assign(DICT.zh, {
+  'settings.spellcheck': '拼写检查',
+});
+
 module.exports = { t, normalizeLang, LANGS, DICT };
 
 Object.assign(DICT.en, {

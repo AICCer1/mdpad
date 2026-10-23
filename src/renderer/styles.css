@@ -2066,3 +2066,20 @@ textarea:focus-visible,
   cursor: pointer;
 }
 .draft-delete:hover { color: #c0392b; border-color: color-mix(in srgb, #c0392b 40%, var(--line)); }
+
+/* ---- zoom indicator ---- */
+.zoom-indicator {
+  font: inherit;
+  font-size: 11px;
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid var(--chrome-line, var(--line));
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.zoom-indicator:hover { color: var(--text); border-color: var(--accent); }
+.field-inline { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.field-inline input[type='checkbox'] { width: 16px; height: 16px; accent-color: var(--accent); }
