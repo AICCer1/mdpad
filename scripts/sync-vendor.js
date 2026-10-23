@@ -35,6 +35,13 @@ if (!fs.existsSync(katexDist)) {
 
 copyFile(path.join(katexDist, 'katex.min.css'), katexCss);
 copyDir(path.join(katexDist, 'fonts'), path.join(vendor, 'katex', 'fonts'), (n) => n.endsWith('.woff2'));
+const mermaidDist = path.join(root, 'node_modules', 'mermaid', 'dist', 'mermaid.min.js');
+if (fs.existsSync(mermaidDist)) {
+  copyFile(mermaidDist, path.join(vendor, 'mermaid', 'mermaid.min.js'));
+} else {
+  console.error('sync-assets: mermaid is not installed; diagrams will not render');
+}
+
 copyFile(path.join(hljsStyles, 'github.css'), path.join(vendor, 'hljs', 'github.css'));
 copyFile(path.join(hljsStyles, 'github-dark.css'), path.join(vendor, 'hljs', 'github-dark.css'));
 fs.writeFileSync(
@@ -50,4 +57,7 @@ const bytes = (p) => {
   }
   return Math.round(total / 1024) + ' KB';
 };
-console.log(`sync-assets: katex css+fonts (${bytes(path.join(vendor, 'katex'))}), hljs theme ok`);
+const mermaidSize = fs.existsSync(path.join(vendor, 'mermaid')) ? bytes(path.join(vendor, 'mermaid')) : 'missing';
+console.log(
+  `sync-assets: katex css+fonts (${bytes(path.join(vendor, 'katex'))}), hljs theme ok, mermaid ${mermaidSize}`
+);

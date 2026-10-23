@@ -51,6 +51,7 @@ and clusters them by purpose — text style, block style, lists, code, insert, m
 | Table | toolbar ▦ inserts 3×3; the context bar adds/removes rows and columns |
 | Code block | toolbar `{ }`; the language dropdown writes the fence language |
 | Math | toolbar `$x$` / `$$`, or type `$...$` / `$$...$$` directly; the popover previews as you type, and clicking a rendered formula reopens it for editing. Display math is centred with a hover highlight |
+| Diagram | a fenced block with language `mermaid` renders below the code while you type; a broken diagram shows the error instead of hiding the code |
 | Image | paste, drag a file in, or toolbar 🖼 |
 | Link | toolbar 🔗; paste a URL over a selection to link it; Ctrl+click opens it in the browser, a plain click only places the caret |
 | Move a block | Ctrl+Shift+↑ / ↓ |

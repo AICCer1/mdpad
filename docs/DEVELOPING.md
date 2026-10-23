@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 200 end-to-end checks against a real window
+npm run smoke          # 201 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -124,6 +124,9 @@ opening/closing the settings panel flips it between `flex` and `none`.
   function for text containing `$`; `test/docs.test.js` rejects duplicated headings.
 - PowerShell rewrites of UTF-8 files can inject a BOM or GBK mojibake. Never use
   `Set-Content -Encoding utf8` on JSON/Markdown; `test/encoding.test.js` guards this.
+- Mermaid renders into a cache, never into a node view: ProseMirror re-creates node views on
+  most transactions, so an async render writing into the then-detached element lands nowhere.
+  Node views paint from the cache and a repaint pass updates live previews when a render ends.
 - Focus mode marks the *top-level* block with a decoration (depth 1): decorating the textblock
   inside a table cell leaves the table wrapper dimmed, so the caret looks unfocused.
 - Editor decorations are the only reliable way to style a live block: classes added by hand

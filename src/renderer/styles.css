@@ -1144,3 +1144,23 @@ body { display: flex; flex-direction: column; }
   overflow-y: auto;
   resize: vertical;
 }
+
+/* ---- mermaid preview ---- */
+.code-block { position: relative; }
+.mermaid-preview {
+  margin: 6px 0 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  overflow-x: auto;
+  text-align: center;
+}
+.mermaid-preview svg { max-width: 100%; height: auto; }
+.mermaid-preview.is-error {
+  color: #c0392b;
+  font-family: var(--font-mono, Consolas, monospace);
+  font-size: 11.5px;
+  text-align: left;
+  white-space: pre-wrap;
+}

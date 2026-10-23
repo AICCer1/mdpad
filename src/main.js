@@ -984,6 +984,9 @@ function createWindow({ show = true, restore = null, cascade = 0 } = {}) {
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
+      // Hidden or background windows otherwise throttle timers and rAF, which stalls async
+      // renderers (mermaid) and makes autosave timing depend on focus.
+      backgroundThrottling: false,
     },
   });
   const session = new Session(win);
@@ -5747,6 +5750,33 @@ async function runSmoke() {
       focusMixed.headingOpacity !== null &&
       focusMixed.headingOpacity < 0.6,
     focusMixed
+  );
+
+  // 74a. a mermaid fence renders a diagram below the still-editable code
+  const mermaidCheck = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    window.__mdpad.setMarkdown(
+      '# Diagram\\n\\n\`\`\`mermaid\\ngraph TD;\\n  A-->B;\\n\`\`\`\\n\\ntail text'
+    );
+    await sleep(1800);
+    const available = window.__mdpad.mermaidAvailable();
+    const previews = window.__mdpad.mermaidPreviews();
+    const codeStillThere = /graph TD/.test(window.__mdpad.getMarkdown());
+    // A broken diagram must show the error, not eat the block.
+    window.__mdpad.setMarkdown('\`\`\`mermaid\\nnot a diagram ((\\n\`\`\`');
+    await sleep(2500);
+    const broken = window.__mdpad.mermaidPreviews();
+    return { available, previews, codeStillThere, broken };
+  })()`);
+  step(
+    'mermaid-render',
+    mermaidCheck.previews.length >= 1 &&
+      mermaidCheck.previews[0].svg === true &&
+      mermaidCheck.previews[0].error === false &&
+      mermaidCheck.codeStillThere === true &&
+      mermaidCheck.broken.length >= 1 &&
+      mermaidCheck.broken[0].error === true,
+    mermaidCheck
   );
 
   // 30k. the settings filter narrows the visible fields

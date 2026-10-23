@@ -22,7 +22,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 | Area | Summary |
 | --- | --- |
-| Editing | find with a bounded match list; WYSIWYG markdown: headings, lists, tables, code with highlighting, KaTeX math (centred display blocks, hover cue, live preview, click-to-edit), images with size/alignment, task lists, pasting a URL over a selection links it, Ctrl+click opens links in the browser (a plain click just places the caret) |
+| Editing | find with a bounded match list; WYSIWYG markdown: headings, lists, tables, code with highlighting, KaTeX math (centred display blocks, hover cue, live preview, click-to-edit), Mermaid diagrams rendered under their fence, images with size/alignment, task lists, pasting a URL over a selection links it, Ctrl+click opens links in the browser (a plain click just places the caret) |
 | Files | drag-reorderable tabs with per-tab undo history (Ctrl+T, reopen with Ctrl+Shift+T), command-line files opened as tabs, multiple windows (Ctrl+Shift+N), lazy file tree (Ctrl+K), recent files, multi-window session restore with truncation notice and crash-loop protection |
 | Safety | atomic save with a transient-lock retry, 20-version backup rotation with one-click restore, crash drafts with relative age, a recovery panel with per-draft delete and confirmed cleanup, read-only protection, save-failure recovery with Retry, close guard |
 | Export | HTML, PDF (page numbers, verified to paginate), Word and EPUB with their document parts opened and checked; default / compact / table-of-contents templates with a live thumbnail, optional custom CSS, in-app preview with zoom and Esc-to-close that follows the editor theme, word/character footer, name template |
@@ -33,7 +33,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              142 unit tests
-npm run smoke         200 end-to-end checks (dev or packaged)
+npm run smoke         201 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -53,3 +53,9 @@ Current artifacts: `release/mdpad Setup <version>.exe`, `release/mdpad <version>
 - Markdown round-trip covers the modeled nodes; raw HTML blocks and footnotes are not
   modeled, so exotic documents may normalize on first save.
 - Word and EPUB embed local images; both leave remote image URLs as alt text.
+- Mermaid diagrams render in the editor only. Exports keep the fenced source, because Word and
+  EPUB cannot embed the SVG without a rasteriser and the HTML/PDF path would have to run the
+  renderer at export time.
+- Mermaid diagrams render in the editor only. Exports keep the fenced source, because Word and
+  EPUB cannot embed the SVG without a rasteriser and the HTML/PDF path would have to run the
+  renderer at export time.

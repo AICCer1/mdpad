@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.2.0
+
+Mermaid diagrams render in the editor.
+
+- A fenced block with language `mermaid` gets a rendered SVG below it while you keep editing the
+  source. An invalid diagram shows the parser's message instead of hiding the block.
+- Mermaid (11.x, ~2.6 MB) is vendored into `src/renderer/vendor/mermaid` and loaded from disk, so
+  diagrams also work offline; `scripts/sync-vendor.js` refreshes it on install.
+- Three things had to be fixed before it worked, and the smoke check caught each one:
+  - the render wrote into a node view element that ProseMirror had already replaced, so renders
+    now go into a cache and node views paint from it;
+  - a metadata-only transaction does not re-run node views, so finished renders repaint live
+    previews directly;
+  - hidden windows throttle rAF, which stalled mermaid; app windows now run with
+    `backgroundThrottling: false`.
+- Exports still contain the fence (documented in the README): wiring the renderer into the
+  HTML/PDF path is a separate change.
+- 201 smoke checks, 142 unit tests.
+
 ## 1.1.7
 
 Focus mode lights a whole table from any cell.

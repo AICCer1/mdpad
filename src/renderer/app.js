@@ -104,6 +104,130 @@ function imageStyleFromTitle(title) {
   return css.join(';');
 }
 
+// ---- mermaid preview -------------------------------------------------------
+// Rendering happens into a cache, never into the editor DOM directly: ProseMirror re-creates
+// node views on most transactions, so an async render that writes into the (then detached)
+// node lands nowhere. The node view paints whatever the cache holds, and a refresh transaction
+// repaints once the SVG is ready.
+let mermaidReady = false;
+const mermaidCache = new Map(); // key: theme + source -> { svg } | { error }
+const mermaidPending = new Set();
+let mermaidSeq = 0;
+
+function mermaidApi() {
+  const api = window.mermaid;
+  if (!api) return null;
+  if (!mermaidReady) {
+    api.initialize({
+      startOnLoad: false,
+      securityLevel: 'strict',
+      theme: document.documentElement.dataset.theme === 'dark' ? 'dark' : 'default',
+      fontFamily: 'inherit',
+    });
+    mermaidReady = true;
+  }
+  return api;
+}
+
+function mermaidKey(source) {
+  return (document.documentElement.dataset.theme || 'light') + '\u0000' + source;
+}
+
+function renderMermaidIntoCache(source) {
+  const text = String(source || '').trim();
+  if (!text) return;
+  const key = mermaidKey(text);
+  if (mermaidCache.has(key) || mermaidPending.has(key)) return;
+  const api = mermaidApi();
+  if (!api) {
+    mermaidCache.set(key, { error: 'Mermaid is not available' });
+    return;
+  }
+  mermaidPending.add(key);
+  const id = 'mmd-' + (mermaidSeq += 1);
+  api
+    .render(id, text)
+    .then(({ svg }) => {
+      if (svg) mermaidCache.set(key, { svg });
+      else mermaidCache.set(key, { error: 'the diagram produced no output' });
+    })
+    .catch((err) => {
+      mermaidCache.set(key, { error: String(err && err.message ? err.message : err).slice(0, 200) });
+    })
+    .finally(() => {
+      mermaidPending.delete(key);
+      // A meta-only transaction does not re-run node views, so repaint the live previews
+      // directly. They carry the source they were built from in a data attribute.
+      for (const el of document.querySelectorAll('.mermaid-preview')) {
+        if (el.dataset.source === text && el.isConnected) paintMermaid(el, text);
+      }
+    });
+}
+
+function paintMermaid(preview, source) {
+  const text = String(source || '').trim();
+  if (!text) {
+    preview.textContent = '';
+    preview.classList.remove('is-error');
+    return;
+  }
+  const entry = mermaidCache.get(mermaidKey(text));
+  if (!entry) {
+    preview.textContent = 'rendering diagram…';
+    preview.classList.remove('is-error');
+    renderMermaidIntoCache(text);
+    return;
+  }
+  if (entry.error) {
+    preview.textContent = entry.error;
+    preview.classList.add('is-error');
+    return;
+  }
+  preview.innerHTML = entry.svg;
+  preview.classList.remove('is-error');
+}
+
+const MermaidCodeBlock = CodeBlockLowlight.extend({
+  addNodeView() {
+    return ({ node }) => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'code-block';
+      const pre = document.createElement('pre');
+      const code = document.createElement('code');
+      pre.appendChild(code);
+      wrapper.appendChild(pre);
+      const preview = document.createElement('div');
+      preview.className = 'mermaid-preview';
+      wrapper.appendChild(preview);
+
+      let current = node;
+      const sync = () => {
+        const isMermaid = current.attrs.language === 'mermaid';
+        preview.hidden = !isMermaid;
+        const text = current.textContent.trim();
+        preview.dataset.source = text;
+        if (isMermaid) paintMermaid(preview, text);
+      };
+      sync();
+
+      return {
+        dom: wrapper,
+        contentDOM: code,
+        update: (updated) => {
+          if (updated.type !== current.type) return false;
+          const languageChanged = updated.attrs.language !== current.attrs.language;
+          const textChanged = updated.textContent !== current.textContent;
+          current = updated;
+          if (languageChanged || textChanged) sync();
+          else if (current.attrs.language === 'mermaid') sync();
+          return true;
+        },
+        ignoreMutation: (mutation) => mutation.target === preview,
+      };
+    };
+  },
+});
+
 const SizedImage = Image.extend({
   markdownName: 'image',
   renderHTML({ HTMLAttributes }) {
@@ -165,7 +289,7 @@ const editor = new Editor({
     StarterKit.configure({ codeBlock: false, link: false, heading: { levels: [1, 2, 3, 4, 5, 6] } }),
     // Pasting a URL over a selection should link that selection instead of replacing it.
     Link.configure({ openOnClick: false, autolink: true, linkOnPaste: true }),
-    CodeBlockLowlight.configure({ lowlight }),
+    MermaidCodeBlock.configure({ lowlight }),
     Markdown,
     SizedImage.configure({ inline: false, allowBase64: true }),
     Table.configure({ resizable: false }),
@@ -2797,6 +2921,15 @@ window.__mdpad = {
   aiTurns: () => aiHistory.slice(),
   openDrafts: () => openDraftsPanel(),
   refreshDraftsBadge: () => refreshDraftsBadge(),
+  mermaidAvailable: () => Boolean(window.mermaid),
+  mermaidCacheSize: () => mermaidCache.size,
+  mermaidCacheEntries: () => mermaidCache.size,
+  mermaidPreviews: () => [...document.querySelectorAll('.mermaid-preview')].map((el) => ({
+    hidden: el.hidden,
+    svg: Boolean(el.querySelector('svg')),
+    error: el.classList.contains('is-error'),
+    text: el.textContent.slice(0, 80),
+  })),
   exportNameHint: () => (document.querySelector('#set-export-name-hint') || {}).textContent || '',
   settingsDirtyVisible: () => {
     const hint = document.querySelector('#set-dirty');
