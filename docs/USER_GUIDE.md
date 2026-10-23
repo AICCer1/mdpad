@@ -165,6 +165,15 @@ restarts.
 **Check spelling** (Settings → Appearance) turns the checker on or off; right-click a word with a
 red underline for suggestions, **Add to dictionary** or **Ignore**.
 
+## Slash menu
+
+Type **/** at the start of an empty paragraph and a block menu opens: Heading 1–3, bullet /
+numbered / task list, quote, code block, table, image, math block, divider and a Mermaid diagram.
+Keep typing to filter ("/tab" leaves only Table), use ↑/↓ or the mouse, Enter to insert. Esc
+closes it and leaves the slash as ordinary text, so the menu can never eat a character.
+
+![Block menu](images/09-slash.png)
+
 ## Tabs
 
 Tabs can be dragged to reorder, closed with the ×, and **Ctrl+Tab / Ctrl+Shift+Tab** cycle through

@@ -1016,6 +1016,170 @@ codeLang.addEventListener('change', () => {
   editor.chain().focus().updateAttributes('codeBlock', { language: codeLang.value || null }).run();
 });
 
+// ---- slash menu -----------------------------------------------------------
+// Typing "/" at the start of an empty block opens a small insert menu. The slash and the typed
+// filter live in the document until an action is chosen, which keeps it simple and makes Esc
+// harmless: nothing was ever swallowed.
+
+const slashCommands = [
+  { id: 'h1', label: 'Heading 1', hint: 'H1', run: () => editor.chain().focus().toggleHeading({ level: 1 }).run() },
+  { id: 'h2', label: 'Heading 2', hint: 'H2', run: () => editor.chain().focus().toggleHeading({ level: 2 }).run() },
+  { id: 'h3', label: 'Heading 3', hint: 'H3', run: () => editor.chain().focus().toggleHeading({ level: 3 }).run() },
+  { id: 'bullet', label: 'Bullet list', hint: '•', run: () => editor.chain().focus().toggleBulletList().run() },
+  { id: 'number', label: 'Numbered list', hint: '1.', run: () => editor.chain().focus().toggleOrderedList().run() },
+  { id: 'task', label: 'Task list', hint: '☑', run: () => editor.chain().focus().toggleTaskList().run() },
+  { id: 'quote', label: 'Quote', hint: '❝', run: () => editor.chain().focus().toggleBlockquote().run() },
+  { id: 'code', label: 'Code block', hint: '{ }', run: () => editor.chain().focus().toggleCodeBlock().run() },
+  { id: 'table', label: 'Table', hint: '▦', run: () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
+  { id: 'image', label: 'Image', hint: '🖼', run: () => document.querySelector('#image-input').click() },
+  { id: 'math', label: 'Math block', hint: '$', run: () => openPopover('mathBlock', '') },
+  { id: 'divider', label: 'Divider', hint: '—', run: () => editor.chain().focus().setHorizontalRule().run() },
+  {
+    id: 'diagram',
+    label: 'Diagram',
+    hint: 'Mermaid',
+    run: () =>
+      editor
+        .chain()
+        .focus()
+        .insertContent({ type: 'codeBlock', attrs: { language: 'mermaid' }, content: [{ type: 'text', text: 'graph TD;' }] })
+        .run(),
+  },
+];
+
+const slashMenu = document.querySelector('#slash-menu');
+const slashList = document.querySelector('#slash-list');
+let slashFilter = '';
+let slashIndex = 0;
+let slashRange = null;
+let slashSuppressed = false;
+
+function closeSlashMenu({ suppress = false } = {}) {
+  if (slashMenu) slashMenu.hidden = true;
+  slashRange = null;
+  slashFilter = '';
+  slashSuppressed = suppress;
+}
+
+function slashMatches() {
+  const needle = slashFilter.toLowerCase();
+  return slashCommands.filter((command) => !needle || command.label.toLowerCase().includes(needle));
+}
+
+function renderSlashMenu() {
+  if (!slashList) return;
+  const matches = slashMatches();
+  slashIndex = Math.min(slashIndex, Math.max(0, matches.length - 1));
+  slashList.textContent = '';
+  matches.forEach((command, index) => {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'slash-item' + (index === slashIndex ? ' is-active' : '');
+    row.setAttribute('role', 'option');
+    row.dataset.id = command.id;
+    const label = document.createElement('span');
+    label.textContent = command.label;
+    const hint = document.createElement('span');
+    hint.className = 'slash-hint';
+    hint.textContent = command.hint;
+    row.append(label, hint);
+    row.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      applySlashCommand(command);
+    });
+    slashList.appendChild(row);
+  });
+  if (!matches.length) {
+    const empty = document.createElement('div');
+    empty.className = 'slash-empty';
+    empty.textContent = 'No matching block';
+    slashList.appendChild(empty);
+  }
+}
+
+function positionSlashMenu() {
+  if (!slashMenu) return;
+  try {
+    const coords = editor.view.coordsAtPos(editor.state.selection.from);
+    const rect = slashMenu.getBoundingClientRect();
+    const top = Math.min(coords.bottom + 6, window.innerHeight - rect.height - 8);
+    const left = Math.min(coords.left, window.innerWidth - rect.width - 8);
+    slashMenu.style.top = Math.max(8, top) + 'px';
+    slashMenu.style.left = Math.max(8, left) + 'px';
+  } catch {
+    /* the caret may be gone */
+  }
+}
+
+function applySlashCommand(command) {
+  const range = slashRange;
+  closeSlashMenu();
+  if (!range) return;
+  editor
+    .chain()
+    .focus()
+    .deleteRange({ from: range.from, to: range.to })
+    .run();
+  command.run();
+}
+
+function openSlashMenu(range, filter) {
+  slashRange = range;
+  slashFilter = filter;
+  slashIndex = 0;
+  renderSlashMenu();
+  positionSlashMenu();
+  slashMenu.hidden = false;
+}
+
+// The document is the single source of truth for the trigger: "/" as the first character of a
+// textblock, optionally followed by a filter word.
+function maybeOpenSlashMenu() {
+  const { $from, empty } = editor.state.selection;
+  if (!empty || $from.parent.type.name !== 'paragraph') {
+    if (slashMenu && !slashMenu.hidden) closeSlashMenu({ suppress: true });
+    return;
+  }
+  const text = $from.parent.textContent;
+  const match = /^\/([\w\u4e00-\u9fff]*)$/.exec(text);
+  if (!match || $from.parentOffset !== text.length) {
+    if (slashMenu && !slashMenu.hidden) closeSlashMenu({ suppress: true });
+    else slashSuppressed = false;
+    return;
+  }
+  if (slashSuppressed) return;
+  const start = $from.start();
+  openSlashMenu({ from: start, to: start + text.length }, match[1] || '');
+}
+
+editor.on('update', maybeOpenSlashMenu);
+
+document.addEventListener('keydown', (event) => {
+  if (!slashMenu || slashMenu.hidden) return;
+  const matches = slashMatches();
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    slashIndex = (slashIndex + 1) % Math.max(1, matches.length);
+    renderSlashMenu();
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    slashIndex = (slashIndex - 1 + Math.max(1, matches.length)) % Math.max(1, matches.length);
+    renderSlashMenu();
+  } else if (event.key === 'Enter') {
+    if (!matches.length) return;
+    event.preventDefault();
+    applySlashCommand(matches[slashIndex]);
+  } else if (event.key === 'Escape') {
+    event.preventDefault();
+    closeSlashMenu({ suppress: true });
+  }
+});
+
+document.addEventListener('mousedown', (event) => {
+  if (slashMenu && !slashMenu.hidden && !slashMenu.contains(event.target)) closeSlashMenu({ suppress: true });
+});
+window.addEventListener('blur', () => closeSlashMenu({ suppress: true }));
+
 function syncToolbar() {
   const markState = {
     bold: editor.isActive('bold'),
@@ -4574,6 +4738,20 @@ window.__mdpad = {
   }),
   relativeAge: (iso) => relativeAge(iso, lang),
   saveState: () => (saveStateEl ? saveStateEl.textContent : ''),
+  slashState: () => {
+    const menu = document.querySelector('#slash-menu');
+    return {
+      hidden: menu.hidden,
+      items: [...menu.querySelectorAll('.slash-item')].map((row) => row.dataset.id),
+      active: document.querySelector('#slash-menu .slash-item.is-active')?.dataset.id || '',
+    };
+  },
+  slashChoose: (id) => {
+    const command = slashCommands.find((entry) => entry.id === id);
+    if (!command) return false;
+    applySlashCommand(command);
+    return true;
+  },
   tabMenuState: () => {
     const menu = document.querySelector('#tab-menu');
     return {

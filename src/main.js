@@ -7948,6 +7948,61 @@ async function runSmoke() {
     tabMenuTest
   );
 
+  // 101a. "/" at the start of an empty paragraph opens the insert menu; choosing a block
+  // removes the slash and inserts the block
+  const slash = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    window.__mdpad.setMarkdown('');
+    await sleep(400);
+    const ed = window.__mdpad.editor;
+    ed.chain().focus('end').insertContent('/').run();
+    await sleep(350);
+    const opened = window.__mdpad.slashState();
+
+    ed.chain().focus().insertContent('tab').run();
+    await sleep(350);
+    const filtered = window.__mdpad.slashState();
+
+    window.__mdpad.slashChoose('table');
+    await sleep(500);
+    const afterChoose = window.__mdpad.slashState();
+    const html = ed.getHTML();
+    const markdown = window.__mdpad.getMarkdown();
+
+    // Esc leaves the typed slash alone and closes the menu
+    window.__mdpad.setMarkdown('');
+    await sleep(300);
+    ed.chain().focus('end').insertContent('/quot').run();
+    await sleep(300);
+    const beforeEsc = window.__mdpad.slashState();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await sleep(250);
+    const afterEsc = window.__mdpad.slashState();
+    return {
+      opened,
+      filtered,
+      afterChoose,
+      hasTable: /<table/.test(html),
+      slashGone: !/^\\//.test(markdown.trim()) && !/href/.test(markdown.slice(0, 4)),
+      markdown: markdown.slice(0, 40),
+      beforeEsc,
+      afterEsc,
+    };
+  })()`);
+  step(
+    'slash-menu',
+    slash.opened.hidden === false &&
+      slash.opened.items.length >= 10 &&
+      slash.filtered.items.includes('table') &&
+      slash.filtered.items.length < slash.opened.items.length &&
+      slash.afterChoose.hidden === true &&
+      slash.hasTable === true &&
+      slash.slashGone === true &&
+      slash.beforeEsc.hidden === false &&
+      slash.afterEsc.hidden === true,
+    slash
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -8318,6 +8373,23 @@ async function runScreenshots(dir) {
   await shot('08-find.png');
   await win.webContents.executeJavaScript(`document.querySelector('#find-close').click()`);
   await sleep(250);
+  await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    window.__mdpad.setMarkdown('');
+    await sleep(300);
+    window.__mdpad.editor.chain().focus('end').insertContent('/').run();
+    await sleep(400);
+  })()`);
+  await sleep(300);
+  await shot('09-slash.png');
+  await win.webContents.executeJavaScript(
+    `(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      window.__mdpad.setMarkdown(characterSample);
+    })()`.replace('characterSample', JSON.stringify(SAMPLE_DOC))
+  );
+  await sleep(400);
   await win.webContents.executeJavaScript(`window.__mdpad.openPalette()`);
   await sleep(350);
   await shot('03-palette.png');

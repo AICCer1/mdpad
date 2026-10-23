@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.25.0
+
+A `/` block menu, the way people expect to insert things now.
+
+- **Type `/` at the start of an empty paragraph** for headings, lists, quote, code block, table,
+  image, math block, divider and a Mermaid diagram. Keep typing to filter ("/tab" narrows to
+  Table), arrows or the mouse to choose, Enter to insert.
+- **The trigger reads the document, not keystrokes.** The slash and the filter stay as ordinary
+  text until an action is chosen; Esc closes the menu and leaves the text alone, so the menu can
+  never swallow a character. Choosing a block deletes the typed `/filter` in the same transaction
+  that inserts the block.
+- 249 smoke checks (one new `slash-menu`: the menu opens on a programmatic `/`, filtering shrinks
+  the list, choosing Table removes the slash and inserts a table, Esc closes it), 153 unit tests.
+
 ## 1.24.0
 
 Tabs grew the controls people reach for once they have more than three open.
