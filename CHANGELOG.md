@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.20.0
+
+The recovery surfaces stop looking like debug output.
+
+- **The status bar no longer prints the backups path.** It shows the count and time; the path is a
+  tooltip, and the popover has a **folder** button for when you actually want it.
+- **Backup rows** show how long ago each copy was taken and its size, right-aligned with tabular
+  figures, with the exact timestamp on hover. A footer line says a copy is kept before every save.
+- **Drafts rows** are `div[role=button]` with their own delete button. A `<button>` inside a
+  `<button>` is invalid HTML and swallowed the inner click, so the old rows could not be restored
+  reliably by keyboard. Rows now show age and size, respond to Enter/Space, and the panel has a
+  count and a one-line explanation.
+- **`relativeAge()` accepts epoch milliseconds** as well as ISO strings; backup entries pass
+  numbers, which used to render as an empty label.
+- 242 smoke checks (two new: `backup-panel` for the row parts, count and the missing path;
+  `drafts-panel-layout` for the row role, the zero nested buttons and the hint), 153 unit tests.
+
 ## 1.19.0
 
 The file tree can finally make files.

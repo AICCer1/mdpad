@@ -2288,8 +2288,9 @@ async function refreshDraftsBadge() {
 document.querySelector('#drafts-badge').addEventListener('click', () => openDraftsPanel());
 
 // A timestamp alone makes the reader do arithmetic; show how long ago it was too.
-function relativeAge(iso, language) {
-  const stamp = Date.parse(iso);
+function relativeAge(when, language) {
+  // Backups arrive as epoch milliseconds, drafts as ISO strings; accept both.
+  const stamp = typeof when === 'number' ? when : Date.parse(when);
   if (!Number.isFinite(stamp)) return '';
   const minutes = Math.round((Date.now() - stamp) / 60000);
   const zh = language === 'zh';
@@ -2312,22 +2313,27 @@ async function openDraftsPanel() {
     empty.textContent = t('drafts.empty', lang);
     list.append(empty);
   }
+  const count = document.querySelector('#drafts-count');
+  if (count) count.textContent = drafts.length ? String(drafts.length) : '';
   for (const draft of drafts) {
-    const row = document.createElement('button');
-    row.type = 'button';
+    // A button inside a button is invalid HTML and swallows the inner click; the row is a div.
+    const row = document.createElement('div');
     row.className = 'draft-row';
-    const time = draft.updatedAt ? new Date(draft.updatedAt).toLocaleString() : '—';
+    row.tabIndex = 0;
+    row.setAttribute('role', 'button');
     const label = document.createElement('span');
     label.className = 'draft-name';
     label.textContent = draft.name;
     const meta = document.createElement('span');
     meta.className = 'draft-meta';
     const age = draft.updatedAt ? relativeAge(draft.updatedAt, lang) : '';
-    meta.textContent = [t('drafts.item', lang, { time, size: draft.bytes }), age].filter(Boolean).join(' · ');
+    meta.textContent = [age, draft.bytes + ' B'].filter(Boolean).join(' · ');
+    if (draft.updatedAt) row.title = new Date(draft.updatedAt).toLocaleString();
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'draft-delete';
-    remove.textContent = '×';
+    remove.innerHTML =
+      '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
     remove.title = lang === 'zh' ? '删除这份草稿' : 'Delete this draft';
     remove.setAttribute('aria-label', remove.title + ': ' + draft.name);
     remove.addEventListener('click', async (event) => {
@@ -2340,6 +2346,12 @@ async function openDraftsPanel() {
       }
     });
     row.append(label, meta, remove);
+    row.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        row.click();
+      }
+    });
     row.addEventListener('click', async () => {
       const result = await window.api.restoreDraft(draft.path);
       if (result && result.restored) {
@@ -4077,6 +4089,8 @@ async function openBackupPopover() {
   const list = document.querySelector('#backup-list');
   const backups = await window.api.backupsList();
   list.textContent = '';
+  const count = document.querySelector('#backup-count');
+  if (count) count.textContent = backups.length ? String(backups.length) : '';
   if (!backups.length) {
     const empty = document.createElement('div');
     empty.className = 'backup-empty';
@@ -4087,10 +4101,14 @@ async function openBackupPopover() {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'backup-item';
-    button.textContent = t('backup.item', lang, {
-      time: new Date(entry.mtime).toLocaleString(),
-      size: Math.max(1, Math.round(entry.size / 1024)),
-    });
+    const when = document.createElement('span');
+    when.className = 'backup-when';
+    when.textContent = relativeAge(entry.mtime, lang);
+    const size = document.createElement('span');
+    size.className = 'backup-size';
+    size.textContent = Math.max(1, Math.round(entry.size / 1024)) + ' KB';
+    button.title = new Date(entry.mtime).toLocaleString();
+    button.append(when, size);
     button.addEventListener('click', async () => {
       const result = await window.api.restoreBackup(entry.path);
       if (result && result.restored) {
@@ -4104,6 +4122,11 @@ async function openBackupPopover() {
   }
   popover.hidden = false;
 }
+
+document.querySelector('#backup-open-folder').addEventListener('click', async (event) => {
+  event.stopPropagation();
+  await window.api.openBackupsFolder();
+});
 
 document.querySelector('#backup-info').addEventListener('click', (event) => {
   event.stopPropagation();
@@ -4150,7 +4173,12 @@ window.api.onStatus((payload) => {
   } else if (payload.error) {
     flash(payload.error);
   }
-  if (payload.backupsDir) paths.textContent = `backups: ${payload.backupsDir}`;
+  // The status bar used to print the whole backups path, which is noise in a writing app;
+  // keep it as a tooltip on the backup indicator instead.
+  if (payload.backupsDir) {
+    const info = document.querySelector('#backup-info');
+    if (info) info.title = payload.backupsDir;
+  }
   if (typeof payload.dirty === 'boolean') setDirty(payload.dirty);
 });
 
@@ -4272,6 +4300,27 @@ window.__mdpad = {
     return { order, positions, chip: document.querySelector('#ai-target-chip').textContent };
   },
   openDrafts: () => openDraftsPanel(),
+  backupPopoverState: () => {
+    const popover = document.querySelector('#backup-popover');
+    const items = [...popover.querySelectorAll('.backup-item')];
+    return {
+      hidden: popover.hidden,
+      count: document.querySelector('#backup-count').textContent,
+      rows: items.length,
+      firstHasParts: items[0]
+        ? Boolean(items[0].querySelector('.backup-when') && items[0].querySelector('.backup-size'))
+        : false,
+      footerPath: document.querySelector('#paths').textContent,
+      folderButton: Boolean(document.querySelector('#backup-open-folder svg')),
+    };
+  },
+  draftsPanelState: () => ({
+    nestedButtons: document.querySelectorAll('#drafts-list button button').length,
+    rows: document.querySelectorAll('#drafts-list .draft-row').length,
+    count: document.querySelector('#drafts-count').textContent,
+    role: document.querySelector('#drafts-list .draft-row')?.getAttribute('role') || '',
+    hasHint: Boolean(document.querySelector('.drafts-hint')),
+  }),
   refreshDraftsBadge: () => refreshDraftsBadge(),
   mermaidAvailable: () => Boolean(window.mermaid),
   exportDiagramCount: async () => publishExportDiagrams(),

@@ -1351,6 +1351,13 @@ function registerIpc() {
     return { count: backups.length, lastAt: backups.length ? backups[0].mtime : null };
   });
 
+  ipcMain.handle('doc:openBackups', async (event) => {
+    const s = sessionFor(event);
+    if (!s || !s.file) return { opened: false };
+    await shell.openPath(backupsDir());
+    return { opened: true };
+  });
+
   ipcMain.handle('doc:backups', (event) => {
     const s = sessionFor(event);
     if (!s.file) return [];
@@ -7608,6 +7615,57 @@ async function runSmoke() {
     guards
   );
 
+  // 96a. the backup popover shows ages and sizes, and the status bar no longer leaks a path
+  const backupPanel = await (async () => {
+    const file = path.join(dir, 'backup-panel.md');
+    fs.writeFileSync(file, '# Backup panel\n\nfirst');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(file);
+    await sleep(400);
+    session.contents = '# Backup panel\n\nsecond save';
+    session.saveCurrent();
+    await sleep(600);
+    const state = await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      document.querySelector('#backup-info').click();
+      await sleep(600);
+      const opened = window.__mdpad.backupPopoverState();
+      document.querySelector('#backup-popover').hidden = true;
+      return opened;
+    })()`);
+    return state;
+  })();
+  step(
+    'backup-panel',
+    backupPanel.hidden === false &&
+      Number(backupPanel.count) >= 1 &&
+      backupPanel.rows >= 1 &&
+      backupPanel.firstHasParts === true &&
+      backupPanel.folderButton === true &&
+      backupPanel.footerPath === '',
+    backupPanel
+  );
+
+  // 96b. drafts rows are not buttons inside buttons, and they say how old they are
+  const draftsPanelUi = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    window.__mdpad.openDrafts();
+    await sleep(600);
+    const state = window.__mdpad.draftsPanelState();
+    document.querySelector('#drafts-close').click();
+    await sleep(200);
+    return state;
+  })()`);
+  step(
+    'drafts-panel-layout',
+    draftsPanelUi.nestedButtons === 0 &&
+      draftsPanelUi.rows >= 1 &&
+      draftsPanelUi.role === 'button' &&
+      draftsPanelUi.hasHint === true &&
+      Number(draftsPanelUi.count) >= 1,
+    draftsPanelUi
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -7799,11 +7857,17 @@ async function runSmoke() {
   const saveIndicator = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     window.__mdpad.applyMarkdown('# save indicator probe');
-    await sleep(300);
-    const dirty = window.__mdpad.saveState();
+    // The indicator is updated over IPC, so poll for the dirty state instead of sampling once:
+    // a single fixed delay races the message under load.
+    let dirty = '';
+    for (let i = 0; i < 40; i += 1) {
+      dirty = window.__mdpad.saveState();
+      if (dirty === 'Unsaved') break;
+      await sleep(50);
+    }
     // Wait for the autosave to land (autosaveMs is short in smoke runs).
     let saved = '';
-    for (let i = 0; i < 40; i += 1) {
+    for (let i = 0; i < 60; i += 1) {
       await sleep(250);
       saved = window.__mdpad.saveState();
       if (/^Saved /.test(saved)) break;

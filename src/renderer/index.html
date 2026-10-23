@@ -34,8 +34,13 @@
   </header>
 
   <div id="backup-popover" class="backup-popover" hidden>
-    <div class="backup-title" data-i18n="backup.title">Restore a backup</div>
+    <div class="backup-head">
+      <span class="backup-title" data-i18n="backup.title">Restore a backup</span>
+      <span id="backup-count" class="backup-count"></span>
+      <button id="backup-open-folder" class="icon-button" data-icon="folder" data-icon-size="14" title="Show the backups folder">Folder</button>
+    </div>
     <div id="backup-list" class="backup-list"></div>
+    <div class="backup-foot" data-i18n="backup.foot">A copy is kept before every save.</div>
   </div>
 
   <div id="banner" class="banner" hidden>
@@ -48,7 +53,11 @@
 
   <div id="drafts-modal" class="modal" hidden>
     <div class="modal-card">
-      <div class="modal-title" data-i18n="drafts.title">Recovery drafts</div>
+      <div class="drafts-head">
+        <span class="modal-title" data-i18n="drafts.title">Recovery drafts</span>
+        <span id="drafts-count" class="backup-count"></span>
+      </div>
+      <div class="drafts-hint" data-i18n="drafts.hint">Unsaved text from a closed tab or a crash. Opening a draft puts it back in the editor.</div>
       <div id="drafts-list" class="drafts-list"></div>
       <div class="modal-actions">
         <button id="drafts-purge" data-i18n="drafts.purge">Clean up old drafts</button>
