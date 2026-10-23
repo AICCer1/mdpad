@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.3.1
+
+The four things 1.3.0 got wrong.
+
+- **A collapsed file tree is recoverable.** It used to shrink to zero width, taking its own toggle
+  with it; now a 34 px rail stays with the ▶ button.
+- **Ten real fonts.** The font setting offered three stacks and looked identical to most users;
+  it now lists Georgia, Segoe UI, 微软雅黑, 宋体, 楷体, 仿宋, Times New Roman, Arial, Cambria and
+  Consolas, and the setting survives a restart (main was rejecting the new keys, so choices
+  silently fell back).
+- **The table toolbar can be clicked.** It vanished the moment the pointer left the table; a
+  220 ms grace period plus hover detection on the bar itself keeps it alive while you move onto it.
+- **Exports offer Open / Show in folder**, like Typora: a toast with two buttons appears after
+  every export (HTML, PDF, Word, EPUB).
+- 210 smoke checks (four new), 142 unit tests.
+
 ## 1.3.0
 
 Eight long-standing rough edges, from the editor's own list.

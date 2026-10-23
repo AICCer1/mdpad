@@ -1121,13 +1121,20 @@ body { display: flex; flex-direction: column; }
    tighter shadow plus a brighter hairline border to keep the panel separated ---- */
 :root {
   --editor-width: 46rem;
-  --font-body: Georgia, "Noto Serif", "Songti SC", serif;
+  --font-body: Georgia, "Noto Serif", "Songti SC", "SimSun", serif;
   --accent: #0b67c2;
   --popover-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
   --popover-border: var(--line);
 }
 
 :root[data-font="sans"] { --font-body: "Segoe UI", "Noto Sans", "Microsoft YaHei", sans-serif; }
+:root[data-font="yahei"] { --font-body: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif; }
+:root[data-font="simsun"] { --font-body: "SimSun", "Songti SC", "Noto Serif SC", serif; }
+:root[data-font="kaiti"] { --font-body: "KaiTi", "Kaiti SC", "STKaiti", serif; }
+:root[data-font="fangsong"] { --font-body: "FangSong", "STFangsong", serif; }
+:root[data-font="times"] { --font-body: "Times New Roman", Times, "Noto Serif", serif; }
+:root[data-font="arial"] { --font-body: Arial, Helvetica, "Noto Sans", sans-serif; }
+:root[data-font="cambria"] { --font-body: Cambria, "Noto Serif", Georgia, serif; }
 :root[data-font="mono"] { --font-body: "Cascadia Mono", Consolas, "Courier New", monospace; }
 :root[data-width="narrow"] { --editor-width: 34rem; }
 :root[data-width="wide"] { --editor-width: 58rem; }
@@ -1182,7 +1189,12 @@ body { display: flex; flex-direction: column; }
 
 /* ---- collapsible file tree ---- */
 .files { min-width: 0; transition: flex-basis 140ms ease; }
-.files.collapsed { flex: 0 0 0; padding: 0; border-right: 0; overflow: hidden; }
+.files.collapsed { flex: 0 0 34px; }
+.files.collapsed .files-root,
+.files.collapsed #files-choose,
+.files.collapsed #tree,
+.files.collapsed .files-head > .label { display: none; }
+.files.collapsed .files-head { padding: 8px 0 6px; justify-content: center; }
 .files-toggle { margin-left: auto; }
 
 /* ---- table: alignment + hover controls ---- */
@@ -1221,3 +1233,23 @@ body { display: flex; flex-direction: column; }
 }
 .mdpad-prose [data-type="block-math"] .katex,
 .mdpad-prose [data-type="block-math"] .katex-display { text-align: center; margin: 0 auto; }
+
+/* the chosen family applies to headings and exports as well, not only to body paragraphs */
+.mdpad-prose h1, .mdpad-prose h2, .mdpad-prose h3,
+.mdpad-prose h4, .mdpad-prose h5, .mdpad-prose h6 { font-family: var(--font-body); }
+
+/* ---- toast with actions ---- */
+.toast { display: flex; align-items: center; gap: 8px; }
+.toast-text { flex: 1; }
+.toast-action {
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 9px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.9;
+}
+.toast-action:hover { opacity: 1; background: rgba(255, 255, 255, 0.12); }

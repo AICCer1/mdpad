@@ -819,6 +819,38 @@ Object.assign(DICT.zh, {
   'menu.fullscreen': '全屏',
 });
 
+Object.assign(DICT.en, {
+  'font.serif': 'Georgia (book)',
+  'font.sans': 'Segoe UI',
+  'font.yahei': 'Microsoft YaHei',
+  'font.simsun': 'SimSun',
+  'font.kaiti': 'KaiTi',
+  'font.fangsong': 'FangSong',
+  'font.times': 'Times New Roman',
+  'font.arial': 'Arial',
+  'font.cambria': 'Cambria',
+  'font.mono': 'Consolas',
+  'export.open': 'Open',
+  'export.reveal': 'Show in folder',
+  'export.done': 'exported {name}',
+});
+
+Object.assign(DICT.zh, {
+  'font.serif': 'Georgia（衬线）',
+  'font.sans': 'Segoe UI（无衬线）',
+  'font.yahei': '微软雅黑',
+  'font.simsun': '宋体',
+  'font.kaiti': '楷体',
+  'font.fangsong': '仿宋',
+  'font.times': 'Times New Roman',
+  'font.arial': 'Arial',
+  'font.cambria': 'Cambria',
+  'font.mono': 'Consolas（等宽）',
+  'export.open': '打开文件',
+  'export.reveal': '打开所在文件夹',
+  'export.done': '已导出 {name}',
+});
+
 module.exports = { t, normalizeLang, LANGS, DICT };
 
 Object.assign(DICT.en, {

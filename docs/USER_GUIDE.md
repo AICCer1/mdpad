@@ -24,12 +24,13 @@ Settings (⚙ or Ctrl+,).
 Overlays use a theme-aware shadow and border (a soft light-mode shadow turns into a grey
 smudge on a dark page).
 
-**Appearance.** Settings offers an editor font (serif, sans, monospace), a text width
+**Appearance.** Settings offers ten editor fonts (Georgia, Segoe UI, 微软雅黑, 宋体, 楷体, 仿宋,
+Times New Roman, Arial, Cambria, Consolas), a text width
 (narrow 34 rem, normal 46 rem, wide 58 rem) and four accent colours; all three apply
 immediately on save and are remembered.
 
-**File tree.** The ◀ button in the Files header hides the tree and ▶ brings it back; the state
-survives a restart.
+**File tree.** The ◀ button in the Files header hides the tree; a 34 px rail stays behind with a ▶ button, so
+a collapsed tree is always recoverable, and the state survives a restart.
 
 **Tables.** Hover a table to get a small toolbar with add row, add column and the two delete
 actions, so a table can be edited without visiting the bar. The bar above the editor carries the
@@ -132,6 +133,9 @@ image URLs stay as alt text in both. **File → Preview Export**
 that its page breaks may differ from the exported PDF, names the active template, and
 has 75% / 100% / 125% zoom buttons in its header. Esc closes the preview. In dark or sepia theme the preview
 follows the editor, while the exported file itself stays light so it prints predictably.
+
+After each export a toast offers **Open** and **Show in folder**, so the file is one click away
+instead of a folder hunt.
 
 Settings also has **Preview export**, which saves the template and CSS you are looking at and
 opens the same preview window, so styling can be judged before writing a file.

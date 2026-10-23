@@ -2481,7 +2481,7 @@ editor.on('selectionUpdate', syncEmptyHint);
 
 // ---- appearance ------------------------------------------------------------
 
-const FONTS = ['serif', 'sans', 'mono'];
+const FONTS = ['serif', 'sans', 'yahei', 'simsun', 'kaiti', 'fangsong', 'times', 'arial', 'cambria', 'mono'];
 const WIDTHS = ['narrow', 'normal', 'wide'];
 const ACCENTS = ['blue', 'teal', 'violet', 'amber'];
 
@@ -2578,13 +2578,36 @@ function showTableHover(table) {
   bar.style.left = left + 'px';
 }
 
+// The bar sits outside the editor DOM, so leaving the table must not hide it instantly:
+// a short grace period lets the pointer travel onto the bar, and hovering the bar cancels it.
+let tableHoverTimer = null;
+function scheduleHideTableHover() {
+  clearTimeout(tableHoverTimer);
+  tableHoverTimer = setTimeout(hideTableHover, 220);
+}
+
 editor.view.dom.addEventListener('mousemove', (event) => {
   const table = event.target.closest ? event.target.closest('table') : null;
-  if (table) showTableHover(table);
-  else hideTableHover();
+  if (table) {
+    clearTimeout(tableHoverTimer);
+    showTableHover(table);
+  } else {
+    scheduleHideTableHover();
+  }
 });
-editor.view.dom.addEventListener('mouseleave', hideTableHover);
+editor.view.dom.addEventListener('mouseleave', scheduleHideTableHover);
 document.querySelector('.editor-pane').addEventListener('scroll', hideTableHover, { passive: true });
+
+document.addEventListener('mousemove', (event) => {
+  const bar = document.querySelector('#table-hover');
+  if (!bar || bar.hidden) return;
+  if (bar.contains(event.target)) {
+    clearTimeout(tableHoverTimer);
+    return;
+  }
+  if (event.target.closest && event.target.closest('table')) return;
+  scheduleHideTableHover();
+});
 
 // ---- save indicator --------------------------------------------------------
 
@@ -2806,15 +2829,41 @@ window.api.onFileExternal(() => {
   showBanner('This file changed on disk.', 'Reload', () => window.api.reloadFile(), 'Keep editing', () => {});
 });
 
-function showToast(text, ms = 3800) {
+function showToast(text, ms = 3800, actions = []) {
   const toast = document.querySelector('#toast');
-  toast.textContent = text;
+  toast.textContent = '';
+  const label = document.createElement('span');
+  label.className = 'toast-text';
+  label.textContent = text;
+  toast.appendChild(label);
+  for (const action of actions) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'toast-action';
+    button.textContent = action.label;
+    button.setAttribute('aria-label', action.label);
+    button.addEventListener('click', () => {
+      toast.hidden = true;
+      action.run();
+    });
+    toast.appendChild(button);
+  }
   toast.hidden = false;
   clearTimeout(showToast.timer);
   showToast.timer = setTimeout(() => {
     toast.hidden = true;
   }, ms);
 }
+
+// After an export, offer to open the file or reveal it, the way Typora does.
+window.api.onExported((payload) => {
+  if (!payload || !payload.path) return;
+  const name = String(payload.path).split(/[\\/]/).pop();
+  showToast(t('export.done', lang, { name }), 9000, [
+    { label: t('export.open', lang), run: () => window.api.openExportedFile(payload.path) },
+    { label: t('export.reveal', lang), run: () => window.api.revealExportedFile(payload.path) },
+  ]);
+});
 
 window.api.onFirstRun(() => {
   showBanner(
@@ -3057,6 +3106,19 @@ window.__mdpad = {
   mermaidAvailable: () => Boolean(window.mermaid),
   mermaidCacheSize: () => mermaidCache.size,
   mermaidCacheEntries: () => mermaidCache.size,
+  toastInfo: () => {
+    const toast = document.querySelector('#toast');
+    return {
+      hidden: toast.hidden,
+      text: toast.textContent,
+      actions: [...toast.querySelectorAll('.toast-action')].map((b) => b.textContent),
+    };
+  },
+  showExportToast: (file) =>
+    showToast(t('export.done', lang, { name: String(file).split(/[\\\\/]/).pop() }), 9000, [
+      { label: t('export.open', lang), run: () => window.api.openExportedFile(file) },
+      { label: t('export.reveal', lang), run: () => window.api.revealExportedFile(file) },
+    ]),
   mermaidPreviews: () => [...document.querySelectorAll('.mermaid-preview')].map((el) => ({
     hidden: el.hidden,
     svg: Boolean(el.querySelector('svg')),

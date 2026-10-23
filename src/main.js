@@ -289,7 +289,7 @@ function publicSettings() {
     collapsedSections:
       s.collapsedSections && typeof s.collapsedSections === 'object' ? s.collapsedSections : {},
     focusMode: Boolean(s.focusMode),
-    editorFont: ['serif', 'sans', 'mono'].includes(s.editorFont) ? s.editorFont : 'serif',
+    editorFont: FONT_KEYS.includes(s.editorFont) ? s.editorFont : 'serif',
     lineWidth: ['narrow', 'normal', 'wide'].includes(s.lineWidth) ? s.lineWidth : 'normal',
     accent: ['blue', 'teal', 'violet', 'amber'].includes(s.accent) ? s.accent : 'blue',
     filesCollapsed: Boolean(s.filesCollapsed),
@@ -306,6 +306,7 @@ function clampConfirmTokens(value) {
 }
 
 const EXPORT_TEMPLATES = ['default', 'compact', 'toc'];
+const FONT_KEYS = ['serif', 'sans', 'yahei', 'simsun', 'kaiti', 'fangsong', 'times', 'arial', 'cambria', 'mono'];
 
 function exportTemplate() {
   const value = readSettings().exportTemplate;
@@ -866,6 +867,7 @@ class Session {
         stats: this.exportStats(),
       });
       this.sendStatus({ exported: result });
+      this.send('doc:exported', { path: filePath, kind });
       return { exported: true, ...result };
     }
     if (kind === 'docx') {
@@ -899,6 +901,7 @@ class Session {
     );
     const result = { path: filePath, bytes: fs.statSync(filePath).size };
     this.sendStatus({ exported: result });
+    this.send('doc:exported', { path: filePath, kind });
     return { exported: true, ...result };
   }
 
@@ -1133,6 +1136,20 @@ function sessionFor(event) {
 }
 
 function registerIpc() {
+  ipcMain.handle('app:openPath', async (_e, { path: target } = {}) => {
+    const file = String(target || '');
+    if (!file || !fs.existsSync(file)) return { opened: false, reason: 'missing' };
+    const error = await shell.openPath(file);
+    return { opened: !error, error: error || undefined };
+  });
+
+  ipcMain.handle('app:showInFolder', (_e, { path: target } = {}) => {
+    const file = String(target || '');
+    if (!file || !fs.existsSync(file)) return { shown: false, reason: 'missing' };
+    shell.showItemInFolder(file);
+    return { shown: true };
+  });
+
   ipcMain.handle('app:toggleFullscreen', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     return { fullscreen: toggleFullscreen(win) };
@@ -1307,7 +1324,7 @@ function registerIpc() {
     if (patch.onboarded === true) next.onboarded = true;
     if (patch.guideDismissed === true) next.guideDismissed = true;
     if (patch.focusMode !== undefined) next.focusMode = patch.focusMode === true;
-    if (['serif', 'sans', 'mono'].includes(patch.editorFont)) next.editorFont = patch.editorFont;
+    if (FONT_KEYS.includes(patch.editorFont)) next.editorFont = patch.editorFont;
     if (['narrow', 'normal', 'wide'].includes(patch.lineWidth)) next.lineWidth = patch.lineWidth;
     if (['blue', 'teal', 'violet', 'amber'].includes(patch.accent)) next.accent = patch.accent;
     if (patch.filesCollapsed !== undefined) next.filesCollapsed = patch.filesCollapsed === true;
@@ -5851,31 +5868,6 @@ async function runSmoke() {
     appearance
   );
 
-  // 75c. the file tree can be collapsed and comes back
-  let filesPane = null;
-  try {
-  filesPane = await win.webContents.executeJavaScript(`(async () => {
-    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-    const before = window.__mdpad.appearance().filesCollapsed;
-    window.__mdpad.toggleFilesPane();
-    await sleep(300);
-    const collapsed = window.__mdpad.appearance().filesCollapsed;
-    const width = Math.round(document.querySelector('#files').getBoundingClientRect().width);
-    window.__mdpad.toggleFilesPane();
-    await sleep(300);
-    const reopened = window.__mdpad.appearance().filesCollapsed;
-    return { before, collapsed, width, reopened };
-  })()`);
-  } catch (err) {
-    console.error('ROUND_PROBE_ERROR', 'files', err.message);
-  }
-
-  step(
-    'files-collapse',
-    filesPane.before === false && filesPane.collapsed === true && filesPane.width <= 2 && filesPane.reopened === false,
-    filesPane
-  );
-
   // 75d. block math is centred and spans the column
   let mathCentre = null;
   try {
@@ -5976,6 +5968,105 @@ async function runSmoke() {
       zhLabels.labels.every((label) => /[\u4e00-\u9fff]/.test(label)) &&
       /[\u4e00-\u9fff]/.test(zhLabels.image),
     zhLabels
+  );
+
+  // 76a. a collapsed file tree keeps a rail you can click to bring it back
+  const railCheck = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    window.__mdpad.toggleFilesPane();
+    await sleep(300);
+    const collapsed = document.querySelector('#files').classList.contains('collapsed');
+    const toggle = document.querySelector('#files-toggle');
+    const visible = Boolean(toggle && toggle.offsetParent !== null);
+    toggle.click();
+    await sleep(300);
+    const reopened = !document.querySelector('#files').classList.contains('collapsed');
+    const width = Math.round(document.querySelector('#files').getBoundingClientRect().width);
+    return { collapsed, toggleVisible: visible, reopened, width };
+  })()`);
+  step(
+    'files-collapse',
+    railCheck.collapsed && railCheck.toggleVisible && railCheck.reopened && railCheck.width > 100,
+    railCheck
+  );
+
+  // 76b. the font list is a real list and each choice changes the editor font
+  const fontCheck = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const options = [...document.querySelectorAll('#set-font option')].map((o) => o.value);
+    document.querySelector('#open-settings').click();
+    await sleep(700);
+    document.querySelector('#set-font').value = 'kaiti';
+    document.querySelector('#set-save').click();
+    await sleep(700);
+    const family = getComputedStyle(document.querySelector('.tiptap')).fontFamily;
+    const stored = (await window.api.getSettings()).editorFont;
+    return { options, family, stored };
+  })()`);
+  step(
+    'font-list',
+    fontCheck.options.length >= 8 &&
+      fontCheck.options.includes('kaiti') &&
+      /KaiTi|Kaiti/i.test(fontCheck.family) &&
+      fontCheck.stored === 'kaiti',
+    fontCheck
+  );
+
+  // 76c. the table toolbar stays reachable: moving onto it does not dismiss it
+  const hoverReach = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    window.__mdpad.setMarkdown('');
+    await sleep(300);
+    const ed = window.__mdpad.editor;
+    ed.chain().focus().insertTable({ rows: 2, cols: 2, withHeaderRow: true }).run();
+    await sleep(500);
+    const cell = document.querySelector('.tiptap table td');
+    const rect = cell.getBoundingClientRect();
+    cell.dispatchEvent(new MouseEvent('mousemove', {
+      bubbles: true,
+      clientX: rect.left + 3,
+      clientY: rect.top + 3,
+    }));
+    await sleep(250);
+    const bar = document.querySelector('#table-hover');
+    const appeared = Boolean(bar && !bar.hidden);
+    bar.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    await sleep(600);
+    const stillThere = Boolean(bar && !bar.hidden);
+    const rowsBefore = document.querySelectorAll('.tiptap table tr').length;
+    bar.querySelector('button').click();
+    await sleep(400);
+    const rowsAfter = document.querySelectorAll('.tiptap table tr').length;
+    return { appeared, stillThere, rowsBefore, rowsAfter };
+  })()`);
+  step(
+    'table-hover-reachable',
+    hoverReach.appeared && hoverReach.stillThere && hoverReach.rowsAfter === hoverReach.rowsBefore + 1,
+    hoverReach
+  );
+
+  // 76d. an export offers Open / Show in folder
+  const exportToast = await (async () => {
+    const exportPath = path.join(dir, 'toast-check.html');
+    await s.exportTo(exportPath, 'html');
+    await sleep(500);
+    const info = await win.webContents.executeJavaScript(`window.__mdpad.toastInfo()`);
+    const opened = await win.webContents.executeJavaScript(
+      `window.api.openExportedFile(${JSON.stringify(exportPath)})`
+    );
+    const revealed = await win.webContents.executeJavaScript(
+      `window.api.revealExportedFile(${JSON.stringify(exportPath)})`
+    );
+    return { info, opened, revealed, exists: fs.existsSync(exportPath) };
+  })();
+  step(
+    'export-toast',
+    exportToast.exists &&
+      exportToast.info.hidden === false &&
+      exportToast.info.actions.length === 2 &&
+      exportToast.opened.opened === true &&
+      exportToast.revealed.shown === true,
+    exportToast
   );
 
   // 30k. the settings filter narrows the visible fields
