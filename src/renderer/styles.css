@@ -1578,3 +1578,47 @@ textarea:focus-visible,
 .theme-swap *,
 .theme-swap *::before,
 .theme-swap *::after { transition: none !important; }
+
+/* ---- icon buttons share one box ---- */
+.bar .icon-button,
+.bar-actions .icon-button,
+.files-head .icon-button,
+.find-bar .icon-button,
+.tablebar .icon-button,
+.tab-scroll.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text);
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.bar .icon-button:hover,
+.bar-actions .icon-button:hover,
+.files-head .icon-button:hover,
+.find-bar .icon-button:hover,
+.tablebar .icon-button:hover,
+.tab-scroll.icon-button:hover { background: color-mix(in srgb, var(--text) 7%, transparent); }
+.bar .icon-button svg,
+.files-head .icon-button svg,
+.find-bar .icon-button svg,
+.tablebar .icon-button svg,
+.tab-scroll.icon-button svg { display: block; }
+.empty-dismiss.icon-button { width: 22px; height: 22px; min-width: 22px; color: var(--muted); }
+
+/* ---- scrollbars: thin, theme-aware, only obvious on hover ---- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text) 16%, transparent);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--text) 30%, transparent); background-clip: padding-box; }
+::-webkit-scrollbar-corner { background: transparent; }

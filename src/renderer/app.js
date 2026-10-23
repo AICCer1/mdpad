@@ -44,6 +44,9 @@ function applyI18n(language) {
       if (themeLabels[option.value]) option.textContent = t(themeLabels[option.value], lang);
     }
   }
+
+  // i18n rewrites textContent; buttons carrying an icon need it back.
+  applyStaticIcons();
 }
 
 const $ = (sel) => document.querySelector(sel);
@@ -736,6 +739,48 @@ const TOOLBAR_ICONS = {
   mathBlock: "<rect x=\"3\" y=\"5\" width=\"18\" height=\"14\" rx=\"2\"/><path d=\"M8 9l-2 3 2 3M16 9l2 3-2 3M12 9v6\"/>",
   ai: "<path d=\"M12 4v4M12 16v4M4 12h4M16 12h4M7.5 7.5l2 2M14.5 14.5l2 2M16.5 7.5l-2 2M9.5 14.5l-2 2\"/><circle cx=\"12\" cy=\"12\" r=\"2.5\"/>",
 };
+
+// The same stroke language as the toolbar, for the chrome around it: emoji and stray Unicode
+// glyphs made the top bar look like a different application on every platform.
+const UI_ICONS = {
+  menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  settings:
+    '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1A2 2 0 1 1 4.3 17l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1A2 2 0 1 1 7 4.3l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1A2 2 0 1 1 20.7 7l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/>',
+  folder:
+    '<path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/>',
+  chevronLeft: '<path d="m14 6-6 6 6 6"/>',
+  chevronRight: '<path d="m10 6 6 6-6 6"/>',
+  chevronUp: '<path d="m6 14 6-6 6 6"/>',
+  chevronDown: '<path d="m6 10 6 6 6-6"/>',
+  close: '<path d="M6 6l12 12M18 6 6 18"/>',
+  refresh: '<path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"/>',
+  stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
+  list: '<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
+  alignLeft: '<path d="M4 6h16M4 12h10M4 18h13"/>',
+  alignCenter: '<path d="M4 6h16M7 12h10M6 18h12"/>',
+  alignRight: '<path d="M4 6h16M10 12h10M7 18h13"/>',
+  sparkle:
+    '<path d="M12 4v4M12 16v4M4 12h4M16 12h4M7.5 7.5l2 2M14.5 14.5l2 2M16.5 7.5l-2 2M9.5 14.5l-2 2"/><circle cx="12" cy="12" r="2.5"/>',
+};
+
+function uiIcon(name, size = 16) {
+  const body = UI_ICONS[name] || '';
+  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+}
+
+function applyStaticIcons(scope = document) {
+  for (const button of scope.querySelectorAll('[data-icon]')) {
+    const name = button.dataset.icon;
+    if (!UI_ICONS[name]) continue;
+    button.innerHTML = uiIcon(name, Number(button.dataset.iconSize) || 16);
+    button.classList.add('icon-button');
+    if (!button.getAttribute('aria-label')) {
+      button.setAttribute('aria-label', button.title || name);
+    }
+  }
+}
+
+applyStaticIcons();
 
 function toolbarIcon(name) {
   const body = TOOLBAR_ICONS[name] || '';
@@ -2736,8 +2781,9 @@ function applyFilesCollapsed(collapsed) {
   pane.classList.toggle('collapsed', Boolean(collapsed));
   const toggle = document.querySelector('#files-toggle');
   if (toggle) {
-    toggle.textContent = collapsed ? '▶' : '◀';
+    toggle.dataset.icon = collapsed ? 'chevronRight' : 'chevronLeft';
     toggle.title = collapsed ? 'Show the file tree' : 'Hide the file tree';
+    applyStaticIcons(toggle.parentElement || document);
   }
 }
 
@@ -3327,6 +3373,10 @@ window.__mdpad = {
   editor,
   setMarkdown,
   getMarkdown: currentMarkdown,
+  iconAudit: () =>
+    [...document.querySelectorAll('button[data-icon], .toolbar button, .bar-actions button')]
+      .filter((b) => !b.querySelector('svg') && /[\u2190-\u21FF\u2300-\u27BF\u{1F300}-\u{1FAFF}]/u.test(b.textContent.trim()))
+      .map((b) => ({ id: b.id || b.dataset.cmd || '', text: b.textContent.trim().slice(0, 12) })),
   outline: outlineItems,
   syncToolbar,
   openPalette,

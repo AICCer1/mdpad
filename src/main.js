@@ -6627,6 +6627,53 @@ async function runSmoke() {
     chrome
   );
 
+  // 84a. every chrome button uses the same stroke icon set, with an accessible label
+  const icons = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    await sleep(200);
+    const all = [...document.querySelectorAll('[data-icon]')];
+    const missingSvg = all.filter((b) => !b.querySelector('svg')).map((b) => b.id || b.dataset.cmd || '?');
+    const missingLabel = all
+      .filter((b) => !(b.getAttribute('aria-label') || b.title))
+      .map((b) => b.id || b.dataset.cmd || '?');
+    const labelled = all.filter((b) => b.getAttribute('aria-label')).length;
+    const stray = window.__mdpad.iconAudit();
+
+    // The file-tree toggle swaps between chevron-left and chevron-right.
+    const toggle = document.querySelector('#files-toggle');
+    window.__mdpad.toggleFilesPane();
+    await sleep(300);
+    const collapsedIcon = document.querySelector('#files-toggle').querySelector('svg') ? 'svg' : 'text';
+    window.__mdpad.toggleFilesPane();
+    await sleep(300);
+    const expandedIcon = document.querySelector('#files-toggle').querySelector('svg') ? 'svg' : 'text';
+
+    return {
+      count: all.length,
+      missingSvg,
+      missingLabel,
+      labelled,
+      stray,
+      collapsedIcon,
+      expandedIcon,
+      settingsIcon: Boolean(document.querySelector('#open-settings svg')),
+      folderIcon: Boolean(document.querySelector('#files-choose svg')),
+    };
+  })()`);
+  step(
+    'icon-consistency',
+    icons.count >= 15 &&
+      icons.missingSvg.length === 0 &&
+      icons.missingLabel.length === 0 &&
+      icons.labelled >= 15 &&
+      icons.stray.length === 0 &&
+      icons.collapsedIcon === 'svg' &&
+      icons.expandedIcon === 'svg' &&
+      icons.settingsIcon &&
+      icons.folderIcon,
+    icons
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

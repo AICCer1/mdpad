@@ -13,7 +13,7 @@
 <body>
   <header class="bar">
     <div class="bar-left">
-      <button id="toggle-outline" class="icon" title="Toggle outline (Ctrl+Shift+O)">☰</button>
+      <button id="toggle-outline" class="icon" data-icon="menu" title="Toggle outline (Ctrl+Shift+O)">Outline</button>
       <span id="doc-name" class="doc-name">Untitled</span>
       <span id="dirty-dot" class="dot" title="Unsaved changes" hidden></span>
     </div>
@@ -23,7 +23,7 @@
         <option value="dark">Dark</option>
         <option value="sepia">Sepia</option>
       </select>
-      <button id="open-settings" data-i18n-title="ui.settings" title="Settings (Ctrl+,)">⚙</button>
+      <button id="open-settings" data-icon="settings" data-i18n-title="ui.settings" title="Settings (Ctrl+,)">Settings</button>
       <button data-action="find" data-i18n="ui.find" title="Find (Ctrl+F)">Find</button>
       <button data-action="open" data-i18n="ui.open">Open</button>
       <button data-action="save" data-i18n="ui.save">Save</button>
@@ -66,9 +66,9 @@
   </div>
 
   <div id="tabs" class="tabs">
-    <button id="tab-left" class="tab-scroll" title="Scroll tabs left" hidden>‹</button>
+    <button id="tab-left" class="tab-scroll" data-icon="chevronLeft" title="Scroll tabs left" hidden>Left</button>
     <div id="tab-list" class="tab-list"></div>
-    <button id="tab-right" class="tab-scroll" title="Scroll tabs right" hidden>›</button>
+    <button id="tab-right" class="tab-scroll" data-icon="chevronRight" title="Scroll tabs right" hidden>Right</button>
     <button id="tab-new" class="tab-new" title="New tab (Ctrl+T)">+</button>
   </div>
 
@@ -153,10 +153,10 @@
     <div class="ai-head">
       <input id="ai-instruction" type="text" data-i18n-placeholder="ai.instruction" placeholder="Instruction — continue, tighten, translate, turn into a table…">
       <button id="ai-run" data-i18n="ai.run">Run</button>
-      <button id="ai-retry" class="icon-button" title="Run the last instruction again on the current selection" aria-label="Retry" hidden>↻</button>
-      <button id="ai-stop" class="icon-button" hidden title="Cancel the running request" aria-label="Stop">■</button>
-      <button id="ai-usage-open" class="icon-button" title="AI usage log" aria-label="AI usage log">▤</button>
-      <button id="ai-settings" class="icon-button" title="AI settings" aria-label="AI settings">⚙</button>
+      <button id="ai-retry" class="icon-button" data-icon="refresh" title="Run the last instruction again on the current selection" aria-label="Retry" hidden>Retry</button>
+      <button id="ai-stop" class="icon-button" data-icon="stop" hidden title="Cancel the running request" aria-label="Stop">Stop</button>
+      <button id="ai-usage-open" class="icon-button" data-icon="list" title="AI usage log" aria-label="AI usage log">Usage</button>
+      <button id="ai-settings" class="icon-button" data-icon="settings" title="AI settings" aria-label="AI settings">Settings</button>
     </div>
     <div class="ai-scope-row">
       <label for="ai-scope" data-i18n="ai.scopeLabel">Context</label>
@@ -422,9 +422,9 @@
     <button data-table="deleteColumn" data-i18n="table.deleteCol">− column</button>
     <button data-table="deleteTable" data-i18n="table.deleteTable">delete table</button>
     <span class="sep"></span>
-    <button data-align="left" data-i18n="table.alignLeft" title="Align left">⯇</button>
-    <button data-align="center" data-i18n="table.alignCenter" title="Align centre">≡</button>
-    <button data-align="right" data-i18n="table.alignRight" title="Align right">⯈</button>
+    <button data-align="left" data-icon="alignLeft" data-i18n="table.alignLeft" title="Align left">Align left</button>
+    <button data-align="center" data-icon="alignCenter" data-i18n="table.alignCenter" title="Align centre">Align centre</button>
+    <button data-align="right" data-icon="alignRight" data-i18n="table.alignRight" title="Align right">Align right</button>
   </div>
 
   <div id="image-bar" class="tablebar" hidden>
@@ -444,20 +444,20 @@
   <div id="findbar" class="findbar" hidden>
     <input id="find-input" type="text" placeholder="Find" autocomplete="off">
     <input id="replace-input" type="text" placeholder="Replace with" autocomplete="off">
-    <button id="find-prev" title="Previous (Shift+Enter)">↑</button>
-    <button id="find-next" title="Next (Enter)">↓</button>
+    <button id="find-prev" data-icon="chevronUp" title="Previous (Shift+Enter)">Previous</button>
+    <button id="find-next" data-icon="chevronDown" title="Next (Enter)">Next</button>
     <button id="replace-one">Replace</button>
     <button id="replace-all">All</button>
     <span id="find-count" class="find-count"></span>
-    <button id="find-close" title="Close (Esc)">✕</button>
+    <button id="find-close" data-icon="close" title="Close (Esc)">Close</button>
   </div>
 
   <main class="layout">
     <aside id="files" class="files">
       <div class="files-head">
         <span id="files-root" class="files-root" title="Folder">Files</span>
-        <button id="files-choose" class="icon" title="Open folder">📂</button>
-        <button id="files-toggle" class="icon files-toggle" title="Hide the file tree" data-i18n-title="files.hide">◀</button>
+        <button id="files-choose" class="icon" data-icon="folder" title="Open folder">Folder</button>
+        <button id="files-toggle" class="icon files-toggle" data-icon="chevronLeft" title="Hide the file tree" data-i18n-title="files.hide">Hide</button>
       </div>
       <div id="tree" class="tree"></div>
     </aside>
@@ -470,7 +470,7 @@
       <div id="editor"></div>
       <div id="empty-hint" class="empty-hint">
         <div class="empty-card">
-          <button id="empty-dismiss" class="empty-dismiss" title="Hide this guide">×</button>
+          <button id="empty-dismiss" class="empty-dismiss" data-icon="close" data-icon-size="14" title="Hide this guide">Close</button>
           <div class="empty-title" data-i18n="empty.title">mdpad</div>
           <div class="empty-sub" data-i18n="empty.subtitle">A markdown editor that survives crashes and interruptions</div>
           <div class="empty-actions">

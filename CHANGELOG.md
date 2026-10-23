@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.8.1
+
+One icon language.
+
+- **Every chrome button now uses the same 16 px stroke icons** as the toolbar: the settings gear,
+  the outline toggle, the folder and collapse arrows, the find controls, the AI panel's retry /
+  stop / usage / settings, the table alignment buttons and the empty-state close. Before this the
+  top bar mixed an emoji folder, a Unicode gear and text arrows, which rendered differently in
+  every theme and looked like three applications stitched together.
+- **Icons survive translation.** `applyI18n()` writes `textContent`, which erased the SVG inside
+  buttons that also carry `data-i18n`; it now re-applies the icon set.
+- **Scrollbars** are thin, theme-aware and only assert themselves on hover.
+- 223 smoke checks (one new `icon-consistency`: every `[data-icon]` control has an SVG, an
+  accessible label, and the collapse toggle swaps chevrons), 152 unit tests.
+
 ## 1.8.0
 
 A visual pass over the whole chrome.
