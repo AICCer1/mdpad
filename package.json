@@ -1,0 +1,105 @@
+{
+  "name": "mdpad",
+  "version": "1.1.7",
+  "private": true,
+  "description": "A small Electron markdown editor: WYSIWYG editing, crash-safe saving, tabs, file tree and AI writing.",
+  "main": "src/main.js",
+  "author": "mdpad",
+  "license": "MIT",
+  "scripts": {
+    "build": "node scripts/build-renderer.js",
+    "dev": "node scripts/build-renderer.js --watch",
+    "start": "npm run build && electron .",
+    "smoke": "npm run build && node scripts/smoke.js",
+    "test": "node --test",
+    "sync-assets": "node scripts/sync-vendor.js",
+    "postinstall": "node scripts/sync-vendor.js",
+    "dist": "npm run build && electron-builder --win --x64",
+    "dist:dir": "npm run build && electron-builder --win --x64 --dir",
+    "crash": "node scripts/crash-recovery.js",
+    "release-check": "node scripts/release-check.js",
+    "notes": "node scripts/release-notes.js",
+    "install-check": "node scripts/install-check.js",
+    "ship": "node scripts/ship.js",
+    "shots": "node scripts/screenshots.js",
+    "restart-check": "node scripts/restart-check.js"
+  },
+  "dependencies": {
+    "docx": "^9.13.0",
+    "electron-updater": "^6.8.9",
+    "highlight.js": "^11.12.0",
+    "jszip": "^3.10.2",
+    "katex": "^0.19.0",
+    "marked": "latest"
+  },
+  "devDependencies": {
+    "@tiptap/core": "^3.32.0",
+    "@tiptap/extension-code-block-lowlight": "^3.32.0",
+    "@tiptap/extension-image": "^3.32.0",
+    "@tiptap/extension-mathematics": "^3.32.0",
+    "@tiptap/extension-table": "^3.32.0",
+    "@tiptap/extension-task-item": "^3.32.0",
+    "@tiptap/extension-task-list": "^3.32.0",
+    "@tiptap/markdown": "^3.32.0",
+    "@tiptap/pm": "^3.32.0",
+    "@tiptap/starter-kit": "^3.32.0",
+    "electron": "latest",
+    "electron-builder": "latest",
+    "esbuild": "^0.28.2",
+    "lowlight": "^3.3.0"
+  },
+  "build": {
+    "appId": "io.mdpad.app",
+    "productName": "mdpad",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json",
+      "CHANGELOG.md",
+      "!src/**/*.map"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "mdpad"
+    },
+    "fileAssociations": [
+      {
+        "ext": [
+          "md",
+          "markdown"
+        ],
+        "name": "Markdown",
+        "role": "Editor"
+      }
+    ],
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://updates.example.invalid/mdpad"
+      }
+    ]
+  }
+}

@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src file: data:; font-src 'self' data:;">
+  <title>mdpad</title>
+  <link rel="stylesheet" href="vendor/katex/katex.min.css">
+  <link id="hljs-light" rel="stylesheet" href="vendor/hljs/github.css">
+  <link id="hljs-dark" rel="stylesheet" href="vendor/hljs/github-dark.css" disabled>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="bar">
+    <div class="bar-left">
+      <button id="toggle-outline" class="icon" title="Toggle outline (Ctrl+Shift+O)">☰</button>
+      <span id="doc-name" class="doc-name">Untitled</span>
+      <span id="dirty-dot" class="dot" title="Unsaved changes" hidden></span>
+    </div>
+    <div class="bar-actions">
+      <select id="theme" title="Theme">
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+        <option value="sepia">Sepia</option>
+      </select>
+      <button id="open-settings" data-i18n-title="ui.settings" title="Settings (Ctrl+,)">⚙</button>
+      <button data-action="find" data-i18n="ui.find" title="Find (Ctrl+F)">Find</button>
+      <button data-action="open" data-i18n="ui.open">Open</button>
+      <button data-action="save" data-i18n="ui.save">Save</button>
+      <button data-action="exportHtml" data-i18n="ui.exportHtml">HTML</button>
+      <button data-action="exportPdf" data-i18n="ui.exportPdf">PDF</button>
+    </div>
+    <div class="bar-right"><button id="drafts-badge" class="status-link" title="Recovery drafts" hidden></button><span id="save-state" class="status save-state" hidden></span><span id="backup-info" class="status" title="Restore a backup"></span><span id="status" class="status"></span></div>
+  </header>
+
+  <div id="backup-popover" class="backup-popover" hidden>
+    <div class="backup-title" data-i18n="backup.title">Restore a backup</div>
+    <div id="backup-list" class="backup-list"></div>
+  </div>
+
+  <div id="banner" class="banner" hidden>
+    <span id="banner-text"></span>
+    <button id="banner-primary"></button>
+    <button id="banner-secondary"></button>
+  </div>
+
+  <div id="preflight-banner" class="banner" hidden><span id="preflight-text"></span></div>
+
+  <div id="drafts-modal" class="modal" hidden>
+    <div class="modal-card">
+      <div class="modal-title" data-i18n="drafts.title">Recovery drafts</div>
+      <div id="drafts-list" class="drafts-list"></div>
+      <div class="modal-actions">
+        <button id="drafts-purge" data-i18n="drafts.purge">Clean up old drafts</button>
+        <button id="drafts-close" data-i18n="drafts.close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <div id="crash-banner" class="banner crash-banner" hidden>
+    <span id="crash-text"></span>
+    <button id="crash-open" data-i18n="crash.open">Show drafts</button>
+    <button id="crash-dismiss" data-i18n="crash.dismiss">Dismiss</button>
+  </div>
+
+  <div id="tabs" class="tabs">
+    <button id="tab-left" class="tab-scroll" title="Scroll tabs left" hidden>‹</button>
+    <div id="tab-list" class="tab-list"></div>
+    <button id="tab-right" class="tab-scroll" title="Scroll tabs right" hidden>›</button>
+    <button id="tab-new" class="tab-new" title="New tab (Ctrl+T)">+</button>
+  </div>
+
+  <div class="toolbar">
+    <div class="toolbar-group" aria-label="Text style">
+      <button data-cmd="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+      <button data-cmd="italic" title="Italic (Ctrl+I)"><i>I</i></button>
+      <button data-cmd="strike" title="Strikethrough"><s>S</s></button>
+      <button data-cmd="code" title="Inline code"><code>&lt;&gt;</code></button>
+    </div>
+    <div class="toolbar-group" aria-label="Block style">
+      <select id="heading-select" title="Paragraph style">
+        <option value="0">Paragraph</option>
+        <option value="1">Heading 1</option>
+        <option value="2">Heading 2</option>
+        <option value="3">Heading 3</option>
+        <option value="4">Heading 4</option>
+      </select>
+    </div>
+    <span class="sep"></span>
+    <div class="toolbar-group" aria-label="Lists and quotes">
+      <button data-cmd="bulletList" title="Bullet list">•</button>
+      <button data-cmd="orderedList" title="Numbered list">1.</button>
+      <button data-cmd="taskList" title="Task list">☑</button>
+      <button data-cmd="blockquote" title="Quote">❝</button>
+    </div>
+    <span class="sep"></span>
+    <div class="toolbar-group" aria-label="Code">
+      <button data-cmd="codeBlock" title="Code block">{ }</button>
+      <select id="code-lang" title="Code block language" hidden>
+        <option value="">auto</option>
+        <option value="js">js</option>
+        <option value="ts">ts</option>
+        <option value="json">json</option>
+        <option value="html">html</option>
+        <option value="css">css</option>
+        <option value="bash">bash</option>
+        <option value="python">python</option>
+        <option value="c">c</option>
+        <option value="cpp">cpp</option>
+        <option value="go">go</option>
+        <option value="rust">rust</option>
+        <option value="sql">sql</option>
+        <option value="yaml">yaml</option>
+        <option value="md">md</option>
+      </select>
+    </div>
+    <span class="sep"></span>
+    <div class="toolbar-group" aria-label="Insert">
+      <button data-cmd="link" title="Link">🔗</button>
+      <button data-cmd="table" title="Insert table">▦</button>
+      <button data-cmd="image" title="Insert image">🖼</button>
+    </div>
+    <span class="sep"></span>
+    <div class="toolbar-group" aria-label="Math">
+      <button data-cmd="mathInline" title="Inline math">$x$</button>
+      <button data-cmd="mathBlock" title="Display math">$$</button>
+    </div>
+    <span class="sep"></span>
+    <div class="toolbar-group" aria-label="AI">
+      <button data-cmd="ai" title="AI writing (Ctrl+J)">AI</button>
+    </div>
+  </div>
+
+  <div id="ai-popover" class="popover ai-popover" hidden>
+    <div id="ai-setup-hint" class="ai-setup" hidden>
+      <span id="ai-setup-text">AI is not configured yet.</span>
+      <button id="ai-setup-open">Open AI settings</button>
+    </div>
+    <div class="ai-presets">
+      <button data-preset="Continue writing the next paragraph in the same voice and markdown structure." data-i18n="ai.presetContinue">Continue</button>
+      <button data-preset="Tighten this text: remove redundancy, keep meaning and markdown structure." data-i18n="ai.presetTighten">Tighten</button>
+      <button data-preset="Translate into natural English, preserving markdown structure." data-i18n="ai.presetEn">→ EN</button>
+      <button data-preset="Translate into natural Chinese, preserving markdown structure." data-i18n="ai.presetZh">→ 中文</button>
+      <button data-preset="Summarize concisely as a bullet list." data-i18n="ai.presetSummarize">Summarize</button>
+      <button data-preset="Convert into a markdown table with sensible columns." data-i18n="ai.presetTable">Table</button>
+    </div>
+    <div class="ai-head">
+      <input id="ai-instruction" type="text" data-i18n-placeholder="ai.instruction" placeholder="Instruction — continue, tighten, translate, turn into a table…">
+      <button id="ai-run" data-i18n="ai.run">Run</button>
+      <button id="ai-retry" class="icon-button" title="Run the last instruction again on the current selection" aria-label="Retry" hidden>↻</button>
+      <button id="ai-stop" class="icon-button" hidden title="Cancel the running request" aria-label="Stop">■</button>
+      <button id="ai-usage-open" class="icon-button" title="AI usage log" aria-label="AI usage log">▤</button>
+      <button id="ai-settings" class="icon-button" title="AI settings" aria-label="AI settings">⚙</button>
+    </div>
+    <div class="ai-scope-row">
+      <label for="ai-scope" data-i18n="ai.scopeLabel">Context</label>
+      <select id="ai-scope">
+        <option value="doc" data-i18n="ai.scopeDoc">Whole document</option>
+        <option value="paragraph" data-i18n="ai.scopeParagraph">Current paragraph</option>
+        <option value="none" data-i18n="ai.scopeNone">Selection only</option>
+      </select>
+    </div>
+    <div id="ai-context-note" class="ai-context-note"></div>
+
+    <textarea id="ai-result" spellcheck="false" data-i18n-placeholder="ai.resultPlaceholder" placeholder="Result streams in here before you insert it"></textarea>
+    <div id="ai-diff" class="ai-diff" hidden></div>
+    <div class="ai-foot">
+      <button id="ai-preview" data-i18n="ai.preview">Preview changes</button>
+      <button id="ai-copy" data-i18n="ai.copy" title="Copy the result">Copy</button>
+      <button id="ai-insert" data-i18n="ai.insert">Insert</button>
+      <button id="ai-paragraph" data-i18n="ai.insertParagraph" title="Insert as a new paragraph">New paragraph</button>
+      <button id="ai-replace" data-i18n="ai.replace">Replace selection</button>
+      <button id="ai-clear" data-i18n="ai.clear" title="Forget previous turns">Clear context</button>
+
+      <div id="ai-history" class="ai-history" hidden></div>
+
+      <span id="ai-confirm" class="ai-confirm" hidden>
+        <span id="ai-confirm-text"></span>
+        <button id="ai-confirm-yes" data-i18n="ai.send">Send</button>
+        <button id="ai-confirm-no" data-i18n="ai.cancel">Cancel</button>
+      </span>
+      <span id="ai-status" class="ai-status"></span>
+    </div>
+  </div>
+
+  <div id="palette" class="modal palette-modal" hidden>
+    <div class="modal-card palette-card">
+      <input id="palette-input" type="text" data-i18n-placeholder="palette.placeholder" placeholder="Type a command…" autocomplete="off">
+      <div id="palette-list" class="palette-list"></div>
+    </div>
+  </div>
+
+  <div id="shortcuts" class="modal" hidden>
+    <div class="modal-card">
+      <div class="modal-title" data-i18n="shortcuts.title">Keyboard shortcuts</div>
+      <table class="shortcut-table">
+        <tr><td>Ctrl+N / Ctrl+T</td><td data-i18n="sc.newDoc">New document / new tab</td></tr>
+        <tr><td>Ctrl+O / Ctrl+K</td><td data-i18n="sc.open">Open file / open folder</td></tr>
+        <tr><td>Ctrl+S / Ctrl+Shift+S</td><td data-i18n="sc.save">Save / save as</td></tr>
+        <tr><td>Ctrl+F</td><td data-i18n="sc.find">Find &amp; replace</td></tr>
+        <tr><td>Ctrl+J</td><td data-i18n="sc.ai">AI writing</td></tr>
+        <tr><td>Ctrl+,</td><td data-i18n="sc.settings">Settings</td></tr>
+        <tr><td>Ctrl+Shift+P</td><td data-i18n="sc.palette">Command palette</td></tr>
+        <tr><td>Ctrl+Shift+O</td><td data-i18n="sc.outline">Toggle outline</td></tr>
+        <tr><td>Ctrl+Shift+N</td><td data-i18n="sc.newWindow">New window</td></tr>
+        <tr><td>Ctrl+Shift+E / Ctrl+Shift+P</td><td data-i18n="sc.export">Export HTML / PDF</td></tr>
+        <tr><td>Ctrl+Shift+↑ / ↓</td><td data-i18n="sc.moveBlock">Move the current block</td></tr>
+        <tr><td>Ctrl+Shift+V</td><td data-i18n="sc.preview">Preview the export</td></tr>
+        <tr><td>Ctrl+Shift+K</td><td data-i18n="sc.focusMode">Toggle focus mode</td></tr>
+        <tr><td>Ctrl+W / Ctrl+Shift+T</td><td data-i18n="sc.tabs">Close tab / reopen the last closed tab</td></tr>
+        <tr><td>F1</td><td data-i18n="sc.help">This list</td></tr>
+      </table>
+      <div class="modal-foot">
+        <button id="shortcuts-close" data-i18n="shortcuts.close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="stats-modal" class="modal" hidden>
+    <div class="modal-card">
+      <div class="modal-title" data-i18n="stats.title">Document statistics</div>
+      <table class="shortcut-table" id="stats-table"></table>
+      <div class="modal-foot">
+        <button id="stats-close" data-i18n="stats.close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings-modal" class="modal" hidden>
+    <div class="modal-card">
+      <div class="modal-title" data-i18n="settings.title">Settings</div>
+
+      <input id="set-filter" class="settings-filter" data-i18n-placeholder="settings.filter" placeholder="Filter settings…" autocomplete="off">
+
+      <div class="field">
+        <label for="set-theme" data-i18n="settings.theme">Theme</label>
+        <select id="set-theme">
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+          <option value="sepia">Sepia</option>
+        </select>
+        <svg id="template-thumb" class="template-thumb" viewBox="0 0 120 80" aria-hidden="true"></svg>
+        <div id="template-hint" class="template-hint">默认：常规页边距与行距</div>
+      </div>
+      <div class="field">
+        <label for="set-autosave" data-i18n="settings.autosave">Autosave (seconds)</label>
+        <input id="set-autosave" type="number" min="1" max="60" step="1">
+      </div>
+
+      <div class="field">
+        <label for="set-language" data-i18n="settings.language">Language</label>
+        <select id="set-language">
+          <option value="en">English</option>
+          <option value="zh">简体中文</option>
+        </select>
+      </div>
+
+      <div class="modal-sub" data-section="export" data-i18n="settings.exportSection">Export</div>
+      <div class="field">
+        <label for="set-export-template" data-i18n="settings.exportTemplate">Export template</label>
+        <select id="set-export-template">
+          <option value="default" data-i18n="template.default">Default</option>
+          <option value="compact" data-i18n="template.compact">Compact</option>
+          <option value="toc" data-i18n="template.toc">With table of contents</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="set-export-name" data-i18n="settings.exportName">Export file name</label>
+        <input id="set-export-name" placeholder="{title}-{date}">
+        <span id="set-export-name-hint" class="field-hint"></span>
+      </div>
+
+      <div class="field">
+        <label for="set-export-css" data-i18n="settings.exportCss">Custom CSS for exports</label>
+        <textarea id="set-export-css" rows="3" spellcheck="false" placeholder="body { font-family: Georgia, serif; }"></textarea>
+        <button id="set-export-preview" data-i18n="settings.previewExport">Preview export</button>
+      </div>
+
+      <div class="modal-sub" data-section="ai" data-i18n="settings.aiSection">AI writing</div>
+      <div class="field">
+        <label for="set-ai-preset" data-i18n="settings.aiPreset">Provider</label>
+        <select id="set-ai-preset">
+          <option value="deepseek">DeepSeek</option>
+          <option value="openai">OpenAI</option>
+          <option value="ollama">Ollama (local)</option>
+          <option value="custom" data-i18n="preset.custom">Custom</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="set-ai-base" data-i18n="settings.endpoint">Endpoint</label>
+        <input id="set-ai-base" placeholder="https://api.deepseek.com/v1">
+      </div>
+      <div class="field">
+        <label for="set-ai-model" data-i18n="settings.model">Model</label>
+        <input id="set-ai-model" placeholder="deepseek-chat" list="ai-model-list">
+        <datalist id="ai-model-list"></datalist>
+        <button id="set-ai-models" title="Fetch the model list from the endpoint" data-i18n="settings.fetchModels">Fetch models</button>
+      </div>
+
+      <button id="ai-test" class="ai-test" data-i18n="ai.test">Test connection</button>
+
+      <div class="field">
+        <label for="set-ai-confirm" data-i18n="settings.aiConfirm">Confirm above (tokens)</label>
+        <input id="set-ai-confirm" type="number" min="0" max="500000" step="1000">
+      </div>
+      <div class="field">
+        <div class="style-presets">
+          <button type="button" class="style-preset" data-style="concise" data-i18n="style.concise">Concise</button>
+          <button type="button" class="style-preset" data-style="academic" data-i18n="style.academic">Academic</button>
+          <button type="button" class="style-preset" data-style="marketing" data-i18n="style.marketing">Marketing</button>
+          <button type="button" class="style-preset" data-style="friendly" data-i18n="style.friendly">Friendly</button>
+        </div>
+        <label for="set-ai-system" data-i18n="settings.aiSystem">Writing style guidance</label>
+        <textarea id="set-ai-system" rows="2" spellcheck="false" placeholder="Keep sentences short. Avoid semicolons. Prefer concrete examples."></textarea>
+      </div>
+
+      <div class="modal-sub" data-section="usage" data-i18n="settings.usage">Usage</div>
+      <div id="ai-usage-list" class="usage-list"></div>
+      <button id="usage-export" class="usage-export" data-i18n="usage.export">Export CSV</button>
+
+      <div class="field">
+        <label for="set-ai-key" data-i18n="settings.apiKey">API key</label>
+        <input id="set-ai-key" type="password" placeholder="leave blank to keep the saved key">
+      </div>
+      <div id="set-ai-note" class="note"></div>
+
+      <div class="modal-foot">
+        <span id="set-dirty" class="settings-dirty" data-i18n="settings.unsaved" hidden>Unsaved changes</span>
+      <button id="set-cancel" data-i18n="settings.cancel">Cancel</button>
+        <button id="set-save" data-i18n="settings.save">Save</button>
+        <span id="set-status" class="ai-status"></span>
+        <span id="set-version" class="version"></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="link-popover" class="popover" hidden>
+    <input id="link-input" type="text" placeholder="https://example.com" autocomplete="off">
+    <button id="link-apply">Apply</button>
+    <button id="link-remove">Remove</button>
+    <div id="link-preview" class="link-preview" hidden></div>
+  </div>
+
+  <div id="table-bar" class="tablebar" hidden>
+    <span class="tablebar-label">Table</span>
+    <button data-table="addRowBefore">+row ↑</button>
+    <button data-table="addRowAfter">+row ↓</button>
+    <button data-table="addColumnBefore">+col ←</button>
+    <button data-table="addColumnAfter">+col →</button>
+    <button data-table="deleteRow">−row</button>
+    <button data-table="deleteColumn">−col</button>
+    <button data-table="deleteTable">delete</button>
+  </div>
+
+  <div id="image-bar" class="tablebar" hidden>
+    <span class="tablebar-label">Image</span>
+    <button data-img="w:25%">25%</button>
+    <button data-img="w:50%">50%</button>
+    <button data-img="w:75%">75%</button>
+    <button data-img="w:100%">100%</button>
+    <button data-img="w:">auto</button>
+    <span class="sep"></span>
+    <button data-img="align:left">left</button>
+    <button data-img="align:center">center</button>
+    <button data-img="align:right">right</button>
+    <button data-img="align:">clear</button>
+  </div>
+
+  <div id="findbar" class="findbar" hidden>
+    <input id="find-input" type="text" placeholder="Find" autocomplete="off">
+    <input id="replace-input" type="text" placeholder="Replace with" autocomplete="off">
+    <button id="find-prev" title="Previous (Shift+Enter)">↑</button>
+    <button id="find-next" title="Next (Enter)">↓</button>
+    <button id="replace-one">Replace</button>
+    <button id="replace-all">All</button>
+    <span id="find-count" class="find-count"></span>
+    <button id="find-close" title="Close (Esc)">✕</button>
+  </div>
+
+  <main class="layout">
+    <aside id="files" class="files">
+      <div class="files-head">
+        <span id="files-root" class="files-root" title="Folder">Files</span>
+        <button id="files-choose" class="icon" title="Open folder">📂</button>
+      </div>
+      <div id="tree" class="tree"></div>
+    </aside>
+    <aside id="outline" class="outline">
+      <div class="outline-title">Outline</div>
+      <nav id="outline-list" class="outline-list"></nav>
+      <div id="outline-empty" class="outline-empty" data-i18n="outline.empty">Headings will appear here</div>
+    </aside>
+    <section class="pane editor-pane">
+      <div id="editor"></div>
+      <div id="empty-hint" class="empty-hint">
+        <div class="empty-card">
+          <button id="empty-dismiss" class="empty-dismiss" title="Hide this guide">×</button>
+          <div class="empty-title" data-i18n="empty.title">mdpad</div>
+          <div class="empty-sub" data-i18n="empty.subtitle">A markdown editor that survives crashes and interruptions</div>
+          <div class="empty-actions">
+            <button id="empty-new" data-i18n="empty.new">New document</button>
+            <button id="empty-folder" data-i18n="empty.folder">Open a folder</button>
+            <button id="empty-ai" data-i18n="empty.ai">Try AI writing</button>
+          </div>
+          <div class="empty-tip" data-i18n="empty.tip">Ctrl+Shift+P for commands · F1 for shortcuts</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span id="stats"></span>
+    <span id="paths"></span>
+  </footer>
+
+  <input id="image-input" type="file" accept="image/*" hidden>
+  <script src="dist/app.js"></script>
+</body>
+</html>
