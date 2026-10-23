@@ -7316,6 +7316,55 @@ async function runSmoke() {
     shortcutGroups
   );
 
+  // 93a. images resize by dragging a corner handle, and the width lands in the metadata
+  const imgResize = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const png =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    window.__mdpad.setMarkdown('![wide pic](' + png + ')');
+    await sleep(700);
+    const image = document.querySelector('.tiptap img');
+    const rect = image.getBoundingClientRect();
+    image.dispatchEvent(new MouseEvent('mousemove', {
+      bubbles: true,
+      clientX: rect.right - 4,
+      clientY: rect.bottom - 4,
+    }));
+    await sleep(250);
+    const shown = window.__mdpad.imageHandleState();
+    const handle = document.querySelector('#img-resize-handle');
+    const handleRect = handle.getBoundingClientRect();
+    handle.dispatchEvent(new MouseEvent('pointerdown', {
+      bubbles: true,
+      cancelable: true,
+      clientX: handleRect.left + 4,
+      clientY: handleRect.top + 4,
+    }));
+    await sleep(80);
+    document.dispatchEvent(new MouseEvent('pointermove', {
+      bubbles: true,
+      clientX: handleRect.left + 4 - Math.round(rect.width * 0.3),
+      clientY: handleRect.top + 4,
+    }));
+    await sleep(120);
+    const during = window.__mdpad.imageWidthStyle();
+    document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }));
+    await sleep(400);
+    const after = window.__mdpad.imageMeta();
+    const hiddenAfter = window.__mdpad.imageHandleState().hidden;
+    return { shown, during, after: after.title, hiddenAfter };
+  })()`);
+  step(
+    'image-drag-resize',
+    imgResize.shown.hidden === false &&
+      /%/.test(imgResize.during.style || '') &&
+      /\bw=\d+%/.test(imgResize.after || '') &&
+      imgResize.hiddenAfter === true &&
+      // the drag moved left, so the stored width must be below 100%
+      Number((imgResize.after || '').replace(/[^0-9]/g, '').slice(0, 3)) < 100,
+    imgResize
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

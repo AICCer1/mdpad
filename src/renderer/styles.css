@@ -1925,3 +1925,27 @@ textarea:focus-visible,
   font-variant-numeric: tabular-nums;
   color: var(--text);
 }
+
+/* ---- image resize handle ---- */
+.img-resize-handle {
+  position: fixed;
+  z-index: 45;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 2px solid var(--bg);
+  background: var(--accent);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--text) 30%, transparent);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+.img-resize-handle::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-right: 1.5px solid #fff;
+  border-bottom: 1.5px solid #fff;
+  border-radius: 1px;
+  opacity: 0.9;
+}
+.tiptap img.is-resizing { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 2px; }

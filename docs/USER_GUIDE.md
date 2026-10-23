@@ -87,7 +87,7 @@ and clusters them by purpose — text style, block style, lists, code, insert, m
 | Code block | toolbar `{ }`; the language dropdown writes the fence language |
 | Math | toolbar `$x$` / `$$`, or type `$...$` / `$$...$$` directly; the popover previews as you type, and clicking a rendered formula reopens it for editing. Display math is centred with a hover highlight |
 | Diagram | a fenced block with language `mermaid` becomes the rendered diagram — click it to edit the source, press Esc (or click outside) to go back to the picture; a broken diagram keeps its source visible with the error underneath |
-| Image | paste, drag a file in, or toolbar 🖼 |
+| Image | paste or drag a file in; hover the picture and drag the corner handle to resize it (the same w=NN% metadata the toolbar buttons write), or use the image bar for exact presets and alignment |
 | Link | toolbar 🔗; paste a URL over a selection to link it; Ctrl+click opens it in the browser, a plain click only places the caret |
 | Move a block | Ctrl+Shift+↑ / ↓ |
 | In a table | Tab moves to the next cell, Shift+Tab to the previous one |

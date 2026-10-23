@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.17.0
+
+Images resize by dragging, the way Typora does it.
+
+- **A corner handle appears when you hover a picture.** Drag it and the image follows the pointer,
+  snapped to 5% steps; on release the size is written as the same `w=NN%` metadata the toolbar
+  presets use, so the two paths agree and the markdown round-trip keeps working.
+- **Nothing new in the document format.** It reuses the existing `title="w=50%"` attribute, so
+  files opened in older versions still resize correctly.
+- **Escape, scrolling or clicking elsewhere dismisses the handle.** Dragging is confined to the
+  image's own column, clamped at 10–100%.
+- 237 smoke checks (one new `image-drag-resize`: the handle appears, the width changes while
+  dragging, the stored title carries a width below 100%, and the handle hides), 153 unit tests.
+
 ## 1.16.0
 
 The secondary surfaces caught up with the rest of the chrome.

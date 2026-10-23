@@ -1041,6 +1041,102 @@ function setImageMeta(patch) {
   syncToolbar();
 }
 
+// Typora-style image resizing: a handle at the bottom-right corner writes the same
+// w=NN% metadata the toolbar buttons use, so both paths stay in sync.
+let imgResize = null;
+
+function ensureImgHandle() {
+  let handle = document.querySelector('#img-resize-handle');
+  if (handle) return handle;
+  handle = document.createElement('div');
+  handle.id = 'img-resize-handle';
+  handle.className = 'img-resize-handle';
+  handle.hidden = true;
+  handle.title = 'Drag to resize';
+  document.body.appendChild(handle);
+  return handle;
+}
+
+function hideImgHandle() {
+  const handle = document.querySelector('#img-resize-handle');
+  if (handle) handle.hidden = true;
+}
+
+function placeImgHandle(image) {
+  const handle = ensureImgHandle();
+  const rect = image.getBoundingClientRect();
+  handle.style.top = rect.bottom - 11 + 'px';
+  handle.style.left = rect.right - 11 + 'px';
+  handle.hidden = false;
+  handle.dataset.for = String([...document.querySelectorAll('.tiptap img')].indexOf(image));
+}
+
+function imageAtPoint(event) {
+  const target = event.target;
+  return target && target.tagName === 'IMG' && target.closest('.tiptap') ? target : null;
+}
+
+editor.view.dom.addEventListener('mousemove', (event) => {
+  if (imgResize) return;
+  const image = imageAtPoint(event);
+  if (image) placeImgHandle(image);
+  else hideImgHandle();
+});
+editor.view.dom.addEventListener('mouseleave', () => {
+  if (!imgResize) hideImgHandle();
+});
+
+document.addEventListener('pointerdown', (event) => {
+  const handle = event.target.closest ? event.target.closest('#img-resize-handle') : null;
+  if (!handle) {
+    if (!event.target.closest || !event.target.closest('#img-resize-handle')) hideImgHandle();
+    return;
+  }
+  const images = [...document.querySelectorAll('.tiptap img')];
+  const image = images[Number(handle.dataset.for)];
+  if (!image) return;
+  event.preventDefault();
+  const block = image.parentElement || editor.view.dom;
+  const blockRect = block.getBoundingClientRect();
+  const startWidth = image.getBoundingClientRect().width;
+  imgResize = { image, blockRect, startWidth, startX: event.clientX };
+  image.classList.add('is-resizing');
+});
+
+document.addEventListener('pointermove', (event) => {
+  if (!imgResize) return;
+  const { blockRect, startWidth, image, startX } = imgResize;
+  const next = Math.max(60, Math.min(blockRect.width, startWidth + (event.clientX - startX)));
+  const percent = Math.max(10, Math.min(100, Math.round((next / blockRect.width) * 100 / 5) * 5));
+  image.style.width = percent + '%';
+  image.dataset.pendingWidth = String(percent);
+});
+
+document.addEventListener('pointerup', () => {
+  if (!imgResize) return;
+  const { image } = imgResize;
+  const percent = image.dataset.pendingWidth;
+  imgResize = null;
+  image.classList.remove('is-resizing');
+  delete image.dataset.pendingWidth;
+  hideImgHandle();
+  if (!percent) return;
+  // Select the image so updateAttributes targets it, then write the metadata.
+  try {
+    const pos = editor.view.posAtDOM(image, 0);
+    editor.chain().focus().setNodeSelection(Math.max(0, pos - 1)).run();
+  } catch {
+    /* selecting is best effort */
+  }
+  if (!editor.isActive('image')) return;
+  setImageMeta({ w: percent + '%' });
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') hideImgHandle();
+});
+window.addEventListener('scroll', hideImgHandle, true);
+
 document.querySelectorAll('[data-img]').forEach((button) => {
   button.addEventListener('click', () => {
     const [key, value] = button.dataset.img.split(':');
@@ -3903,6 +3999,22 @@ window.__mdpad = {
     fontDisabled: document.querySelector('#export-font').disabled,
     marginDisabled: document.querySelector('#export-margin').disabled,
   }),
+  imageHandleState: () => {
+    const handle = document.querySelector('#img-resize-handle');
+    return { exists: Boolean(handle), hidden: handle ? handle.hidden : true };
+  },
+  imageWidthStyle: () => {
+    const image = document.querySelector('.tiptap img');
+    return image ? { style: image.getAttribute('style') || '', stickyWidth: image.style.width } : null;
+  },
+  imageMeta: () => {
+    let title = '';
+    editor.state.doc.descendants((node) => {
+      if (!title && node.type.name === 'image') title = node.attrs.title || '';
+      return true;
+    });
+    return { title };
+  },
   mermaidState: () =>
     [...document.querySelectorAll('.code-block.is-mermaid')].map((block) => ({
       preview: block.classList.contains('is-preview'),
