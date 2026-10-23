@@ -1070,6 +1070,29 @@ function outlineItems() {
 
 let lastOutlineMs = 0;
 
+// The heading that owns the caret is the one worth marking; it also tells the user where they
+// are in a long document without reading the text.
+function markCurrentOutline() {
+  const items = outlineItems();
+  if (!items.length) return;
+  const caret = editor.state.selection.from;
+  let index = -1;
+  for (let i = 0; i < items.length; i += 1) {
+    if (items[i].pos <= caret) index = i;
+    else break;
+  }
+  const nodes = [...outlineList.querySelectorAll('.outline-item')];
+  nodes.forEach((node, i) => node.classList.toggle('is-current', i === index));
+  const current = nodes[index];
+  if (current && typeof current.scrollIntoView === 'function') {
+    const box = outlineList.getBoundingClientRect();
+    const rect = current.getBoundingClientRect();
+    if (rect.top < box.top || rect.bottom > box.bottom) {
+      current.scrollIntoView({ block: 'nearest' });
+    }
+  }
+}
+
 function renderOutline() {
   const startedAt = performance.now();
   const items = outlineItems();
@@ -1088,6 +1111,9 @@ function renderOutline() {
   outlineList.hidden = items.length === 0;
   const outlineEmpty = document.querySelector('#outline-empty');
   if (outlineEmpty) outlineEmpty.hidden = items.length > 0;
+  const count = document.querySelector('#outline-count');
+  if (count) count.textContent = items.length ? String(items.length) : '';
+  markCurrentOutline();
   lastOutlineMs = performance.now() - startedAt;
 }
 
@@ -1125,6 +1151,7 @@ editor.on('update', renderOutline);
 editor.on('selectionUpdate', () => {
   if (!aiPopover.hidden) updateContextNote();
   updateActiveBlock();
+  markCurrentOutline();
 });
 editor.on('update', updateActiveBlock);
 // ---- focus mode -------------------------------------------------------------
@@ -2520,13 +2547,30 @@ async function childrenOf(dir) {
   return treeCache.get(dir);
 }
 
+function relativeTime(ms) {
+  if (!ms) return '';
+  const diff = Date.now() - ms;
+  if (diff < 60_000) return 'now';
+  if (diff < 3_600_000) return Math.round(diff / 60_000) + 'm';
+  if (diff < 86_400_000) return Math.round(diff / 3_600_000) + 'h';
+  if (diff < 7 * 86_400_000) return Math.round(diff / 86_400_000) + 'd';
+  const date = new Date(ms);
+  return date.getMonth() + 1 + '/' + date.getDate();
+}
+
 async function renderTree() {
   const host = $('#tree');
   host.textContent = '';
   if (!treeRoot) {
     const empty = document.createElement('div');
-    empty.className = 'tree-empty';
-    empty.textContent = 'Open a folder to browse files';
+    empty.className = 'tree-empty tree-empty-action';
+    const hint = document.createElement('div');
+    hint.textContent = 'No folder open';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = 'Open a folder';
+    button.addEventListener('click', () => document.querySelector('#files-choose').click());
+    empty.append(hint, button);
     host.appendChild(empty);
     return;
   }
@@ -2564,6 +2608,14 @@ async function renderDir(dir, depth) {
     label.className = 'tree-label';
     label.textContent = entry.name;
     row.appendChild(label);
+
+    if (!entry.dir && entry.mtime) {
+      const meta = document.createElement('span');
+      meta.className = 'tree-meta';
+      meta.textContent = relativeTime(entry.mtime);
+      meta.title = new Date(entry.mtime).toLocaleString();
+      row.appendChild(meta);
+    }
 
     if (entry.dir) {
       row.addEventListener('click', async () => {
@@ -3515,10 +3567,11 @@ window.__mdpad = {
   paletteActive: () => !palette.hidden,
   openFolder: async (root) => {
     const res = await window.api.setTreeRoot(root);
-    treeRoot = { root: res.root, name: res.name };
     treeExpanded.clear();
     treeCache.clear();
-    treeCache.set(res.root, res.entries || []);
+    // Closing the folder must clear the root, otherwise the tree renders a null directory.
+    treeRoot = res && res.root ? { root: res.root, name: res.name } : null;
+    if (treeRoot) treeCache.set(treeRoot.root, res.entries || []);
     await renderTree();
   },
   applyMarkdown(markdown) {
@@ -3630,4 +3683,24 @@ window.__mdpad = {
     aiScopeAuto = false;
   },
   outlineMs: () => lastOutlineMs,
+  outlineDebug: () => {
+    const items = outlineItems();
+    const caret = editor.state.selection.from;
+    let index = -1;
+    for (let i = 0; i < items.length; i += 1) {
+      if (items[i].pos <= caret) index = i;
+      else break;
+    }
+    return {
+      caret,
+      index,
+      items: items.map((i) => ({ text: i.text, pos: i.pos })),
+      classes: [...outlineList.querySelectorAll('.outline-item')].map((n) => n.className),
+    };
+  },
+  outlineCurrent: () => {
+    const current = document.querySelector('#outline-list .outline-item.is-current');
+    return current ? current.textContent : '';
+  },
+  treeMeta: () => [...document.querySelectorAll('#tree .tree-meta')].map((el) => el.textContent),
 };

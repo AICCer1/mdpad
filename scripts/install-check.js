@@ -48,7 +48,7 @@ const smoke = spawnSync(process.execPath, ['scripts/smoke.js'], {
   cwd: root,
   env: { ...process.env, MDPAD_SMOKE_BIN: exe },
   stdio: 'inherit',
-  timeout: 240000,
+  timeout: 420000,
 });
 if (smoke.status !== 0) fail(`installed app smoke exit ${smoke.status}`);
 

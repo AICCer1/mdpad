@@ -505,11 +505,19 @@ function listDirectory(dir) {
   const items = entries
     .filter((entry) => !entry.name.startsWith('.') && !TREE_IGNORE.has(entry.name))
     .slice(0, TREE_MAX_ENTRIES)
-    .map((entry) => ({
-      name: entry.name,
-      path: path.join(dir, entry.name),
-      dir: entry.isDirectory(),
-    }))
+    .map((entry) => {
+      const full = path.join(dir, entry.name);
+      let mtime = 0;
+      let size = 0;
+      try {
+        const stat = fs.statSync(full);
+        mtime = stat.mtimeMs;
+        size = stat.size;
+      } catch {
+        /* a file can vanish between readdir and stat */
+      }
+      return { name: entry.name, path: full, dir: entry.isDirectory(), mtime, size };
+    })
     .sort((a, b) => (a.dir === b.dir ? a.name.localeCompare(b.name) : a.dir ? -1 : 1));
   return { path: dir, entries: items };
 }
@@ -966,11 +974,13 @@ class Session {
   }
 
   setTreeRoot(root) {
-    this.treeRoot = root;
+    this.treeRoot = root || null;
     if (this.treeWatcher) {
       this.treeWatcher.close();
       this.treeWatcher = null;
     }
+    // Closing the folder is allowed: no watcher, no path, no basename of null.
+    if (!this.treeRoot) return { root: null, name: '' };
     let timer = null;
     try {
       this.treeWatcher = fs.watch(root, { recursive: true }, () => {
@@ -1804,6 +1814,8 @@ function registerIpc() {
 
   ipcMain.handle('tree:setRoot', (event, { root }) => {
     const s = sessionFor(event);
+    // Closing a folder is a legitimate state, not an invalid path.
+    if (!root) return { ...s.setTreeRoot(null), root: null, name: '', entries: [] };
     return { ...s.setTreeRoot(root), ...listDirectory(root) };
   });
 
@@ -1992,9 +2004,9 @@ async function runSmoke() {
   };
 
   const watchdog = setTimeout(() => {
-    console.error('SMOKE_TIMEOUT after 240s; completed=' + JSON.stringify(out));
+    console.error('SMOKE_TIMEOUT after 330s; completed=' + JSON.stringify(out));
     app.exit(2);
-  }, 240000);
+  }, 330000);
 
   // Deterministic UI language for assertions; the i18n check switches explicitly.
   writeSettings({
@@ -6751,6 +6763,89 @@ async function runSmoke() {
     { ...exportPanel, htmlHasFont: /font-family: Cambria/i.test(panelHtml) }
   );
 
+  // 86a. the sidebar carries real information: file age, an empty-state action, and the
+  // outline marks the heading the caret sits under
+  const sidebar = await (async () => {
+    const folder = path.join(dir, 'sidebar-project');
+    fs.mkdirSync(folder, { recursive: true });
+    fs.writeFileSync(path.join(folder, 'notes.md'), '# Notes' + String.fromCharCode(10, 10) + 'body');
+    fs.writeFileSync(path.join(folder, 'older.md'), '# Older');
+    const old = new Date(Date.now() - 3 * 3600 * 1000);
+    fs.utimesSync(path.join(folder, 'older.md'), old, old);
+
+    await win.webContents.executeJavaScript(`window.__mdpad.openFolder(${JSON.stringify(folder)})`);
+    await sleep(900);
+
+    const tree = await win.webContents.executeJavaScript(`(() => ({
+      rows: [...document.querySelectorAll('#tree .tree-row')].length,
+      metas: [...document.querySelectorAll('#tree .tree-meta')].map((m) => m.textContent.trim()),
+    }))()`);
+
+    const outline = await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const nl = String.fromCharCode(10);
+      window.__mdpad.setMarkdown(['# One', '', 'alpha', '', '## Two', '', 'beta', '', '## Three', '', 'gamma'].join(nl));
+      await sleep(700);
+      const items = document.querySelectorAll('#outline-list .outline-item').length;
+      const count = document.querySelector('#outline-count').textContent;
+      const ed = window.__mdpad.editor;
+      let pos = 1;
+      ed.state.doc.descendants((node, p) => {
+        if (node.isText && node.text === 'beta') pos = p;
+      });
+      ed.commands.setTextSelection(pos);
+      await sleep(400);
+      const caret = ed.state.selection.from;
+      const headings = [];
+      ed.state.doc.descendants((node, p) => {
+        if (node.type.name === 'heading') headings.push({ text: node.textContent.trim(), pos: p });
+      });
+      let expected = '';
+      for (const h of headings) if (h.pos <= caret) expected = h.text;
+      const current = window.__mdpad.outlineCurrent();
+      const debug = window.__mdpad.outlineDebug();
+      let last = 1;
+      ed.state.doc.descendants((node, p) => {
+        if (node.isText && node.text === 'gamma') last = p;
+      });
+      ed.commands.setTextSelection(last);
+      await sleep(400);
+      const caretLast = ed.state.selection.from;
+      let expectedLast = '';
+      for (const h of headings) if (h.pos <= caretLast) expectedLast = h.text;
+      const currentLast = window.__mdpad.outlineCurrent();
+      return { items, count, current, currentLast, expected, expectedLast, debug };
+    })()`);
+
+    return { tree, outline };
+  })();
+
+  console.error('SIDEBAR_VALUES', JSON.stringify(sidebar, null, 0));
+  console.error('SIDEBAR_OUTLINE', JSON.stringify(sidebar.outline));
+  step(
+    'sidebar-information',
+    sidebar.tree.rows === 2 &&
+      sidebar.tree.metas.length === 2 &&
+      sidebar.tree.metas.some((meta) => /h$/.test(meta)) &&
+      sidebar.outline.items === 3 &&
+      sidebar.outline.count === '3' &&
+      sidebar.outline.current === sidebar.outline.expected &&
+      sidebar.outline.currentLast === sidebar.outline.expectedLast,
+    sidebar
+  );
+
+  // 86b. with no folder, the tree offers an action instead of a sentence
+  const treeEmpty = await (async () => {
+    await win.webContents.executeJavaScript(`window.__mdpad.openFolder(null)`);
+    await sleep(700);
+    return win.webContents.executeJavaScript(`(() => ({
+      text: document.querySelector('#tree .tree-empty')?.textContent.trim() || '',
+      hasButton: Boolean(document.querySelector('#tree .tree-empty-action button')),
+    }))()`);
+  })();
+  console.error('TREE_EMPTY', JSON.stringify(treeEmpty));
+  step('tree-empty-action', treeEmpty.hasButton && /Open a folder/.test(treeEmpty.text), treeEmpty);
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -6999,16 +7094,28 @@ async function runSmoke() {
     settingsRound
   );
 
-  stub.close();
+  try {
+    stub.close();
+  } catch (err) {
+    console.error('SMOKE_CLOSE_ERROR', err && err.message);
+  }
 
   clearTimeout(watchdog);
   const failed = out.filter((r) => !r.ok);
   const report = { ok: failed.length === 0, checks: out, dir };
+  try {
+    fs.writeFileSync(path.join(dir, 'smoke-result.json'), JSON.stringify(report, null, 2), 'utf8');
+  } catch (err) {
+    console.error('SMOKE_WRITE_ERROR', err && err.stack);
+    throw err;
+  }
   // Write the report first: stdout can be held open by helper processes, so the
   // shell is told the result through a file rather than through the exit flush.
-  fs.writeFileSync(path.join(dir, 'smoke-result.json'), JSON.stringify(report, null, 2), 'utf8');
   console.log(`SMOKE_RESULT ${report.ok ? 'ok' : 'FAIL'} checks=${out.length} failed=${failed.length} dir=${dir}`);
-  process.exit(report.ok ? 0 : 1);
+  // process.exit() can truncate piped stdout on Windows, which is how the runner reads the
+  // result; keep the loop alive for a tick and let the process end on its own.
+  process.exitCode = report.ok ? 0 : 1;
+  setTimeout(() => app.exit(process.exitCode), 250);
 }
 
 // ---- screenshots for the documentation -------------------------------------

@@ -38,8 +38,18 @@ Times New Roman, Arial, Cambria, Consolas), a text width
 (narrow 34 rem, normal 46 rem, wide 58 rem) and four accent colours; all three apply
 immediately on save and are remembered.
 
+**Sidebars.** File rows show how long ago each file changed (hover for the exact timestamp),
+and an empty tree offers **Open a folder** instead of a sentence. The outline header counts the
+headings in the document and the section that currently holds the caret is marked with an accent
+rule, so you can see where you are without reading the text.
+
 **File tree.** The ◀ button in the Files header hides the tree; a 34 px rail stays behind with a ▶ button, so
 a collapsed tree is always recoverable, and the state survives a restart.
+
+**Sidebars.** File rows show how long ago each file changed (hover for the exact timestamp), and an
+empty tree offers **Open a folder** instead of a sentence. The outline header counts the headings in
+the document, and the section that currently holds the caret is marked with an accent rule, so you
+can see where you are without reading the text.
 
 **Tables.** Hover a table to get a small toolbar with add row, add column and the two delete
 actions, so a table can be edited without visiting the bar. Pressing Tab in the last cell appends a row, the way Notion does. The bar above the editor

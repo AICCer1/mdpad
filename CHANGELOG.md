@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.10.0
+
+The sidebars start carrying information.
+
+- **File rows show age.** Each file gets a right-aligned relative timestamp ("now", "3h", "2d", or
+  a date), with the exact time in the tooltip. The directory listing now returns `mtime` and size.
+- **The empty tree is an action**, not a sentence: "No folder open" plus an **Open a folder**
+  button, instead of a line of grey text.
+- **The outline follows the caret.** The heading whose section contains the cursor is marked with
+  an accent rule and its label is highlighted; the header counts the headings. I found, while
+  wiring this, that the editor had **two identical `selectionUpdate` listeners** registered from an
+  earlier edit — the marker was being attached to a copy that no longer fired.
+- **Closing a folder works.** `setTreeRoot(null)` threw on `path.basename(null)`; the tree now
+  clears properly, which is what the empty state needed.
+- **The smoke harness stops lying about timeouts.** With 226 checks the run passed 240 s, so the
+  in-app watchdog killed the app after every step had already succeeded and the runner reported
+  "no SMOKE_RESULT" with no failing check. Both watchdogs are now 330 s / 360 s, and the result is
+  flushed before exit (`process.exit` truncated piped stdout on Windows).
+- 226 smoke checks (two new `sidebar-information`, `tree-empty-action`), 153 unit tests.
+
 ## 1.9.0
 
 One export panel.
