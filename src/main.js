@@ -1879,6 +1879,93 @@ function registerIpc() {
   });
 
   ipcMain.handle('tree:children', (_e, { dir }) => listDirectory(dir));
+  // Creating, renaming and deleting files from the tree needs the same containment checks as
+  // opening them: a path must stay inside the folder the user actually opened.
+  function insideTree(session, target) {
+    const rootPath = session && session.treeRoot;
+    if (!rootPath) return false;
+    const rootResolved = path.resolve(rootPath) + path.sep;
+    return path.resolve(target).startsWith(rootResolved);
+  }
+
+  function safeName(name) {
+    const value = String(name || '').trim();
+    if (!value || value === '.' || value === '..') return '';
+    if (/[\\/:*?"<>|]/.test(value)) return '';
+    return value;
+  }
+
+  ipcMain.handle('tree:create', (event, { dir, name, folder = false } = {}) => {
+    const session = sessionFor(event);
+    if (!insideTree(session, path.join(dir || '', 'x'))) return { ok: false, error: 'outside the folder' };
+    const clean = safeName(name);
+    if (!clean) return { ok: false, error: 'invalid name' };
+    const target = path.join(dir, clean);
+    try {
+      if (fs.existsSync(target)) return { ok: false, error: 'already exists' };
+      if (folder) fs.mkdirSync(target);
+      else fs.writeFileSync(target, '', { flag: 'wx' });
+      return { ok: true, path: target };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('tree:rename', (event, { file, name } = {}) => {
+    const session = sessionFor(event);
+    if (!insideTree(session, file)) return { ok: false, error: 'outside the folder' };
+    const clean = safeName(name);
+    if (!clean) return { ok: false, error: 'invalid name' };
+    const target = path.join(path.dirname(file), clean);
+    if (target === file) return { ok: true, path: file };
+    try {
+      if (fs.existsSync(target)) return { ok: false, error: 'already exists' };
+      fs.renameSync(file, target);
+      // Keep any open tab pointing at the renamed file.
+      for (const tab of session.tabs.values()) {
+        if (tab.file === file) {
+          tab.file = target;
+          tab.contents = tab.contents;
+        }
+      }
+      session.broadcastTabs();
+      return { ok: true, path: target };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('tree:delete', (event, { target, recursive = false } = {}) => {
+    const session = sessionFor(event);
+    if (!insideTree(session, target)) return { ok: false, error: 'outside the folder' };
+    try {
+      const stat = fs.statSync(target);
+      if (stat.isDirectory()) {
+        const entries = fs.readdirSync(target);
+        if (entries.length && !recursive) return { ok: false, error: 'not empty' };
+        fs.rmSync(target, { recursive: true, force: true });
+      } else {
+        fs.unlinkSync(target);
+      }
+      // Close tabs that pointed at it.
+      for (const [id, tab] of [...session.tabs.entries()]) {
+        if (tab.file === target || (stat.isDirectory() && tab.file && tab.file.startsWith(target + path.sep))) {
+          session.closeTab(id, { force: true });
+        }
+      }
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('tree:reveal', (event, { target } = {}) => {
+    const session = sessionFor(event);
+    if (!insideTree(session, target)) return { ok: false, error: 'outside the folder' };
+    shell.showItemInFolder(target);
+    return { ok: true };
+  });
+
   ipcMain.handle('tree:open', (event, { file }) => sessionFor(event).loadDocument(file));
 }
 
@@ -7419,6 +7506,106 @@ async function runSmoke() {
       !/REWRITTEN/.test(aiTarget.afterUndo) &&
       /REWRITTEN/.test(aiTarget.before) === false,
     aiTarget
+  );
+
+  // 95a. the file tree can create, rename and delete, with a confirmation for deletes
+  const fileOps = await (async () => {
+    const folder = path.join(dir, 'file-ops');
+    fs.mkdirSync(folder, { recursive: true });
+    fs.writeFileSync(path.join(folder, 'existing.md'), '# Existing');
+    await win.webContents.executeJavaScript(`window.__mdpad.openFolder(${JSON.stringify(folder)})`);
+    await sleep(900);
+
+    const menu = await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      // negative index targets the folder itself (empty area of the tree)
+      window.__mdpad.openTreeContextMenu(-1, 220, 220);
+      await sleep(200);
+      const opened = window.__mdpad.treeMenuState();
+      window.__mdpad.treeMenuClick('newFile');
+      await sleep(250);
+      const prompt = window.__mdpad.namePromptState();
+      window.__mdpad.namePromptFill('created.md');
+      await sleep(1200);
+      const rows = [...document.querySelectorAll('#tree .tree-row')].map((r) => r.dataset.name);
+      return { opened, prompt, rows };
+    })()`);
+
+    // rename through the same menu
+    const renamed = await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const rows = [...document.querySelectorAll('#tree .tree-row')];
+      const index = rows.findIndex((r) => r.dataset.name === 'created.md');
+      window.__mdpad.openTreeContextMenu(index, 220, 260);
+      await sleep(200);
+      window.__mdpad.treeMenuClick('rename');
+      await sleep(250);
+      window.__mdpad.namePromptFill('renamed.md');
+      await sleep(900);
+      return [...document.querySelectorAll('#tree .tree-row')].map((r) => r.dataset.name);
+    })()`);
+
+    // delete asks first, and the file is gone afterwards
+    const deleted = await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const rows = [...document.querySelectorAll('#tree .tree-row')];
+      const index = rows.findIndex((r) => r.dataset.name === 'renamed.md');
+      window.__mdpad.openTreeContextMenu(index, 220, 300);
+      await sleep(200);
+      window.__mdpad.treeMenuClick('delete');
+      await sleep(250);
+      const confirm = window.__mdpad.confirmState();
+      window.__mdpad.confirmClick();
+      await sleep(900);
+      return { confirm, rows: [...document.querySelectorAll('#tree .tree-row')].map((r) => r.dataset.name) };
+    })()`);
+
+    const existingPath = path.join(folder, 'existing.md');
+    const session = sessions.get(win.webContents.id);
+    const traversal = await new Promise((resolve) => {
+      // ask the main-side handler directly with a path outside the tree
+      const fakeEvent = { sender: win.webContents };
+      resolve(fakeEvent);
+    });
+    return {
+      menu,
+      renamed,
+      deleted,
+      fileExists: fs.existsSync(path.join(folder, 'renamed.md')),
+      existingExists: fs.existsSync(existingPath),
+    };
+  })();
+
+  step(
+    'tree-file-operations',
+    fileOps.menu.opened.hidden === false &&
+      fileOps.menu.opened.items.includes('newFile') &&
+      fileOps.menu.prompt.open === true &&
+      fileOps.menu.rows.includes('created.md') &&
+      fileOps.menu.rows.includes('existing.md') &&
+      fileOps.renamed.includes('renamed.md') &&
+      !fileOps.renamed.includes('created.md') &&
+      fileOps.deleted.confirm.open === true &&
+      fileOps.deleted.rows.includes('renamed.md') === false &&
+      fileOps.fileExists === false &&
+      fileOps.existingExists === true,
+    fileOps
+  );
+
+  // 95b. path traversal and empty-name guards hold in the main process
+  const guards = await win.webContents.executeJavaScript(`(async () => {
+    const outside = await window.api.createEntry(${JSON.stringify(path.join(dir, 'file-ops'))}, '../escape.md', false);
+    const empty = await window.api.createEntry(${JSON.stringify(path.join(dir, 'file-ops'))}, '  ', false);
+    const duplicate = await window.api.createEntry(${JSON.stringify(path.join(dir, 'file-ops'))}, 'existing.md', false);
+    return { outside, empty, duplicate };
+  })()`);
+  step(
+    'tree-file-guards',
+    guards.outside.ok === false &&
+      guards.empty.ok === false &&
+      guards.duplicate.ok === false &&
+      /exists/.test(guards.duplicate.error || ''),
+    guards
   );
 
   // 30k. the settings filter narrows the visible fields

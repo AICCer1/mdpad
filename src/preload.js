@@ -13,6 +13,10 @@ contextBridge.exposeInMainWorld('api', {
   setTreeRoot: (root) => ipcRenderer.invoke('tree:setRoot', { root }),
   listDir: (dir) => ipcRenderer.invoke('tree:children', { dir }),
   openPath: (file) => ipcRenderer.invoke('tree:open', { file }),
+  createEntry: (dir, name, folder) => ipcRenderer.invoke('tree:create', { dir, name, folder }),
+  renameEntry: (file, name) => ipcRenderer.invoke('tree:rename', { file, name }),
+  deleteEntry: (target, recursive) => ipcRenderer.invoke('tree:delete', { target, recursive }),
+  revealEntry: (target) => ipcRenderer.invoke('tree:reveal', { target }),
   pathForFile: (file) => {
     try {
       return webUtils.getPathForFile(file);

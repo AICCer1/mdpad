@@ -2995,6 +2995,212 @@ function relativeTime(ms) {
   return date.getMonth() + 1 + '/' + date.getDate();
 }
 
+// Right-click on the file tree: create, rename, delete. The tree is the only place users see
+// their folder, so it has to be where these live.
+let treeMenuTarget = null;
+
+function closeTreeMenu() {
+  const menu = document.querySelector('#tree-menu');
+  if (menu) menu.hidden = true;
+}
+
+function openTreeMenu(x, y, target) {
+  treeMenuTarget = target;
+  const menu = document.querySelector('#tree-menu');
+  if (!menu) return;
+  menu.querySelector('[data-tree-action="newFile"]').hidden = !target.dir;
+  menu.querySelector('[data-tree-action="newFolder"]').hidden = !target.dir;
+  menu.hidden = false;
+  const rect = menu.getBoundingClientRect();
+  menu.style.left = Math.max(8, Math.min(x, window.innerWidth - rect.width - 8)) + 'px';
+  menu.style.top = Math.max(8, Math.min(y, window.innerHeight - rect.height - 8)) + 'px';
+}
+
+function refreshTree() {
+  treeCache.clear();
+  return renderTree();
+}
+
+function askName({ title, value = '', hint = '', confirmLabel = 'Create' }) {
+  return new Promise((resolve) => {
+    const modal = document.querySelector('#name-modal');
+    document.querySelector('#name-title').textContent = title;
+    const input = document.querySelector('#name-input');
+    const hintEl = document.querySelector('#name-hint');
+    input.value = value;
+    hintEl.textContent = hint;
+    hintEl.classList.remove('is-error');
+    document.querySelector('#name-ok').textContent = confirmLabel;
+    modal.hidden = false;
+    input.focus();
+    input.select();
+
+    const done = (result) => {
+      modal.hidden = true;
+      document.querySelector('#name-ok').removeEventListener('click', ok);
+      document.querySelector('#name-cancel').removeEventListener('click', cancel);
+      input.removeEventListener('keydown', onKey);
+      modal.removeEventListener('mousedown', onBackdrop);
+      resolve(result);
+    };
+    const ok = () => {
+      const name = input.value.trim();
+      if (!name) {
+        hintEl.textContent = 'A name is required';
+        hintEl.classList.add('is-error');
+        return;
+      }
+      done(name);
+    };
+    const cancel = () => done(null);
+    const onKey = (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        ok();
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        cancel();
+      }
+    };
+    const onBackdrop = (event) => {
+      if (event.target === modal) cancel();
+    };
+    document.querySelector('#name-ok').addEventListener('click', ok);
+    document.querySelector('#name-cancel').addEventListener('click', cancel);
+    input.addEventListener('keydown', onKey);
+    modal.addEventListener('mousedown', onBackdrop);
+  });
+}
+
+function askConfirm(title, text, confirmLabel = 'Delete') {
+  return new Promise((resolve) => {
+    const modal = document.querySelector('#tree-confirm');
+    document.querySelector('#tree-confirm-title').textContent = title;
+    document.querySelector('#tree-confirm-text').textContent = text;
+    document.querySelector('#tree-confirm-ok').textContent = confirmLabel;
+    modal.hidden = false;
+    const done = (value) => {
+      modal.hidden = true;
+      document.querySelector('#tree-confirm-ok').removeEventListener('click', ok);
+      document.querySelector('#tree-confirm-cancel').removeEventListener('click', cancel);
+      modal.removeEventListener('mousedown', onBackdrop);
+      resolve(value);
+    };
+    const ok = () => done(true);
+    const cancel = () => done(false);
+    const onBackdrop = (event) => {
+      if (event.target === modal) cancel();
+    };
+    document.querySelector('#tree-confirm-ok').addEventListener('click', ok);
+    document.querySelector('#tree-confirm-cancel').addEventListener('click', cancel);
+    modal.addEventListener('mousedown', onBackdrop);
+  });
+}
+
+async function newEntry(folder) {
+  const target = treeMenuTarget || { dir: true, path: treeRoot ? treeRoot.root : '' };
+  const name = await askName({
+    title: folder ? 'New folder' : 'New file',
+    value: folder ? 'New folder' : 'untitled.md',
+    hint: 'Inside ' + (target.path || ''),
+  });
+  if (!name) return;
+  const result = await window.api.createEntry(target.path, name, folder);
+  if (!result.ok) {
+    await askConfirm('Could not create', result.error || 'unknown error', 'OK');
+    return;
+  }
+  if (folder) {
+    treeExpanded.add(target.path);
+  }
+  await refreshTree();
+  if (!folder) {
+    await flushChange();
+    await window.api.openPath(result.path);
+  }
+}
+
+async function renameEntryNow() {
+  const target = treeMenuTarget;
+  if (!target || !target.path) return;
+  const name = await askName({ title: 'Rename', value: target.name, confirmLabel: 'Rename' });
+  if (!name || name === target.name) return;
+  const ext = path_extension(name);
+  const finalName = ext ? name : name + (target.name.includes('.') ? '.' + target.name.split('.').pop() : '');
+  const result = await window.api.renameEntry(target.path, finalName);
+  if (!result.ok) {
+    await askConfirm('Could not rename', result.error || 'unknown error', 'OK');
+    return;
+  }
+  await refreshTree();
+}
+
+function path_extension(name) {
+  return /.[a-z0-9]+$/i.test(name);
+}
+
+async function deleteEntryNow() {
+  const target = treeMenuTarget;
+  if (!target || !target.path) return;
+  const confirmed = await askConfirm('Delete', 'Delete "' + target.name + '"? This cannot be undone.');
+  if (!confirmed) return;
+  let result = await window.api.deleteEntry(target.path, false);
+  if (!result.ok && result.error === 'not empty') {
+    const recursive = await askConfirm(
+      'Folder is not empty',
+      '"' + target.name + '" contains files. Delete it and everything inside?',
+      'Delete all'
+    );
+    if (!recursive) return;
+    result = await window.api.deleteEntry(target.path, true);
+  }
+  if (!result.ok) {
+    await askConfirm('Could not delete', result.error || 'unknown error', 'OK');
+    return;
+  }
+  await refreshTree();
+}
+
+document.querySelector('#tree').addEventListener('contextmenu', (event) => {
+  const row = event.target.closest ? event.target.closest('.tree-row') : null;
+  if (!row) {
+    // Empty space means the folder itself: that is how a new file is created.
+    if (!treeRoot) return;
+    event.preventDefault();
+    openTreeMenu(event.clientX, event.clientY, { path: treeRoot.root, name: treeRoot.name, dir: true });
+    return;
+  }
+  event.preventDefault();
+  openTreeMenu(event.clientX, event.clientY, {
+    path: row.dataset.path,
+    name: row.dataset.name,
+    dir: row.dataset.dir === '1',
+  });
+});
+
+document.querySelectorAll('#tree-menu [data-tree-action]').forEach((button) => {
+  button.addEventListener('click', async () => {
+    const action = button.dataset.treeAction;
+    closeTreeMenu();
+    if (action === 'newFile') return newEntry(false);
+    if (action === 'newFolder') return newEntry(true);
+    if (action === 'rename') return renameEntryNow();
+    if (action === 'delete') return deleteEntryNow();
+    if (action === 'reveal' && treeMenuTarget) {
+      await window.api.revealEntry(treeMenuTarget.path);
+    }
+    return true;
+  });
+});
+
+document.addEventListener('mousedown', (event) => {
+  const menu = document.querySelector('#tree-menu');
+  if (menu && !menu.hidden && !menu.contains(event.target)) closeTreeMenu();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closeTreeMenu();
+});
+
 async function renderTree() {
   const host = $('#tree');
   host.textContent = '';
@@ -3035,6 +3241,9 @@ async function renderDir(dir, depth) {
     row.className = `tree-row${entry.dir ? ' is-dir' : ''}`;
     row.style.paddingLeft = `${8 + depth * 12}px`;
     row.title = entry.path;
+    row.dataset.path = entry.path;
+    row.dataset.dir = entry.dir ? '1' : '0';
+    row.dataset.name = entry.name;
 
     const twisty = document.createElement('span');
     twisty.className = 'tree-twisty';
@@ -4261,5 +4470,52 @@ window.__mdpad = {
     const current = document.querySelector('#outline-list .outline-item.is-current');
     return current ? current.textContent : '';
   },
+  treeMenuState: () => {
+    const menu = document.querySelector('#tree-menu');
+    return {
+      hidden: menu.hidden,
+      items: [...menu.querySelectorAll('[data-tree-action]')]
+        .filter((b) => !b.hidden)
+        .map((b) => b.dataset.treeAction),
+    };
+  },
+  openTreeContextMenu: (index = 0, clientX = 200, clientY = 200) => {
+    if (index < 0) {
+      if (!treeRoot) return false;
+      openTreeMenu(clientX, clientY, { path: treeRoot.root, name: treeRoot.name, dir: true });
+      return true;
+    }
+    const row = document.querySelectorAll('#tree .tree-row')[index];
+    if (!row) return false;
+    row.dispatchEvent(new MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      clientX,
+      clientY,
+    }));
+    return true;
+  },
+  treeMenuClick: (action) => {
+    const button = document.querySelector('#tree-menu [data-tree-action="' + action + '"]');
+    if (!button) return false;
+    button.click();
+    return true;
+  },
+  namePromptState: () => ({
+    open: !document.querySelector('#name-modal').hidden,
+    title: document.querySelector('#name-title').textContent,
+    value: document.querySelector('#name-input').value,
+  }),
+  namePromptFill: (value) => {
+    const input = document.querySelector('#name-input');
+    input.value = value;
+    document.querySelector('#name-ok').click();
+  },
+  confirmState: () => ({
+    open: !document.querySelector('#tree-confirm').hidden,
+    title: document.querySelector('#tree-confirm-title').textContent,
+    text: document.querySelector('#tree-confirm-text').textContent,
+  }),
+  confirmClick: () => document.querySelector('#tree-confirm-ok').click(),
   treeMeta: () => [...document.querySelectorAll('#tree .tree-meta')].map((el) => el.textContent),
 };

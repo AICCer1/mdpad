@@ -500,6 +500,39 @@
     <div id="link-preview" class="link-preview" hidden></div>
   </div>
 
+  <div id="tree-menu" class="table-menu" hidden>
+    <button data-tree-action="newFile">New file</button>
+    <button data-tree-action="newFolder">New folder</button>
+    <span class="table-menu-sep"></span>
+    <button data-tree-action="rename">Rename</button>
+    <button data-tree-action="reveal">Show in folder</button>
+    <span class="table-menu-sep"></span>
+    <button data-tree-action="delete" class="danger">Delete</button>
+  </div>
+
+  <div id="name-modal" class="modal" hidden>
+    <div class="modal-card name-card">
+      <div class="modal-title" id="name-title">New file</div>
+      <input id="name-input" type="text" autocomplete="off" spellcheck="false">
+      <div class="name-hint" id="name-hint"></div>
+      <div class="modal-foot">
+        <button id="name-cancel">Cancel</button>
+        <button id="name-ok" class="primary">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="tree-confirm" class="modal" hidden>
+    <div class="modal-card name-card">
+      <div class="modal-title" id="tree-confirm-title">Delete</div>
+      <div class="name-hint" id="tree-confirm-text"></div>
+      <div class="modal-foot">
+        <button id="tree-confirm-cancel">Cancel</button>
+        <button id="tree-confirm-ok" class="danger">Delete</button>
+      </div>
+    </div>
+  </div>
+
   <div id="table-menu" class="table-menu" hidden>
     <button data-tm="addRowBefore" data-i18n="table.rowAbove">+ row above</button>
     <button data-tm="addRowAfter" data-i18n="table.rowBelow">+ row below</button>

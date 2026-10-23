@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.19.0
+
+The file tree can finally make files.
+
+- **Right-click in the tree**: on a folder (or empty space, which means the opened folder) for
+  **New file** and **New folder**, on any row for **Rename**, **Show in folder** and **Delete**.
+  Name prompts are in-app (Electron has no `prompt()`), with Enter to confirm and Esc to cancel.
+- **Deletes ask first**, and a folder with contents asks a second time before removing everything
+  inside.
+- **Containment is enforced in the main process**, not just in the dialog: separators, `..`, empty
+  names, existing targets and anything outside the opened folder are refused. Deleting closes the
+  tabs that pointed at the file; renaming retargets them.
+- 240 smoke checks (two new: `tree-file-operations` for create → rename → delete through the real
+  menu and prompts, `tree-file-guards` for traversal, empty and duplicate names), 153 unit tests.
+
 ## 1.18.0
 
 "Rewrite this paragraph" now shows what "this" means.

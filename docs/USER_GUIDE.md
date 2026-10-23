@@ -38,6 +38,11 @@ Times New Roman, Arial, Cambria, Consolas), a text width
 (narrow 34 rem, normal 46 rem, wide 58 rem) and four accent colours; all three apply
 immediately on save and are remembered.
 
+**Files.** Right-click in the file tree: on a folder for **New file** / **New folder**, on any
+row for **Rename**, **Show in folder** or **Delete**. Deleting asks first; a folder with contents
+asks again before removing everything inside. Names containing separators, ".." or an existing
+file are refused by the app, and nothing outside the opened folder can be touched.
+
 **Sidebars.** File rows show how long ago each file changed (hover for the exact timestamp),
 and an empty tree offers **Open a folder** instead of a sentence. The outline header counts the
 headings in the document and the section that currently holds the caret is marked with an accent
