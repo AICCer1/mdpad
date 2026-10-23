@@ -212,6 +212,7 @@
         <tr><td>Ctrl+W / Ctrl+Shift+T</td><td data-i18n="sc.tabs">Close tab / reopen the last closed tab</td></tr>
         <tr><td>F1</td><td data-i18n="sc.help">This list</td></tr>
       </table>
+
       <div class="modal-foot">
         <button id="shortcuts-close" data-i18n="shortcuts.close">Close</button>
       </div>
@@ -229,10 +230,19 @@
   </div>
 
   <div id="settings-modal" class="modal" hidden>
-    <div class="modal-card">
+    <div class="modal-card settings-card">
       <div class="modal-title" data-i18n="settings.title">Settings</div>
 
       <input id="set-filter" class="settings-filter" data-i18n-placeholder="settings.filter" placeholder="Filter settings…" autocomplete="off">
+
+      <div class="settings-nav">
+        <button type="button" data-goto="appearance" data-i18n="settings.navAppearance">Appearance</button>
+        <button type="button" data-goto="export" data-i18n="settings.navExport">Export</button>
+        <button type="button" data-goto="ai" data-i18n="settings.navAi">AI writing</button>
+        <button type="button" data-goto="usage" data-i18n="settings.navUsage">Usage</button>
+      </div>
+
+      <div class="settings-scroll">
 
       <div class="field">
         <label for="set-theme" data-i18n="settings.theme">Theme</label>
@@ -257,6 +267,7 @@
         </select>
       </div>
 
+      <div class="modal-sub" data-section="appearance" data-i18n="settings.navAppearance">Appearance</div>
       <div class="field">
         <label for="set-preset" data-i18n="settings.preset">Typography preset</label>
         <select id="set-preset">
@@ -341,6 +352,15 @@
         <label for="set-ai-base" data-i18n="settings.endpoint">Endpoint</label>
         <input id="set-ai-base" placeholder="https://api.deepseek.com/v1">
       </div>
+
+      <div class="field">
+        <label for="set-ai-key" data-i18n="settings.apiKey">API key</label>
+        <div class="key-row">
+          <input id="set-ai-key" type="password" autocomplete="off" placeholder="sk-…" data-i18n-placeholder="settings.apiKeyPlaceholder">
+          <button id="set-ai-key-clear" type="button" data-i18n="settings.clearKey">Clear</button>
+        </div>
+        <span id="set-ai-note" class="note"></span>
+      </div>
       <div class="field">
         <label for="set-ai-model" data-i18n="settings.model">Model</label>
         <input id="set-ai-model" placeholder="deepseek-chat" list="ai-model-list">
@@ -369,11 +389,7 @@
       <div id="ai-usage-list" class="usage-list"></div>
       <button id="usage-export" class="usage-export" data-i18n="usage.export">Export CSV</button>
 
-      <div class="field">
-        <label for="set-ai-key" data-i18n="settings.apiKey">API key</label>
-        <input id="set-ai-key" type="password" placeholder="leave blank to keep the saved key">
       </div>
-      <div id="set-ai-note" class="note"></div>
 
       <div class="modal-foot">
         <span id="set-dirty" class="settings-dirty" data-i18n="settings.unsaved" hidden>Unsaved changes</span>

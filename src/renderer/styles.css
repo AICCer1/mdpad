@@ -1253,3 +1253,56 @@ body { display: flex; flex-direction: column; }
   opacity: 0.9;
 }
 .toast-action:hover { opacity: 1; background: rgba(255, 255, 255, 0.12); }
+
+/* ---- settings: a fixed card with a scrolling body ----
+   The panel grew taller than the viewport and simply ran off the bottom of the screen. */
+.modal-card.settings-card {
+  display: flex;
+  flex-direction: column;
+  max-height: 88vh;
+  padding-bottom: 0;
+}
+.settings-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 2px 8px 8px 2px;
+}
+.settings-nav {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 10px;
+  flex-wrap: wrap;
+}
+.settings-nav button {
+  font: inherit;
+  font-size: 11.5px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.settings-nav button:hover { color: var(--text); border-color: var(--accent); }
+.modal-card.settings-card .modal-foot {
+  position: sticky;
+  bottom: 0;
+  margin-top: 10px;
+  padding: 12px 0 14px;
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+}
+.key-row { display: flex; gap: 6px; align-items: center; }
+.key-row input { flex: 1; }
+.key-row button {
+  font: inherit;
+  font-size: 11.5px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}

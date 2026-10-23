@@ -5341,6 +5341,8 @@ async function runSmoke() {
     await sleep(700);
     const modalOpen = !document.querySelector('#settings-modal').hidden;
     const usageSection = document.querySelector('#settings-modal .modal-sub[data-section="usage"]');
+    const usageList = document.querySelector('#ai-usage-list');
+    const usageFromProbe = usageList ? !usageList.hidden && getComputedStyle(usageList).display !== 'none' : false;
     const notCollapsed = usageSection ? !usageSection.classList.contains('collapsed') : false;
     const list = document.querySelector('#ai-usage-list');
     const listVisible = list ? !list.hidden && getComputedStyle(list).display !== 'none' : false;
@@ -5607,10 +5609,13 @@ async function runSmoke() {
     input.dispatchEvent(new Event('input', { bubbles: true }));
     await sleep(400);
     const usageHeading = document.querySelector('#settings-modal .modal-sub[data-section="usage"]');
+    const usageList = document.querySelector('#ai-usage-list');
     const usageSection = {
       headingVisible: usageHeading ? getComputedStyle(usageHeading).display !== 'none' : false,
       collapsed: usageHeading ? usageHeading.classList.contains('collapsed') : true,
+      // The Usage section holds a list and a button rather than .field rows.
       fields: visibleFields(),
+      listVisible: usageList ? getComputedStyle(usageList).display !== 'none' : false,
     };
 
     input.value = 'export';
@@ -5639,7 +5644,7 @@ async function runSmoke() {
     'settings-filter-sections',
     filterSections.usageSection.headingVisible &&
       filterSections.usageSection.collapsed === false &&
-      filterSections.usageSection.fields >= 1 &&
+      (filterSections.usageSection.fields >= 1 || filterSections.usageSection.listVisible) &&
       filterSections.exportSection.headingVisible &&
       filterSections.exportSection.fields >= 3 &&
       filterSections.noneVisible === 0 &&
@@ -6159,6 +6164,191 @@ async function runSmoke() {
       /typed/.test(aiUndo.afterOneUndo) &&
       !/typed/.test(aiUndo.afterTwo),
     aiUndo
+  );
+
+  // 78a. the AI client talks to a real HTTP endpoint, including the /v1 fallback
+  const mockServer = await (async () => {
+    const http = require('node:http');
+    const seen = [];
+    const server = http.createServer((req, res) => {
+      seen.push({ url: req.url, auth: req.headers.authorization || '', body: '' });
+      const entry = seen[seen.length - 1];
+      let body = '';
+      req.on('data', (chunk) => (body += chunk));
+      req.on('end', () => {
+        entry.body = body;
+        const json = (status, payload) => {
+          res.writeHead(status, { 'content-type': 'application/json' });
+          res.end(JSON.stringify(payload));
+        };
+        if (req.method === 'GET' && req.url === '/v1/models') {
+          return json(200, { data: [{ id: 'mock-1' }, { id: 'mock-2' }] });
+        }
+        if (req.method === 'POST' && req.url === '/v1/chat/completions') {
+          return json(200, {
+            model: 'mock-1',
+            choices: [{ message: { role: 'assistant', content: 'pong from mock' } }],
+          });
+        }
+        // A bare host without /v1 is the mistake users actually make: 404 here, then the
+        // client retries with /v1 in front.
+        if (req.method === 'POST' && req.url === '/chat/completions') {
+          return json(404, { error: 'not found; try /v1' });
+        }
+        return json(404, { error: 'unexpected ' + req.method + ' ' + req.url });
+      });
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address();
+    globalThis.__mockAiPort = port;
+    return { server, seen, port };
+  })();
+
+  const mockServerPort = mockServer.port;
+
+  const aiE2E = await win.webContents.executeJavaScript(`(async () => {
+    const port = ${mockServer.port};
+    const apiKey = 'test-key-123';
+    const versioned = await window.api.aiTest({
+      baseUrl: 'http://127.0.0.1:' + port + '/v1',
+      apiKey,
+      model: 'mock-1',
+    });
+    const bareHost = await window.api.aiTest({
+      baseUrl: 'http://127.0.0.1:' + port,
+      apiKey,
+      model: 'mock-1',
+    });
+    const configured = await window.api.aiConfigure({
+      baseUrl: 'http://127.0.0.1:' + port + '/v1',
+      apiKey,
+      model: 'mock-1',
+    });
+    const chat = await window.api.aiComplete({ instruction: 'say pong', requestId: 'smoke-ai' });
+    const models = await window.api.aiModels({ baseUrl: 'http://127.0.0.1:' + port + '/v1', apiKey });
+    return { versioned, bareHost, configured, chat, models };
+  })()`);
+
+  const calls = mockServer.seen;
+  const authOk = calls.some((call) => call.auth === 'Bearer test-key-123');
+  const modelSent = calls.some((call) => {
+    try {
+      return JSON.parse(call.body).model === 'mock-1';
+    } catch {
+      return false;
+    }
+  });
+  await new Promise((resolve) => mockServer.server.close(resolve));
+
+  step(
+    'ai-live-endpoint',
+    aiE2E.versioned.ok === true &&
+      /pong/.test(aiE2E.versioned.reply || '') &&
+      aiE2E.bareHost.ok === true &&
+      /pong/.test(aiE2E.bareHost.reply || '') &&
+      aiE2E.chat.ok === true &&
+      /pong from mock/.test(aiE2E.chat.text || '') &&
+      Array.isArray(aiE2E.models.models) &&
+      aiE2E.models.models.length === 2 &&
+      authOk &&
+      modelSent,
+    {
+      versioned: aiE2E.versioned.ok,
+      bareHost: aiE2E.bareHost.ok,
+      chat: aiE2E.chat.ok,
+      models: aiE2E.models.models,
+      authOk,
+      modelSent,
+      urls: calls.map((call) => call.url),
+    }
+  );
+
+  // 79a. the settings panel fits the window, scrolls, and the key lives in the AI section
+  const settingsGeo = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    document.querySelector('#open-settings').click();
+    await sleep(800);
+    const card = document.querySelector('#settings-modal .modal-card');
+    const scroll = document.querySelector('#settings-modal .settings-scroll');
+    const key = document.querySelector('#set-ai-key');
+    const aiHeading = document.querySelector('#settings-modal .modal-sub[data-section="ai"]');
+    const usageHeading = document.querySelector('#settings-modal .modal-sub[data-section="usage"]');
+    const cardRect = card.getBoundingClientRect();
+    const keyRect = key.getBoundingClientRect();
+    const fitsViewport = cardRect.bottom <= window.innerHeight + 1;
+    const scrollable = scroll.scrollHeight > scroll.clientHeight + 4;
+    // Compare document order, not viewport rectangles: the panel may be scrolled.
+    const afterAi = Boolean(aiHeading.compareDocumentPosition(key) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const beforeUsage = Boolean(key.compareDocumentPosition(usageHeading) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const keyInAiSection = afterAi && beforeUsage;
+    // The AI nav chip must actually bring the key into view.
+    document.querySelector('.settings-nav [data-goto="ai"]').click();
+    await sleep(700);
+    const keyRectAfterNav = key.getBoundingClientRect();
+    const keyVisibleAfterNav =
+      keyRectAfterNav.top >= 0 && keyRectAfterNav.bottom <= window.innerHeight;
+    document.querySelector('#set-cancel').click();
+    await sleep(250);
+    return {
+      fitsViewport,
+      scrollable,
+      keyInAiSection,
+      keyVisibleAfterNav,
+      cardHeight: Math.round(cardRect.height),
+      viewport: window.innerHeight,
+      hasKeyField: Boolean(key),
+    };
+  })()`);
+  step(
+    'settings-ai-panel-visible',
+    settingsGeo.hasKeyField &&
+      settingsGeo.fitsViewport &&
+      settingsGeo.scrollable &&
+      settingsGeo.keyInAiSection &&
+      settingsGeo.keyVisibleAfterNav,
+    settingsGeo
+  );
+
+  // 79b. saving a key stores it, testing with it works, and Clear removes it again
+  const keyServer = await (async () => {
+    const http = require('node:http');
+    const server = http.createServer((req, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      if (req.url === '/v1/models') return res.end(JSON.stringify({ data: [{ id: 'mock-1' }] }));
+      res.end(JSON.stringify({ choices: [{ message: { content: 'stored key works' } }] }));
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    return { server, port: server.address().port };
+  })();
+
+  const keyLifecycle = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const port = ${keyServer.port};
+    document.querySelector('#open-settings').click();
+    await sleep(800);
+    document.querySelector('#set-ai-base').value = 'http://127.0.0.1:' + port + '/v1';
+    document.querySelector('#set-ai-model').value = 'mock-1';
+    document.querySelector('#set-ai-key').value = 'stored-key-9';
+    document.querySelector('#set-save').click();
+    await sleep(900);
+    const afterSave = await window.api.aiConfig();
+    const testWithStored = await window.api.aiTest({});
+    document.querySelector('#open-settings').click();
+    await sleep(800);
+    document.querySelector('#set-ai-key-clear').click();
+    await sleep(200);
+    document.querySelector('#set-save').click();
+    await sleep(900);
+    const afterClear = await window.api.aiConfig();
+    return { afterSave, testWithStored, afterClear };
+  })()`);
+  await new Promise((resolve) => keyServer.server.close(resolve));
+  step(
+    'api-key-lifecycle',
+    keyLifecycle.afterSave.hasKey === true &&
+      keyLifecycle.testWithStored.ok === true &&
+      keyLifecycle.afterClear.hasKey === false,
+    keyLifecycle
   );
 
   // 30k. the settings filter narrows the visible fields

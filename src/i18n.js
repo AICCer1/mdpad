@@ -871,6 +871,26 @@ Object.assign(DICT.zh, {
   'preset.chinese': '中文 — 微软雅黑',
 });
 
+Object.assign(DICT.en, {
+  'settings.navAppearance': 'Appearance',
+  'settings.navExport': 'Export',
+  'settings.navAi': 'AI writing',
+  'settings.navUsage': 'Usage',
+  'settings.apiKeyPlaceholder': 'sk-…',
+  'settings.clearKey': 'Clear',
+  'settings.appearanceSection': 'Appearance',
+});
+
+Object.assign(DICT.zh, {
+  'settings.navAppearance': '外观',
+  'settings.navExport': '导出',
+  'settings.navAi': 'AI 写作',
+  'settings.navUsage': '用量',
+  'settings.apiKeyPlaceholder': 'sk-…',
+  'settings.clearKey': '清除',
+  'settings.appearanceSection': '外观',
+});
+
 module.exports = { t, normalizeLang, LANGS, DICT };
 
 Object.assign(DICT.en, {

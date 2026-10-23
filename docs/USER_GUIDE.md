@@ -184,8 +184,22 @@ narrow windows.
 Opened without an endpoint or key, the panel names what is missing, offers **Open AI
 settings**, and keeps Run disabled until it is configured.
 
-1. Pick a provider in Settings: DeepSeek, OpenAI, Ollama (local) or Custom, then enter
-   the API key. Keys are encrypted with the OS credential store. **Test connection**
+1. Open **Settings → AI writing**. The **API key** field sits directly under the endpoint,
+   and the panel scrolls: the card never runs off the bottom of the screen, and the four
+   chips at the top jump to Appearance, Export, AI writing or Usage.
+
+   Working endpoints (each accepts a trailing `/v1` or not — both work, and a bare host is
+   retried against `/v1` automatically):
+
+   | Provider | Endpoint | Model example |
+   | --- | --- | --- |
+   | DeepSeek | `https://api.deepseek.com/v1` | `deepseek-chat` |
+   | OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini` |
+   | Ollama (local) | `http://127.0.0.1:11434/v1` | `llama3.1` |
+   | Any gateway | the URL that answers `POST /chat/completions` | as documented |
+
+   Paste the key, press **Save**, then **Test connection**. `Clear` removes a stored key on
+   the next save. Keys are encrypted with the OS credential store. **Test connection**
    pulls the model list from `/v1/models` when the gateway has it (so the name can be picked
    instead of typed), and verifies endpoint, model and key before you rely on them — a success shows the model name,
    latency and a sample reply, and a failure explains what to change (key, base URL, local

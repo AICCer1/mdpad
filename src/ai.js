@@ -5,11 +5,22 @@
 
 const DEFAULT_TIMEOUT_MS = 60000;
 
-function endpointFrom(baseUrl) {
-  const base = String(baseUrl || '').trim().replace(/\/+$/, '');
-  if (!base) throw new Error('AI endpoint is not configured');
-  if (/\/chat\/completions$/.test(base)) return base;
-  return `${base}/chat/completions`;
+const { endpointFrom, versionedEndpointFrom } = require('./ai-endpoint');
+
+// Providers differ: some want /v1 in front of /chat/completions, some do not. On a 404 from a
+// bare host, retry once against /v1 before reporting the failure.
+async function fetchChat(url, init, { retryVersioned = true } = {}) {
+  const res = await fetch(url, init);
+  if (res.status === 404 && retryVersioned) {
+    const fallback = versionedEndpointFrom(url.replace(/\/chat\/completions$/i, ''));
+    if (fallback && fallback !== url) {
+      const retryInit = { ...init, body: init.body };
+      const retried = await fetch(fallback, retryInit);
+      if (retried.ok) return retried;
+      return retried;
+    }
+  }
+  return res;
 }
 
 function buildMessages({ instruction, selection, context, language, history, systemPrompt }) {
@@ -38,12 +49,12 @@ function buildMessages({ instruction, selection, context, language, history, sys
   return messages;
 }
 
-async function complete({ baseUrl, apiKey, model, instruction, selection, context, language, history, timeoutMs = DEFAULT_TIMEOUT_MS }) {
+async function complete({ baseUrl, apiKey, model, instruction, selection, context, language, history, systemPrompt, timeoutMs = DEFAULT_TIMEOUT_MS }) {
   const url = endpointFrom(baseUrl);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(url, {
+    const res = await fetchChat(url, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -51,7 +62,7 @@ async function complete({ baseUrl, apiKey, model, instruction, selection, contex
       },
       body: JSON.stringify({
         model: model || 'deepseek-chat',
-        messages: buildMessages({ instruction, selection, context, language, history }),
+        messages: buildMessages({ instruction, selection, context, language, history, systemPrompt }),
         temperature: 0.4,
         stream: false,
       }),

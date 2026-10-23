@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 213 end-to-end checks against a real window
+npm run smoke          # 216 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -124,6 +124,9 @@ opening/closing the settings panel flips it between `flex` and `none`.
   function for text containing `$`; `test/docs.test.js` rejects duplicated headings.
 - PowerShell rewrites of UTF-8 files can inject a BOM or GBK mojibake. Never use
   `Set-Content -Encoding utf8` on JSON/Markdown; `test/encoding.test.js` guards this.
+- AI endpoints go through `src/ai-endpoint.js`: a bare host gets `/chat/completions`, a
+  full endpoint is kept, and a 404 from a bare host is retried once with `/v1`. The smoke
+  suite runs the client against a local mock server, including that fallback.
 - Programmatic edits (AI insert/replace) must call `closeHistory(tr)` in a first transaction,
   otherwise ProseMirror merges them with the typing before them and one undo wipes both.
 - Mermaid renders into a cache, never into a node view: ProseMirror re-creates node views on

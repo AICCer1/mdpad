@@ -1822,6 +1822,8 @@ async function openSettings() {
   refreshExportNameHint();
   renderUsage();
 
+  $('#set-ai-key').dataset.clear = 'false';
+  $('#set-ai-note').classList.remove('is-warning');
   $('#set-ai-note').textContent = aiCfg.hasKey
     ? aiCfg.keyStoredSecurely
       ? 'A key is saved in the OS credential store.'
@@ -1864,6 +1866,9 @@ async function saveSettings() {
   }
   status.classList.remove('error');
 
+  const clearKeyFlag = $('#set-ai-key').dataset.clear === 'true';
+  $('#set-ai-key').dataset.clear = 'false';
+
   await window.api.setSettings({
     theme,
     autosaveMs: Math.round(seconds * 1000),
@@ -1885,7 +1890,8 @@ async function saveSettings() {
   const aiResultConfig = await window.api.aiConfigure({
     baseUrl: $('#set-ai-base').value,
     model: $('#set-ai-model').value,
-    apiKey: $('#set-ai-key').value,
+    apiKey: clearKeyFlag ? '' : $('#set-ai-key').value,
+    clearKey: clearKeyFlag,
   });
   $('#set-status').textContent = aiResultConfig.hasKey ? 'saved' : 'saved without a key';
   setTimeout(() => {
@@ -2567,6 +2573,24 @@ function toggleFilesPane() {
 
 document.querySelector('#files-toggle').addEventListener('click', () => toggleFilesPane());
 
+// Settings navigation: jump to a section inside the scrolling body.
+for (const button of document.querySelectorAll('.settings-nav [data-goto]')) {
+  button.addEventListener('click', () => {
+    const section = document.querySelector(`#settings-modal .modal-sub[data-section="${button.dataset.goto}"]`);
+    if (!section) return;
+    section.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  });
+}
+
+document.querySelector('#set-ai-key-clear').addEventListener('click', async () => {
+  const input = document.querySelector('#set-ai-key');
+  input.value = '';
+  input.dataset.clear = 'true';
+  const note = document.querySelector('#set-ai-note');
+  note.textContent = 'The saved key will be removed when you save.';
+  note.classList.add('is-warning');
+});
+
 document.querySelector('#set-preset').addEventListener('change', (event) => {
   const preset = applyPreset(event.target.value);
   if (!preset) return;
@@ -3189,6 +3213,7 @@ window.__mdpad = {
   },
   exportPreviewFromSettings: () => window.api.exportPreview(),
   toggleFocusMode,
+  openSettings,
   toggleFilesPane,
   applyPreset: (key) => {
     const preset = applyPreset(key);

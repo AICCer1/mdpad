@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.5.0
+
+The AI settings panel, rebuilt — and the client actually tested against a server.
+
+- **The panel scrolls.** The card used to grow past the bottom of the window with no scroll, so
+  everything after Export was unreachable. It is now a fixed-height card with a scrolling body,
+  a sticky footer and four chips (Appearance / Export / AI writing / Usage) that jump to a section.
+- **The API key field moved under the endpoint.** It was sitting after the Usage log, at the very
+  bottom, which is why it looked like there was no field at all. `Clear` removes a stored key on
+  the next save, and the note under it says whether a key is stored and how securely.
+- **Endpoints are normalised.** `https://api.deepseek.com` used to produce
+  `…/chat/completions` (404); a bare host is now retried once against `/v1`, a full
+  `/chat/completions` URL is used as-is, and an empty endpoint is refused with a clear message
+  instead of a relative-URL error.
+- **The style guidance was ignored on the non-streaming path** — `complete()` never passed
+  `systemPrompt`. Fixed.
+- **Proven against a real socket:** the smoke suite starts a local OpenAI-compatible mock server
+  and asserts the versioned endpoint, the bare-host fallback (404 then /v1), the Bearer header,
+  the model name in the body, the model list, a stored-key round trip and the Clear button.
+- A garbled string in the API-key note (a broken em dash) is gone.
+- 216 smoke checks (two new), 148 unit tests (six new for endpoint normalisation).
+
 ## 1.4.0
 
 Typography presets, Notion-style table Tab, and an undo bug I only found by testing it.
