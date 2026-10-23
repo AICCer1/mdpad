@@ -1,21 +1,38 @@
 'use strict';
+
+// Publishes the current version: commit, tag, push, GitHub release, upload assets.
+// Credentials come from ~/.git-credentials (same account as `git push`).
+
 const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const https = require('node:https');
 
-const root = 'E:\\code\\mdpad';
-const version = '1.26.0';
+const root = path.join(__dirname, '..');
+const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+const version = pkg.version;
 const git = (...args) =>
   execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 
-git('add', '-A');
-git('-c', 'core.autocrlf=false', 'commit', '-q', '-m', `test: end-to-end export fidelity check and a rendered export page shot (${version})`);
-console.log('commit:', git('log', '--oneline', '-1').trim());
+const dirty = git('status', '--short').trim();
+if (dirty) {
+  git('add', '-A');
+  git('-c', 'core.autocrlf=false', 'commit', '-q', '-m', `chore: release ${version}`);
+  console.log('commit:', git('log', '--oneline', '-1').trim());
+} else {
+  console.log('commit: nothing to commit');
+}
+
 git('push', 'origin', 'main');
-git('tag', '-a', `v${version}`, '-m', `mdpad ${version}`);
-git('push', 'origin', `v${version}`);
+const tags = git('tag', '--list', `v${version}`);
+if (!tags.trim()) {
+  git('tag', '-a', `v${version}`, '-m', `mdpad ${version}`);
+  git('push', 'origin', `v${version}`);
+  console.log('tag: pushed v' + version);
+} else {
+  console.log('tag: v' + version + ' already exists');
+}
 
 const store = path.join(os.homedir(), '.git-credentials');
 const line = fs
@@ -23,8 +40,11 @@ const line = fs
   .split(/\r?\n/)
   .find((row) => row.includes('github.com') && row.trim());
 const url = new URL(line.trim());
-const auth = Buffer.from(`${decodeURIComponent(url.username)}:${decodeURIComponent(url.password)}`).toString('base64');
+const auth = Buffer.from(
+  `${decodeURIComponent(url.username)}:${decodeURIComponent(url.password)}`
+).toString('base64');
 const owner = decodeURIComponent(url.username);
+const repo = pkg.name;
 
 function api(method, pathname, body) {
   return new Promise((resolve, reject) => {
@@ -38,7 +58,9 @@ function api(method, pathname, body) {
           authorization: `Basic ${auth}`,
           accept: 'application/vnd.github+json',
           'user-agent': 'mdpad-release',
-          ...(payload ? { 'content-type': 'application/json', 'content-length': Buffer.byteLength(payload) } : {}),
+          ...(payload
+            ? { 'content-type': 'application/json', 'content-length': Buffer.byteLength(payload) }
+            : {}),
         },
       },
       (res) => {
@@ -83,8 +105,13 @@ function upload(uploadUrl, file) {
 }
 
 (async () => {
+  const existing = await api('GET', `/repos/${owner}/${repo}/releases/tags/v${version}`);
+  if (existing.status === 200) {
+    console.log('release already exists:', JSON.parse(existing.text).html_url);
+    return;
+  }
   const notes = fs.readFileSync(path.join(root, 'release', 'RELEASE_NOTES.md'), 'utf8');
-  const created = await api('POST', `/repos/${owner}/mdpad/releases`, {
+  const created = await api('POST', `/repos/${owner}/${repo}/releases`, {
     tag_name: `v${version}`,
     name: `mdpad ${version}`,
     body: notes,

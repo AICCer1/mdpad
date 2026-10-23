@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, dialog, Menu, shell, safeStorage, screen, clipboard } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, shell, safeStorage, screen, clipboard, nativeTheme } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
@@ -260,7 +260,7 @@ function rememberRecent(file) {
   }
 }
 
-const THEMES = new Set(['light', 'dark', 'sepia']);
+const THEMES = new Set(['light', 'dark', 'sepia', 'system']);
 
 function publicSettings() {
   const s = readSettings();
@@ -1272,6 +1272,19 @@ function registerIpc() {
     splitPairs.delete(win.id);
     return { ok: true };
   });
+
+  nativeTheme.on('updated', () => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (win.isDestroyed()) continue;
+      try {
+        win.webContents.send('app:system-theme', { dark: nativeTheme.shouldUseDarkColors });
+      } catch {
+        /* a window may be closing */
+      }
+    }
+  });
+
+  ipcMain.handle('app:systemTheme', () => ({ dark: nativeTheme.shouldUseDarkColors }));
 
   ipcMain.handle('app:zoom', (event, { direction = 'in' } = {}) => {
     const contents = event.sender;
@@ -8081,6 +8094,89 @@ async function runSmoke() {
       reachExport.diagramCount >= 1 &&
       reachExport.pdfBytes > 15000,
     reachExport
+  );
+
+  // 103a. "Follow system" resolves from the OS and follows the event the main process sends
+  const systemTheme = await (async () => {
+    const osDark = nativeTheme.shouldUseDarkColors;
+    // Go through the real settings dialog: that is the path a user takes.
+    await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      document.querySelector('#open-settings').click();
+      await sleep(500);
+      document.querySelector('#set-theme').value = 'system';
+      document.querySelector('#set-save').click();
+      await sleep(700);
+    })()`);
+    const applied = await win.webContents.executeJavaScript('window.__mdpad.themeState2()');
+    // Simulate the OS flipping: the main process broadcasts this payload on nativeTheme updates.
+    win.webContents.send('app:system-theme', { dark: !osDark });
+    await sleep(400);
+    const flipped = await win.webContents.executeJavaScript('window.__mdpad.themeState2()');
+    win.webContents.send('app:system-theme', { dark: osDark });
+    await sleep(300);
+    await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      document.querySelector('#open-settings').click();
+      await sleep(500);
+      document.querySelector('#set-theme').value = 'light';
+      document.querySelector('#set-save').click();
+      await sleep(500);
+    })()`);
+    return { osDark, applied, flipped };
+  })();
+  step(
+    'system-theme',
+    systemTheme.applied.stored === 'system' &&
+      systemTheme.applied.applied === (systemTheme.osDark ? 'dark' : 'light') &&
+      systemTheme.flipped.applied === (systemTheme.osDark ? 'light' : 'dark'),
+    systemTheme
+  );
+
+  // 103b. Escape closes any dialog and returns focus to the editor
+  const escModals = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const results = [];
+    for (const modal of document.querySelectorAll('.modal')) modal.hidden = true;
+    const waitOpen = async (id, ms = 3000) => {
+      const started = Date.now();
+      while (Date.now() - started < ms) {
+        if (!document.querySelector('#' + id).hidden) return true;
+        await sleep(100);
+      }
+      return false;
+    };
+    const check = async (id, opener) => {
+      await opener();
+      // Opening a dialog can clear modals asynchronously (settings loads its values first);
+      // poll instead of assuming a fixed delay.
+      const wasOpen = await waitOpen(id);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await sleep(300);
+      results.push({ id, wasOpen, nowHidden: document.querySelector('#' + id).hidden });
+    };
+    await check('settings-modal', async () => {
+      document.querySelector('#open-settings').click();
+    });
+    await check('export-modal', async () => {
+      window.__mdpad.openExportPanel('pdf');
+    });
+    await check('drafts-modal', async () => {
+      window.__mdpad.openDrafts();
+    });
+    await check('shortcuts', async () => {
+      window.__mdpad.openShortcuts();
+    });
+    const focusInEditor =
+      document.activeElement && document.activeElement.closest
+        ? Boolean(document.activeElement.closest('.tiptap'))
+        : false;
+    return { results, focusInEditor };
+  })()`);
+  step(
+    'escape-closes-dialogs',
+    escModals.results.every((entry) => entry.wasOpen && entry.nowHidden) && escModals.focusInEditor === true,
+    escModals
   );
 
   // 30k. the settings filter narrows the visible fields

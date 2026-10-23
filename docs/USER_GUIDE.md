@@ -156,6 +156,12 @@ Switching tabs remembers **where you were** in each document, not just the caret
 file, jump to another tab and back, and you land where you left. A tab that has never been scrolled
 starts at the top.
 
+## Theme
+
+Light, dark, sepia, or **Follow system** — the last one resolves to dark or light from Windows and
+switches live when the OS does. The status bar never shows the word "system": the page always has a
+concrete theme class.
+
 ## Zoom and spelling
 
 **Ctrl+=** zooms in, **Ctrl+–** zooms out and **Ctrl+0** resets. While the page is zoomed, a small
@@ -179,6 +185,11 @@ closes it and leaves the slash as ordinary text, so the menu can never eat a cha
 Tabs can be dragged to reorder, closed with the ×, and **Ctrl+Tab / Ctrl+Shift+Tab** cycle through
 them. Right-click a tab for **Close**, **Close others**, **Close to the right**, **Copy path** and
 **Show in folder** (the path actions need a saved file).
+
+## Dialogs
+
+Every dialog closes with **Esc** (settings, export, drafts, statistics, shortcuts and the name
+prompts), and the keyboard goes back to the editor when it does.
 
 ## Small windows
 

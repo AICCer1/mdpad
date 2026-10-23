@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.27.0
+
+Follow the system theme, and Esc closes every dialog.
+
+- **Follow system** joins light / dark / sepia. It resolves from `nativeTheme` and switches live
+  when Windows does; the CSS only ever sees `light` or `dark`, because a `data-theme="system"`
+  would have matched no palette at all.
+- **Esc closes whatever dialog is on top** (settings, export, drafts, statistics, shortcuts, the
+  name and confirm prompts) and hands the keyboard back to the editor. Before this, only the AI
+  panel, find bar and preview window responded to Esc.
+- **Two real defects surfaced while testing this:**
+  - `nativeTheme` was used without being imported. That throws while registering IPC, and Electron
+    answers with a blocking error dialog, so the app appeared to hang at startup with no output.
+  - `applyTheme('system')` wrote `dataset.theme = 'system'`, a value no palette defines.
+- 252 smoke checks (two new: `system-theme` through the real settings dialog plus a simulated OS
+  flip, and `escape-closes-dialogs` over four dialogs with focus returning to the editor),
+  153 unit tests.
+
 ## 1.26.0
 
 An end-to-end export check, with a picture.

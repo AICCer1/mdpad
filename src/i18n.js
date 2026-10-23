@@ -981,6 +981,14 @@ Object.assign(DICT.zh, {
   'settings.spellcheck': '拼写检查',
 });
 
+Object.assign(DICT.en, {
+  'theme.system': 'Follow system',
+});
+
+Object.assign(DICT.zh, {
+  'theme.system': '跟随系统',
+});
+
 module.exports = { t, normalizeLang, LANGS, DICT };
 
 Object.assign(DICT.en, {

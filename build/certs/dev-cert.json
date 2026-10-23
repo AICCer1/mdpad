@@ -1,0 +1,7 @@
+{
+  "subject": "CN=mdpad Development, O=mdpad, C=CN",
+  "thumbprint": "08A84C7F7CE39EE8702BD54ABE3E0F581E171B6B",
+  "password": "9rP19mbPXn5vZdTu1rHUXcBz",
+  "created": "2026-10-23T23:32:49.883Z",
+  "note": "development certificate only; replace with a CA-issued certificate before release"
+}

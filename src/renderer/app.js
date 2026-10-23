@@ -687,6 +687,29 @@ function setDirty(dirty) {
   dirtyDot.hidden = !dirty;
 }
 
+// One Escape closes whatever dialog is on top and hands the keyboard back to the editor.
+function closeTopModal() {
+  const modals = [...document.querySelectorAll('.modal')].filter((modal) => !modal.hidden);
+  if (!modals.length) return false;
+  const modal = modals[modals.length - 1];
+  const closer =
+    modal.querySelector('[data-modal-close]') ||
+    modal.querySelector('#set-cancel, #export-cancel, #drafts-close, #stats-close, #shortcuts-close, #name-cancel, #tree-confirm-cancel');
+  if (closer) closer.click();
+  else modal.hidden = true;
+  try {
+    editor.commands.focus();
+  } catch {
+    /* the editor may not exist yet */
+  }
+  return true;
+}
+
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  if (closeTopModal()) event.preventDefault();
+});
+
 function flash(message) {
   status.textContent = message;
   clearTimeout(flash._t);
@@ -3636,22 +3659,33 @@ async function setTheme(theme) {
 }
 
 // Swap the highlight theme with the app theme instead of filtering colors.
+// "system" resolves to dark or light from the OS; the resolved value is what the CSS sees.
+let systemThemeDark = false;
+let readThemeSetting = 'light';
+
+function resolveTheme(theme) {
+  if (theme !== 'system') return theme;
+  return systemThemeDark ? 'dark' : 'light';
+}
+
 function applyTheme(theme) {
   // Transitions would make every colour interpolate during a theme swap: it flashes, and any
   // measurement taken right after the switch sees the old palette. Disable them for one frame.
+  readThemeSetting = theme;
   const root = document.documentElement;
+  const applied = resolveTheme(theme);
   root.classList.add('theme-swap');
-  root.dataset.theme = theme;
+  root.dataset.theme = applied;
   requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove('theme-swap')));
   refreshMermaidPreviews();
   const light = document.querySelector('#hljs-light');
   const dark = document.querySelector('#hljs-dark');
   if (light && dark) {
-    light.disabled = theme === 'dark';
-    dark.disabled = theme !== 'dark';
+    light.disabled = applied === 'dark';
+    dark.disabled = applied !== 'dark';
   }
   const select = $('#theme');
-  if (select) select.value = theme;
+  if (select) select.value = theme === 'system' ? 'system' : theme;
 }
 
 let paletteUsage = {};
@@ -4042,6 +4076,18 @@ async function zoomAction(direction) {
 }
 
 zoomIndicator?.addEventListener('click', () => zoomAction('reset'));
+
+window.api.onSystemTheme(({ dark }) => {
+  systemThemeDark = Boolean(dark);
+  if ((readThemeSetting || 'light') === 'system') applyTheme('system');
+});
+window.api
+  .systemTheme()
+  .then(({ dark }) => {
+    systemThemeDark = Boolean(dark);
+    if ((readThemeSetting || 'light') === 'system') applyTheme('system');
+  })
+  .catch(() => {});
 window.api.zoomState().then(renderZoom).catch(() => {});
 
 document.addEventListener('keydown', (event) => {
@@ -4202,6 +4248,7 @@ window.api.onMenuAction((action) => actions[action]?.());
 $('#toggle-outline').addEventListener('click', actions.toggleOutline);
 
 $('#theme').addEventListener('change', async (event) => {
+  readThemeSetting = event.target.value;
   const theme = event.target.value;
   applyTheme(theme);
   await window.api.setSettings({ theme });
@@ -4488,6 +4535,7 @@ window.api.onOutline(() => {});
 (async () => {
   const settings = await window.api.getSettings();
   const theme = settings.theme || 'light';
+  readThemeSetting = theme;
   applyTheme(theme);
   applyI18n(settings.language || 'en');
   aiConfirmThreshold = settings.aiConfirmOverTokens ?? 20000;
@@ -4738,6 +4786,12 @@ window.__mdpad = {
   }),
   relativeAge: (iso) => relativeAge(iso, lang),
   saveState: () => (saveStateEl ? saveStateEl.textContent : ''),
+  closeTopModal,
+  themeState2: () => ({
+    stored: readThemeSetting,
+    applied: document.documentElement.dataset.theme,
+    systemDark: systemThemeDark,
+  }),
   slashState: () => {
     const menu = document.querySelector('#slash-menu');
     return {
