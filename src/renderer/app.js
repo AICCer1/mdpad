@@ -190,6 +190,66 @@ function paintMermaid(preview, source) {
   preview.classList.remove('is-error');
 }
 
+// Exports are built in the main process, which has no Mermaid runtime and no DOM. The
+// renderer renders each diagram once (light theme, because exported documents are light) and
+// hands the SVG map to main before the export starts.
+async function collectExportDiagrams() {
+  const sources = [];
+  editor.state.doc.descendants((node) => {
+    if (node.type.name !== 'codeBlock') return;
+    if (String(node.attrs.language || '').toLowerCase() !== 'mermaid') return;
+    const text = node.textContent.trim();
+    if (text && !sources.includes(text)) sources.push(text);
+  });
+  if (!sources.length) return {};
+
+  const api = mermaidApi();
+  if (!api) return {};
+
+  const editorTheme = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'default';
+  const map = {};
+  if (editorTheme !== 'default') {
+    api.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'default', fontFamily: 'inherit' });
+    mermaidReady = true;
+  }
+  try {
+    for (const text of sources) {
+      try {
+        const { svg } = await api.render('exp-' + Date.now().toString(36) + '-' + (mermaidSeq += 1), text);
+        if (svg) map[text] = svg;
+      } catch {
+        // Leave it out: the exporter falls back to the fenced source for that block.
+      }
+    }
+  } finally {
+    if (editorTheme !== 'default') {
+      mermaidReady = false;
+      mermaidApi();
+      refreshMermaidPreviews();
+    }
+  }
+  return map;
+}
+
+async function runExport(kind) {
+  await publishExportDiagrams();
+  if (kind === 'html') return window.api.exportHtml();
+  if (kind === 'pdf') return window.api.exportPdf();
+  if (kind === 'docx') return window.api.exportDocx();
+  if (kind === 'epub') return window.api.exportEpub();
+  return window.api.exportPreview();
+}
+
+async function publishExportDiagrams() {
+  const diagrams = await collectExportDiagrams();
+  try {
+    await window.api.setExportDiagrams(diagrams);
+  } catch {
+    /* exporting still works, diagrams fall back to code blocks */
+  }
+  return Object.keys(diagrams).length;
+}
+
 function refreshMermaidPreviews() {
   mermaidReady = false; // re-initialise with the theme colour palette
   for (const el of document.querySelectorAll('.mermaid-preview')) {
@@ -2001,7 +2061,7 @@ $('#open-settings').addEventListener('click', openSettings);
 $('#set-export-name').addEventListener('input', () => refreshExportNameHint());
 $('#set-export-preview').addEventListener('click', () => {
   // Save first so the preview reflects the template and CSS currently on screen.
-  saveSettings().then(() => window.api.exportPreview());
+  saveSettings().then(() => runExport('preview'));
 });
 $('#set-save').addEventListener('click', saveSettings);
 $('#settings-modal').addEventListener('input', refreshSettingsDirty);
@@ -2439,11 +2499,11 @@ function commandList() {
     { id: 'settings', hint: 'Ctrl+,', label: p('palette.settings'), run: openSettings },
     { id: 'shortcuts', hint: 'F1', label: p('palette.shortcuts'), run: openShortcuts },
     { id: 'stats', hint: '', label: p('palette.stats'), run: openStats },
-    { id: 'exportHtml', hint: '', label: p('palette.exportHtml'), run: () => window.api.exportHtml() },
-    { id: 'exportPdf', hint: '', label: p('palette.exportPdf'), run: () => window.api.exportPdf() },
-    { id: 'exportWord', hint: '', label: p('palette.exportWord'), run: () => window.api.exportDocx() },
-    { id: 'exportEpub', hint: '', label: p('palette.exportEpub'), run: () => window.api.exportEpub() },
-    { id: 'previewExport', hint: '', label: p('palette.previewExport'), run: () => window.api.exportPreview() },
+    { id: 'exportHtml', hint: '', label: p('palette.exportHtml'), run: () => runExport('html') },
+    { id: 'exportPdf', hint: '', label: p('palette.exportPdf'), run: () => runExport('pdf') },
+    { id: 'exportWord', hint: '', label: p('palette.exportWord'), run: () => runExport('docx') },
+    { id: 'exportEpub', hint: '', label: p('palette.exportEpub'), run: () => runExport('epub') },
+    { id: 'previewExport', hint: '', label: p('palette.previewExport'), run: () => runExport('preview') },
     { id: 'themeLight', hint: '', label: p('palette.themeLight'), run: () => setTheme('light') },
     { id: 'themeDark', hint: '', label: p('palette.themeDark'), run: () => setTheme('dark') },
     { id: 'themeSepia', hint: '', label: p('palette.themeSepia'), run: () => setTheme('sepia') },
@@ -2889,10 +2949,10 @@ const actions = {
   open: async () => { await flushChange(); return window.api.open(); },
   save: () => window.api.save(),
   saveAs: () => window.api.saveAs(),
-  exportHtml: () => window.api.exportHtml(),
-  exportPdf: () => window.api.exportPdf(),
-  exportDocx: () => window.api.exportDocx(),
-  exportEpub: () => window.api.exportEpub(),
+  exportHtml: () => runExport('html'),
+  exportPdf: () => runExport('pdf'),
+  exportDocx: () => runExport('docx'),
+  exportEpub: () => runExport('epub'),
   find: openFind,
   exportSettings: async () => {
     const result = await window.api.settingsExport();
@@ -3285,6 +3345,7 @@ window.__mdpad = {
   openDrafts: () => openDraftsPanel(),
   refreshDraftsBadge: () => refreshDraftsBadge(),
   mermaidAvailable: () => Boolean(window.mermaid),
+  exportDiagramCount: async () => publishExportDiagrams(),
   mermaidState: () =>
     [...document.querySelectorAll('.code-block.is-mermaid')].map((block) => ({
       preview: block.classList.contains('is-preview'),
@@ -3318,7 +3379,7 @@ window.__mdpad = {
     const hint = document.querySelector('#set-dirty');
     return hint ? !hint.hidden : false;
   },
-  exportPreviewFromSettings: () => window.api.exportPreview(),
+  exportPreviewFromSettings: () => runExport('preview'),
   toggleFocusMode,
   openSettings,
   toggleFilesPane,

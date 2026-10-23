@@ -79,6 +79,7 @@ contextBridge.exposeInMainWorld('api', {
   onSessionTruncated: (cb) => ipcRenderer.on('session:truncated', (_e, payload) => cb(payload)),
   onSessionRestored: (cb) => ipcRenderer.on('session:restored', (_e, payload) => cb(payload)),
   exportPreview: () => ipcRenderer.invoke('export:preview'),
+  setExportDiagrams: (diagrams) => ipcRenderer.invoke('doc:diagrams', { diagrams }),
   exportNamePreview: (template) => ipcRenderer.invoke('export:namePreview', { template }),
   backupInfo: () => ipcRenderer.invoke('doc:backupInfo'),
   backupsList: () => ipcRenderer.invoke('doc:backups'),

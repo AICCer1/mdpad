@@ -33,7 +33,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              142 unit tests
-npm run smoke         219 end-to-end checks (dev or packaged)
+npm run smoke         221 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -56,6 +56,6 @@ Current artifacts: `release/mdpad Setup <version>.exe`, `release/mdpad <version>
 - Table cell alignment is a view and export setting: markdown tables only describe column
   alignment, so per-cell `text-align` is kept in the editor and in HTML/PDF exports but not in
   the `.md` file.
-- Mermaid diagrams render in the editor only. Exports keep the fenced source, because Word and
-  EPUB cannot embed the SVG without a rasteriser and the HTML/PDF path would have to run the
-  renderer at export time.
+- Mermaid diagrams are embedded as SVG in HTML, PDF and EPUB exports. Word (.docx) still keeps
+  the fenced source, because the Word writer needs a raster image and converting SVG to PNG is a
+  separate piece of work.

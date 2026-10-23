@@ -854,7 +854,7 @@ class Session {
     };
   }
 
-  async exportTo(filePath, kind) {
+  async exportTo(filePath, kind, diagrams = this.exportDiagrams || null) {
     const name = path.basename(this.file || 'Untitled', path.extname(this.file || 'Untitled'));
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     this.sendStatus({ exporting: kind, target: path.basename(filePath) });
@@ -865,6 +865,7 @@ class Session {
         template: exportTemplate(),
         css: String(readSettings().exportCss || ''),
         stats: this.exportStats(),
+        diagrams,
       });
       this.sendStatus({ exported: result });
       this.send('doc:exported', { path: filePath, kind });
@@ -884,6 +885,7 @@ class Session {
       const result = await toEpub(this.contents, filePath, {
         title: name,
         baseDir: this.file ? path.dirname(this.file) : path.dirname(filePath),
+        diagrams,
       });
       fs.writeFileSync(filePath, result.buffer);
       const out = { path: filePath, bytes: result.bytes, chapters: result.chapters };
@@ -896,6 +898,7 @@ class Session {
         template: exportTemplate(),
         css: String(readSettings().exportCss || ''),
         stats: this.exportStats(),
+        diagrams,
       }),
       'utf8'
     );
@@ -1243,6 +1246,14 @@ function registerIpc() {
     s.broadcastTabs();
     s.refreshTitle();
     return { normalized: true };
+  });
+
+  ipcMain.handle('doc:diagrams', (event, { diagrams } = {}) => {
+    const session = sessionFor(event);
+    if (!session) return { stored: 0 };
+    const map = diagrams && typeof diagrams === 'object' ? diagrams : {};
+    session.exportDiagrams = map;
+    return { stored: Object.keys(map).length };
   });
 
   ipcMain.handle('doc:exportHtml', (event) => sessionFor(event).exportWith('html'));
@@ -6478,6 +6489,78 @@ async function runSmoke() {
     mermaidBroken
   );
 
+  // 82a. exported HTML, PDF and EPUB contain the diagram, not the fence
+  let diagramExportSession = null;
+  const diagramExport = await (async () => {
+    const nl = String.fromCharCode(10);
+    const fence = String.fromCharCode(96, 96, 96);
+    const diagramDoc = ['# With diagram', '', fence + 'mermaid', 'graph TD;', '  A-->B;', fence, '', 'after'].join(nl);
+    await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      window.__mdpad.setMarkdown(${JSON.stringify(diagramDoc)});
+      await sleep(2200);
+    })()`);
+    const s2 = sessions.get(win.webContents.id);
+    diagramExportSession = s2;
+    s2.contents = diagramDoc;
+    const before = await win.webContents.executeJavaScript('window.__mdpad.exportDiagramCount()');
+    const htmlPath = path.join(dir, 'diagram.html');
+    const pdfPath = path.join(dir, 'diagram.pdf');
+    const epubPath = path.join(dir, 'diagram.epub');
+    await s2.exportTo(htmlPath, 'html');
+    await s2.exportTo(pdfPath, 'pdf');
+    await s2.exportTo(epubPath, 'epub');
+    const htmlText = fs.readFileSync(htmlPath, 'utf8');
+    const pdfBytes = fs.statSync(pdfPath).size;
+    const JSZip = require('jszip');
+    const epubZip = await JSZip.loadAsync(fs.readFileSync(epubPath));
+    const chapterFiles = Object.keys(epubZip.files).filter((name) => /OEBPS\/chap\d+\.xhtml$/.test(name));
+    let epubHasSvg = false;
+    for (const name of chapterFiles) {
+      const xml = await epubZip.file(name).async('string');
+      if (/<svg[\s>]/.test(xml)) epubHasSvg = true;
+    }
+    return {
+      before,
+      stored: Object.keys(s2.exportDiagrams || {}).length,
+      hasFigure: /class="mermaid-figure"/.test(htmlText),
+      hasSvg: /<svg[\s>]/.test(htmlText),
+      noFence: !/language-mermaid/.test(htmlText),
+      pdfBytes,
+      epubHasSvg,
+      chapterFiles,
+    };
+  })();
+  step(
+    'diagram-export',
+    diagramExport.before >= 1 &&
+      diagramExport.stored >= 1 &&
+      diagramExport.hasFigure &&
+      diagramExport.hasSvg &&
+      diagramExport.noFence &&
+      diagramExport.pdfBytes > 1500 &&
+      diagramExport.epubHasSvg,
+    diagramExport
+  );
+
+  // 82b. a document without diagrams keeps the plain path (no empty figure, no marker)
+  const plainExport = await (async () => {
+    const plainDoc = '# Plain' + String.fromCharCode(10) + String.fromCharCode(10) + 'text only';
+    await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      window.__mdpad.setMarkdown(${JSON.stringify(plainDoc)});
+      await sleep(600);
+      await window.__mdpad.exportDiagramCount();
+    })()`);
+    const s3 = sessions.get(win.webContents.id);
+    s3.contents = plainDoc;
+    const plainPath = path.join(dir, 'plain.html');
+    await s3.exportTo(plainPath, 'html');
+    const text = fs.readFileSync(plainPath, 'utf8');
+    return { markers: (text.match(/mermaid-figure/g) || []).length, stored: Object.keys(s3.exportDiagrams || {}).length };
+  })();
+  step('diagram-export-plain', plainExport.markers === 0 && plainExport.stored === 0, plainExport);
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -6986,6 +7069,7 @@ function previewExport(session) {
   const html = exporter.toHtmlDocument(session.contents, name, {
     template: exportTemplate(),
     css: String(readSettings().exportCss || ''),
+    diagrams: session.exportDiagrams || null,
   });
   const previewFile = path.join(userDir(), 'export-preview.html');
   fs.mkdirSync(userDir(), { recursive: true });

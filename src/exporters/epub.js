@@ -100,7 +100,11 @@ ${htmlBody}
 `;
 }
 
-async function toEpub(markdown, targetPath, { title = 'Untitled', author = 'mdpad', baseDir = process.cwd() } = {}) {
+async function toEpub(
+  markdown,
+  targetPath,
+  { title = 'Untitled', author = 'mdpad', baseDir = process.cwd(), diagrams = null } = {}
+) {
   const chapters = splitChapters(markdown);
   const zip = new JSZip();
 
@@ -119,7 +123,7 @@ async function toEpub(markdown, targetPath, { title = 'Untitled', author = 'mdpa
   const images = new Map();
   chapters.forEach((chapter, index) => {
     const name = `chap${index + 1}.xhtml`;
-    const html = embedImages(renderHtml(chapter.lines.join('\n')), baseDir, images);
+    const html = embedImages(renderHtml(chapter.lines.join('\n'), { diagrams }), baseDir, images);
     oebps.file(name, chapterXhtmlHtml(chapter.title, html));
     manifest.push(`<item id="chap${index + 1}" href="${name}" media-type="application/xhtml+xml"/>`);
     spine.push(`<itemref idref="chap${index + 1}"/>`);

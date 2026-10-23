@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 219 end-to-end checks against a real window
+npm run smoke          # 221 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -129,6 +129,10 @@ opening/closing the settings panel flips it between `flex` and `none`.
   suite runs the client against a local mock server, including that fallback.
 - Programmatic edits (AI insert/replace) must call `closeHistory(tr)` in a first transaction,
   otherwise ProseMirror merges them with the typing before them and one undo wipes both.
+- Diagrams reach exports through `doc:diagrams`: the renderer renders each Mermaid fence with
+  the light theme (exports are light documents) and sends a `{ source: svg }` map; `renderHtml`
+  swaps a matching fence for `<figure class="mermaid-figure">`. Word export cannot use this
+  path because docx needs a raster image.
 - Mermaid node views own a preview/edit mode. Toggling `pre.hidden` must be declared in
   `ignoreMutation`, otherwise ProseMirror rebuilds the node view (losing the mode) on the next
   transaction.

@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.7.0
+
+Diagrams now reach the exported file.
+
+- **HTML, PDF and EPUB embed the diagram as SVG.** The main process has no Mermaid runtime and no
+  DOM, so the renderer renders each distinct fence once (with the light theme, because exports are
+  light documents) and hands a `{source: svg}` map to main before the export starts. `renderHtml`
+  swaps a matching fence for `<figure class="mermaid-figure">svg</figure>`.
+- **Every entry point covered.** Menus, palette, toolbar and the Settings preview all go through
+  one `runExport(kind)` that publishes the map first; the export preview window shows the diagrams
+  too.
+- **A missing or failed render falls back to the fenced code block** rather than an empty figure,
+  so a broken diagram never produces a blank hole in the document.
+- **Word still keeps the source.** The .docx writer needs a raster image, and turning SVG into PNG
+  is a separate piece of work — stated in the README and the guide instead of being left implicit.
+- 221 smoke checks (two new: a diagram document exported to HTML/PDF/EPUB with the SVG present and
+  no `language-mermaid`; a plain document exporting with no diagram markers), 152 unit tests (four
+  new for the substitution rules).
+
 ## 1.6.0
 
 Mermaid, redone the way Typora does it.

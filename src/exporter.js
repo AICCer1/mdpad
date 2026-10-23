@@ -57,7 +57,7 @@ body[data-template="compact"] pre { padding: .7em; }
 const escapeHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-const renderBody = (markdown) => renderHtml(markdown);
+const renderBody = (markdown, diagrams = null) => renderHtml(markdown, { diagrams });
 
 // Table of contents for the export templates; heading ids come from the renderer.
 function tocHtml(markdown) {
@@ -79,7 +79,11 @@ function sanitizeCss(css) {
     .replace(/@import[^;]*;/gi, '');
 }
 
-function toHtmlDocument(markdown, title = 'Untitled', { template = 'default', css = '', stats = null } = {}) {
+function toHtmlDocument(
+  markdown,
+  title = 'Untitled',
+  { template = 'default', css = '', stats = null, diagrams = null } = {}
+) {
   const withToc = template === 'toc' ? tocHtml(markdown) : '';
   return `<!doctype html>
 <html lang="en">
@@ -94,15 +98,19 @@ ${css ? `<style>${sanitizeCss(css)}</style>` : ''}
 </head>
 <body data-template="${escapeHtml(template)}">
 ${withToc}
-${renderBody(markdown)}
+${renderBody(markdown, diagrams)}
 ${stats ? `<footer class="export-stats">${escapeHtml(stats.line)}</footer>` : ''}
 </body>
 </html>
 `;
 }
 
-async function toPdf(markdown, targetPath, { title = 'Untitled', template = 'default', css = '', stats = null } = {}) {
-  const html = toHtmlDocument(markdown, title, { template, css, stats });
+async function toPdf(
+  markdown,
+  targetPath,
+  { title = 'Untitled', template = 'default', css = '', stats = null, diagrams = null } = {}
+) {
+  const html = toHtmlDocument(markdown, title, { template, css, stats, diagrams });
   const tmpHtml = path.join(path.dirname(targetPath), `mdpad-print-${process.pid}.html`);
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   fs.writeFileSync(tmpHtml, html, 'utf8');

@@ -100,7 +100,9 @@ function imageStyle(meta) {
   return css.join(';');
 }
 
-function createMarked() {
+// Diagrams arrive as a { source: svg } map from the renderer, which is the only place with a
+// working Mermaid runtime. A missing entry falls back to the highlighted code block.
+function createMarked(diagrams = null) {
   const seen = new Map();
   const renderer = {
     heading(token) {
@@ -112,6 +114,11 @@ function createMarked() {
       return `<h${token.depth} id="${id}">${text}</h${token.depth}>\n`;
     },
     code(token) {
+      const source = String(token.text || '').trim();
+      const svg = diagrams && source ? diagrams[source] : null;
+      if (svg && String(token.lang || '').toLowerCase() === 'mermaid') {
+        return `<figure class="mermaid-figure">${svg}</figure>\n`;
+      }
       const { html, language } = highlightCode(token.text, token.lang);
       const cls = language ? ` class="hljs language-${language}"` : ' class="hljs"';
       return `<pre class="hljs-pre"><code${cls}>${html}</code></pre>\n`;
@@ -128,9 +135,9 @@ function createMarked() {
   return new Marked({ gfm: true, breaks: false, renderer, extensions: [blockMath, inlineMath] });
 }
 
-function renderHtml(markdown) {
+function renderHtml(markdown, { diagrams = null } = {}) {
   if (!markdown) return '';
-  return createMarked().parse(String(markdown));
+  return createMarked(diagrams).parse(String(markdown));
 }
 
 // Headings for the outline panel, with the 1-based source line for editor jumps.

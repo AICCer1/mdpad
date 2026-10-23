@@ -183,8 +183,9 @@ others as pictures. A diagram that fails to parse keeps its source on screen and
 message — nothing is hidden behind an error. Diagrams are redrawn when the theme changes, so dark
 mode gets dark-mode colours.
 
-Mermaid itself ships with the app (2.6 MB), so this works offline. Exports still contain the
-fenced source rather than a picture; that is listed under known limitations in the README.
+Mermaid itself ships with the app (2.6 MB), so this works offline. **HTML, PDF and EPUB exports
+embed the diagram as SVG** (the export preview shows it too). Word exports keep the fenced
+source, because the .docx writer needs a raster image.
 
 ## AI writing
 
