@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.18.0
+
+"Rewrite this paragraph" now shows what "this" means.
+
+- **The selected text is highlighted in the editor** while the AI panel is open, and quoted in a
+  small block above the instruction field. Closing the panel clears both.
+- **Why the highlight needed a transaction:** it is a ProseMirror decoration, and decorations are
+  only recomputed on transactions. Setting the variable alone left it invisible until something
+  else moved the caret; the panel now dispatches a meta-only transaction when it opens or clears.
+- **Every AI edit offers Undo.** Insert, new paragraph and replace all end with a toast carrying an
+  **Undo** action. Because the AI edit opens its own history group, one undo removes exactly the
+  AI's change and none of your typing.
+- 238 smoke checks (one new `ai-target-and-undo`: the quoted preview, the decoration, and using the
+  toast's Undo to get the original text back), 153 unit tests.
+
 ## 1.17.0
 
 Images resize by dragging, the way Typora does it.

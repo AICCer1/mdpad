@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 237 end-to-end checks against a real window
+npm run smoke          # 238 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -127,6 +127,9 @@ opening/closing the settings panel flips it between `flex` and `none`.
 - AI endpoints go through `src/ai-endpoint.js`: a bare host gets `/chat/completions`, a
   full endpoint is kept, and a 404 from a bare host is retried once with `/v1`. The smoke
   suite runs the client against a local mock server, including that fallback.
+- The AI target highlight is a ProseMirror decoration driven by `aiTargetDecoration`. Setting
+  it is not enough: decorations are recomputed on transactions, so the panel dispatches a
+  meta-only transaction (`aiTargetRefresh`) when it opens or clears.
 - Programmatic edits (AI insert/replace) must call `closeHistory(tr)` in a first transaction,
   otherwise ProseMirror merges them with the typing before them and one undo wipes both.
 - `step(name, ok, extra)` spreads `extra` over the result, so an `ok` key inside the details

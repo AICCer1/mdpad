@@ -7365,6 +7365,62 @@ async function runSmoke() {
     imgResize
   );
 
+  // 94a. the AI panel shows exactly which text it will rewrite, and AI edits offer an undo
+  const aiTarget = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const nl = String.fromCharCode(10);
+    window.__mdpad.setMarkdown(['# Target', '', 'first paragraph here', '', 'second paragraph here'].join(nl));
+    await sleep(600);
+    const ed = window.__mdpad.editor;
+    const text = 'second paragraph';
+    // Positions in a ProseMirror document include node boundaries, so a plain string offset is
+    // off by the number of preceding block markers; locate the text node instead.
+    let start = -1;
+    ed.state.doc.descendants((node, pos) => {
+      if (start >= 0 || !node.isText) return true;
+      const index = node.text.indexOf(text);
+      if (index >= 0) start = pos + index;
+      return true;
+    });
+    if (start < 0) return { error: 'text not found' };
+    ed.commands.setTextSelection({ from: start, to: start + text.length });
+    await sleep(150);
+    window.__mdpad.aiOpen();
+    await sleep(400);
+
+    const withSelection = window.__mdpad.aiTargetState();
+    // Collapse the selection; the highlight should follow the new range, not go stale.
+    ed.commands.setTextSelection(start + 3);
+    await sleep(350);
+    const afterCollapse = window.__mdpad.aiTargetState();
+
+    // Apply an insertion and check the toast offers Undo, then use it.
+    ed.commands.setTextSelection({ from: start, to: start + text.length });
+    await sleep(150);
+    const before = ed.getText();
+    window.__mdpad.aiInsert(' REWRITTEN');
+    await sleep(400);
+    const toast = window.__mdpad.toastInfo();
+    const applied = ed.getText();
+    const undoButton = [...document.querySelectorAll('#toast .toast-action')].find((b) => /undo/i.test(b.textContent));
+    if (undoButton) undoButton.click();
+    await sleep(400);
+    const afterUndo = ed.getText();
+    document.querySelector('#ai-popover').hidden = true;
+    return { withSelection, afterCollapse, toast, applied, afterUndo, before };
+  })()`);
+  step(
+    'ai-target-and-undo',
+    aiTarget.withSelection.preview.includes('second paragraph') &&
+      aiTarget.withSelection.decorations >= 1 &&
+      aiTarget.afterCollapse.preview.includes('second paragraph') &&
+      /REWRITTEN/.test(aiTarget.applied) &&
+      aiTarget.toast.actions.some((label) => /undo/i.test(label)) &&
+      !/REWRITTEN/.test(aiTarget.afterUndo) &&
+      /REWRITTEN/.test(aiTarget.before) === false,
+    aiTarget
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

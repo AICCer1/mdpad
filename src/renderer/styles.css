@@ -1949,3 +1949,22 @@ textarea:focus-visible,
   opacity: 0.9;
 }
 .tiptap img.is-resizing { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 2px; }
+
+/* ---- AI target: what will be rewritten ---- */
+.ai-target-range {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+  border-radius: 2px;
+}
+.ai-target-preview {
+  margin: 0 0 8px;
+  padding: 6px 9px;
+  border-left: 2px solid var(--accent);
+  border-radius: 0 var(--r-sm, 5px) var(--r-sm, 5px) 0;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+  max-height: 52px;
+  overflow: hidden;
+}

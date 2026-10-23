@@ -227,6 +227,11 @@ underneath, then the result box and one primary **Insert** with the secondary ac
 
 ![AI panel](images/04-ai.png)
 
+Select a paragraph and open the panel: the text you selected is highlighted in the editor and
+quoted above the instruction field, so "replace the selection" is never a guess. After any AI edit
+a toast offers **Undo**, and that undo removes the whole edit in one step rather than character by
+character.
+
 The AI header keeps a single row on narrow windows (Run stays text, Retry/Stop/settings are
 labelled icons). The six presets stay on one horizontally scrollable row whose faded right edge hints that
 more are available, so the panel keeps its height on

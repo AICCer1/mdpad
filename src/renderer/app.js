@@ -563,6 +563,26 @@ const FocusDecoration = Extension.create({
   },
 });
 
+const AiTarget = Extension.create({
+  name: 'aiTarget',
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        props: {
+          decorations: (state) => {
+            if (!aiTargetDecoration || aiPopover.hidden) return null;
+            const { from, to } = aiTargetDecoration;
+            if (from >= to || to > state.doc.content.size) return null;
+            return DecorationSet.create(state.doc, [
+              Decoration.inline(from, to, { class: 'ai-target-range' }),
+            ]);
+          },
+        },
+      }),
+    ];
+  },
+});
+
 const editor = new Editor({
   element: host,
   extensions: [
@@ -570,6 +590,7 @@ const editor = new Editor({
     StarterKit.configure({ codeBlock: false, link: false, heading: { levels: [1, 2, 3, 4, 5, 6] } }),
     // Pasting a URL over a selection should link that selection instead of replacing it.
     Link.configure({ openOnClick: false, autolink: true, linkOnPaste: true }),
+    AiTarget,
     MermaidCodeBlock.configure({ lowlight }),
     Markdown,
     SizedImage.configure({ inline: false, allowBase64: true }),
@@ -1484,6 +1505,11 @@ editor.on('selectionUpdate', () => {
   if (!aiPopover.hidden) {
     updateContextNote();
     refreshAiTargetChip();
+    refreshAiTargetPreview();
+    const { from, to, empty } = editor.state.selection;
+    aiSelection = empty ? aiSelection : { from, to, text: editor.state.doc.textBetween(from, to, ' ') };
+    const tr = editor.state.tr.setMeta('aiTargetRefresh', Date.now());
+    editor.view.dispatch(tr);
   }
   updateActiveBlock();
   markCurrentOutline();
@@ -1665,6 +1691,9 @@ $('#find-close').addEventListener('click', closeFind);
 // ---- AI writing ------------------------------------------------------------
 
 let aiSelection = null;
+// A highlight on exactly the range the next replace will touch. Without it the panel says
+// "selection" while the user has to remember what that was.
+let aiTargetDecoration = null;
 let aiRequestId = null;
 let aiLastRequest = null;
 let aiConfirmThreshold = 20000;
@@ -1823,6 +1852,22 @@ async function refreshAiSetup() {
 document.querySelector('#ai-setup-open').addEventListener('click', () => openSettings());
 
 // One place answers "what will this act on?", so the panel does not make people read a select.
+function refreshAiTargetPreview() {
+  const preview = document.querySelector('#ai-target-preview');
+  if (!preview) return;
+  const text = aiSelection ? aiSelection.text.trim() : '';
+  if (!text) {
+    preview.hidden = true;
+    preview.textContent = '';
+    refreshAiTargetHighlight();
+    return;
+  }
+  preview.hidden = false;
+  preview.textContent = text.length > 140 ? text.slice(0, 140) + '…' : text;
+  preview.title = text;
+  refreshAiTargetHighlight();
+}
+
 function refreshAiTargetChip() {
   const chip = document.querySelector('#ai-target-chip');
   const select = document.querySelector('#ai-scope');
@@ -1834,15 +1879,47 @@ function refreshAiTargetChip() {
   chip.classList.toggle('is-empty', select.value === 'none' && !hasSelection);
 }
 
+function refreshAiTargetHighlight() {
+  const dom = editor.view.dom;
+  if (aiPopover.hidden || !aiSelection) {
+    if (aiTargetDecoration) {
+      aiTargetDecoration = null;
+      dom.classList.remove('ai-target');
+      try {
+        editor.view.dispatch(editor.state.tr.setMeta('aiTargetRefresh', 0));
+      } catch {
+        /* the view may be gone */
+      }
+    }
+    return;
+  }
+  aiTargetDecoration = aiSelection;
+  dom.classList.add('ai-target');
+  // Decorations are recomputed on transactions, so opening the panel needs one.
+  try {
+    editor.view.dispatch(editor.state.tr.setMeta('aiTargetRefresh', Date.now()));
+  } catch {
+    /* the view may be mid-update */
+  }
+}
+
+function clearAiTargetHighlight() {
+  aiSelection = null;
+  refreshAiTargetHighlight();
+}
+
 function openAI() {
   requestAnimationFrame(refreshAiTargetChip);
   const { from, to, empty } = editor.state.selection;
   aiSelection = empty ? null : { from, to, text: editor.state.doc.textBetween(from, to, ' ') };
   updateContextNote();
+  refreshAiTargetPreview();
   renderHistoryChips();
   aiPopover.hidden = false;
   refreshAiSetup();
   syncEmptyHint();
+  // The highlight is gated on the panel being visible; refresh it after showing.
+  refreshAiTargetPreview();
   aiInstruction.focus();
   aiInstruction.select();
 }
@@ -2040,6 +2117,11 @@ function insertAI(text, replace, asParagraph = false) {
     /* scrolling is cosmetic */
   }
   aiPopover.hidden = true;
+  clearAiTargetHighlight();
+  // One visible way out: the AI edit opened its own undo group, so a single undo is safe.
+  showToast(replace ? 'Replaced the selection' : asParagraph ? 'Inserted a paragraph' : 'Inserted the result', 8000, [
+    { label: 'Undo', run: () => editor.commands.undo() },
+  ]);
 }
 
 // Review a suggestion against the selection before applying it.
@@ -3965,6 +4047,12 @@ window.__mdpad = {
   aiInsertParagraph: (text) => insertAI(text, false, true),
   aiOpen: openAI,
   aiTurns: () => aiHistory.slice(),
+  aiTargetState: () => ({
+    preview: document.querySelector('#ai-target-preview').hidden
+      ? ''
+      : document.querySelector('#ai-target-preview').textContent,
+    decorations: editor.view.dom.querySelectorAll('.ai-target-range').length,
+  }),
   aiPanelOrder: () => {
     const panel = document.querySelector('#ai-popover');
     const order = [...panel.querySelectorAll('[data-order]')].map((el) => el.dataset.order);
