@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.8.0
+
+A visual pass over the whole chrome.
+
+- **One scale instead of ad-hoc values.** Control heights (26 px controls, 38 px toolbar, 44 px
+  top bar), three radii (5 / 8 / 12) and a single easing/duration pair now drive the chrome.
+- **Toolbar.** 26 px buttons, grouped separators, hover wash, and a proper active state: an opaque
+  accent tint with the label kept at `--text` weight, so Bold in dark mode stays readable.
+- **Tabs** get an accent indicator on the active tab, consistent heights and a quieter new-tab
+  button.
+- **Sidebars.** Small-caps headers with letter-spacing, 26 px rows with hover and active states, a
+  left accent rule on the active file, and indentation guides in the outline.
+- **Empty state** is a composed card with a clear hierarchy (title, one-line promise, three
+  actions, shortcut hint) instead of a floating line of text.
+- **Editor typography.** Tighter heading tracking, accent-tinted blockquote rule, tinted table
+  headers, softer rules, themed selection.
+- **Accessibility and motion.** Visible `:focus-visible` rings everywhere, and transitions are
+  disabled under `prefers-reduced-motion`.
+- **Two real defects found while measuring:** an active toolbar button used accent text on an
+  accent wash (1.07:1 in dark mode, invisible), and an empty status item left a dangling separator
+  dot in the top bar. Both are fixed.
+- **Theme swaps no longer flash.** A `theme-swap` class disables transitions for two frames; the
+  contrast audit had been sampling mid-interpolation.
+- 222 smoke checks (one new `chrome-polish`), 152 unit tests.
+
 ## 1.7.0
 
 Diagrams now reach the exported file.

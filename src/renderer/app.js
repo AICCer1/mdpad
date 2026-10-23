@@ -1822,6 +1822,21 @@ function sampleContrast(selector) {
   return contrastRatio(getComputedStyle(el).color, effectiveBackground(el));
 }
 
+function toolbarSample() {
+  const el = document.querySelector('.toolbar button');
+  if (!el) return null;
+  const style = getComputedStyle(el);
+  return {
+    cmd: el.dataset.cmd || '',
+    className: String(el.className || ''),
+    color: style.color,
+    background: style.backgroundColor,
+    resolvedBg: effectiveBackground(el),
+    theme: document.documentElement.dataset.theme || '',
+    textVar: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(),
+  };
+}
+
 function themeContrastReport() {
   const previous = document.documentElement.dataset.theme || 'light';
   const report = {};
@@ -1831,6 +1846,7 @@ function themeContrastReport() {
       editor: sampleContrast('.tiptap'),
       status: sampleContrast('#status'),
       toolbar: sampleContrast('.toolbar button'),
+      toolbarSample: toolbarSample(),
     };
   }
   applyTheme(previous);
@@ -2520,7 +2536,12 @@ async function setTheme(theme) {
 
 // Swap the highlight theme with the app theme instead of filtering colors.
 function applyTheme(theme) {
-  document.documentElement.dataset.theme = theme;
+  // Transitions would make every colour interpolate during a theme swap: it flashes, and any
+  // measurement taken right after the switch sees the old palette. Disable them for one frame.
+  const root = document.documentElement;
+  root.classList.add('theme-swap');
+  root.dataset.theme = theme;
+  requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove('theme-swap')));
   refreshMermaidPreviews();
   const light = document.querySelector('#hljs-light');
   const dark = document.querySelector('#hljs-dark');

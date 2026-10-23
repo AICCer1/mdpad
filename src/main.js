@@ -4046,6 +4046,7 @@ async function runSmoke() {
     failures: contrastFailures,
     light: contrast.light && contrast.light.editor,
     dark: contrast.dark && contrast.dark.editor,
+    toolbarSample: contrast.dark && contrast.dark.toolbarSample,
     sepia: contrast.sepia && contrast.sepia.editor,
   });
 
@@ -6560,6 +6561,71 @@ async function runSmoke() {
     return { markers: (text.match(/mermaid-figure/g) || []).length, stored: Object.keys(s3.exportDiagrams || {}).length };
   })();
   step('diagram-export-plain', plainExport.markers === 0 && plainExport.stored === 0, plainExport);
+
+  // 83a. the chrome follows one scale: control heights, active states, tab indicator
+  const chrome = await win.webContents.executeJavaScript(`(async () => {
+    try {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const ed = window.__mdpad.editor;
+    ed.commands.setContent('<p>hello world</p>');
+    ed.commands.setTextSelection({ from: 1, to: 6 });
+    await sleep(150);
+    ed.chain().focus().toggleBold().run();
+    await sleep(250);
+
+    const bold = document.querySelector('[data-cmd="bold"]');
+    const boldStyle = getComputedStyle(bold);
+    const activeOn = bold.classList.contains('active');
+    const activeBg = boldStyle.backgroundColor;
+    const height = boldStyle.height;
+    const radius = boldStyle.borderTopLeftRadius;
+
+    ed.chain().focus().toggleBold().run();
+    await sleep(200);
+    const boldOff = !bold.classList.contains('active');
+
+    const tab = document.querySelector('.tab.active');
+    const tabStyle = tab ? getComputedStyle(tab) : null;
+    const toolbar = document.querySelector('.toolbar');
+
+    const rulesText = [...document.styleSheets]
+      .flatMap((sheet) => {
+        try {
+          return [...sheet.cssRules].map((rule) => rule.cssText);
+        } catch {
+          return [];
+        }
+      })
+      .join(String.fromCharCode(10));
+
+    return {
+      height,
+      radius,
+      activeOn,
+      activeBg,
+      boldOff,
+      toolbarHeight: getComputedStyle(toolbar).height,
+      tabShadow: tabStyle ? tabStyle.boxShadow : '',
+      reducedMotion: /prefers-reduced-motion/.test(rulesText),
+      themeSwap: /theme-swap/.test(rulesText),
+    };
+    } catch (err) {
+      return { error: String(err && err.stack ? err.stack : err).slice(0, 300) };
+    }
+  })()`);
+  step(
+    'chrome-polish',
+    chrome.height === '26px' &&
+      chrome.radius === '5px' &&
+      chrome.toolbarHeight === '38px' &&
+      chrome.activeOn === true &&
+      chrome.activeBg !== 'rgba(0, 0, 0, 0)' &&
+      chrome.boldOff === true &&
+      chrome.tabShadow !== '' &&
+      chrome.reducedMotion === true &&
+      chrome.themeSwap === true,
+    chrome
+  );
 
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
