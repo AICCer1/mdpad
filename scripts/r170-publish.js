@@ -6,12 +6,12 @@ const path = require('node:path');
 const https = require('node:https');
 
 const root = 'E:\\code\\mdpad';
-const version = '1.23.0';
+const version = '1.24.0';
 const git = (...args) =>
   execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 
 git('add', '-A');
-git('-c', 'core.autocrlf=false', 'commit', '-q', '-m', `style: make the minimum window width usable (${version})`);
+git('-c', 'core.autocrlf=false', 'commit', '-q', '-m', `feat: tab context menu and Ctrl+Tab cycling (${version})`);
 console.log('commit:', git('log', '--oneline', '-1').trim());
 git('push', 'origin', 'main');
 git('tag', '-a', `v${version}`, '-m', `mdpad ${version}`);

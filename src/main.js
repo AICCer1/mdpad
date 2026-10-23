@@ -7895,6 +7895,59 @@ async function runSmoke() {
     narrowAudit
   );
 
+  // 100a. right-clicking a tab closes its neighbours, and Ctrl+Tab cycles
+  const tabMenuTest = await (async () => {
+    const nl = String.fromCharCode(10);
+    const fileX = path.join(dir, 'tab-x.md');
+    const fileY = path.join(dir, 'tab-y.md');
+    const fileZ = path.join(dir, 'tab-z.md');
+    fs.writeFileSync(fileX, '# X' + nl);
+    fs.writeFileSync(fileY, '# Y' + nl);
+    fs.writeFileSync(fileZ, '# Z' + nl);
+    await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      await window.api.openPath(${JSON.stringify(fileX)});
+      await sleep(300);
+      await window.api.openPath(${JSON.stringify(fileY)});
+      await sleep(300);
+      await window.api.openPath(${JSON.stringify(fileZ)});
+      await sleep(500);
+    })()`);
+
+    const opened = await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      window.__mdpad.openTabContextMenu(320, 70);
+      await sleep(250);
+      const state = window.__mdpad.tabMenuState();
+      window.__mdpad.tabMenuClick('closeOthers');
+      await sleep(900);
+      const tabs = await window.api.listTabs();
+      return { state, tabs: tabs.map((tab) => (tab.file || '').split(/[\\\\/]/).pop()) };
+    })()`);
+
+    const cycled = await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      await window.api.openPath(${JSON.stringify(fileX)});
+      await sleep(600);
+      const before = (await window.api.listTabs()).find((t) => t.active).file;
+      window.__mdpad.cycleTab(1);
+      await sleep(700);
+      const after = (await window.api.listTabs()).find((t) => t.active).file;
+      return { before: (before || '').split(/[\\\\/]/).pop(), after: (after || '').split(/[\\\\/]/).pop() };
+    })()`);
+    return { opened, cycled };
+  })();
+  step(
+    'tab-menu-and-cycle',
+    tabMenuTest.opened.state.hidden === false &&
+      tabMenuTest.opened.state.items.includes('closeOthers') &&
+      tabMenuTest.opened.state.items.includes('copyPath') &&
+      tabMenuTest.opened.tabs.length === 1 &&
+      tabMenuTest.opened.tabs[0] === 'tab-z.md' &&
+      tabMenuTest.cycled.before !== tabMenuTest.cycled.after,
+    tabMenuTest
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

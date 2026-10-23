@@ -2836,6 +2836,86 @@ async function flushChange() {
 let tabsState = [];
 let dragTabId = null;
 
+// Right-click a tab: close the others, close to the right, copy its path, reveal it.
+let tabMenuTarget = null;
+
+function closeTabMenu() {
+  const menu = document.querySelector('#tab-menu');
+  if (menu) menu.hidden = true;
+}
+
+function openTabMenu(x, y, tab) {
+  tabMenuTarget = tab;
+  const menu = document.querySelector('#tab-menu');
+  if (!menu) return;
+  const hasFile = Boolean(tab.file);
+  for (const action of ['copyPath', 'reveal']) {
+    const button = menu.querySelector('[data-tab-action="' + action + '"]');
+    if (button) button.hidden = !hasFile;
+  }
+  menu.hidden = false;
+  const rect = menu.getBoundingClientRect();
+  menu.style.left = Math.max(8, Math.min(x, window.innerWidth - rect.width - 8)) + 'px';
+  menu.style.top = Math.max(8, Math.min(y, window.innerHeight - rect.height - 8)) + 'px';
+}
+
+async function runTabAction(action) {
+  const tab = tabMenuTarget;
+  if (!tab) return;
+  if (action === 'close') return window.api.closeTab(tab.id);
+  if (action === 'closeOthers') {
+    for (const other of tabsState) {
+      if (other.id !== tab.id) await window.api.closeTab(other.id);
+    }
+    return window.api.activateTab(tab.id);
+  }
+  if (action === 'closeRight') {
+    const index = tabsState.findIndex((entry) => entry.id === tab.id);
+    for (const other of tabsState.slice(index + 1)) {
+      await window.api.closeTab(other.id);
+    }
+    return window.api.activateTab(tab.id);
+  }
+  if (action === 'copyPath' && tab.file) {
+    await window.api.clipboardWrite(tab.file);
+    showToast('Path copied', 2200);
+    return undefined;
+  }
+  if (action === 'reveal' && tab.file) {
+    return window.api.revealEntry(tab.file);
+  }
+  return undefined;
+}
+
+function cycleTab(offset) {
+  if (tabsState.length < 2) return;
+  const index = tabsState.findIndex((entry) => entry.active);
+  const next = (index + offset + tabsState.length) % tabsState.length;
+  window.api.activateTab(tabsState[next].id);
+}
+
+document.addEventListener('keydown', (event) => {
+  if (!event.ctrlKey || event.key !== 'Tab') return;
+  event.preventDefault();
+  cycleTab(event.shiftKey ? -1 : 1);
+});
+
+document.querySelectorAll('#tab-menu [data-tab-action]').forEach((button) => {
+  button.addEventListener('click', async () => {
+    const action = button.dataset.tabAction;
+    closeTabMenu();
+    await runTabAction(action);
+  });
+});
+
+document.addEventListener('mousedown', (event) => {
+  const menu = document.querySelector('#tab-menu');
+  if (menu && !menu.hidden && !menu.contains(event.target)) closeTabMenu();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closeTabMenu();
+});
+
 function renderTabs(list) {
   tabsState = Array.isArray(list) ? list : [];
   for (const key of [...editorStateCache.keys()]) {
@@ -2900,6 +2980,11 @@ function renderTabs(list) {
       if (tab.active) return;
       await flushChange();
       await window.api.activateTab(tab.id);
+    });
+
+    el.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      openTabMenu(event.clientX, event.clientY, tab);
     });
 
     tabList.appendChild(el);
@@ -4489,6 +4574,26 @@ window.__mdpad = {
   }),
   relativeAge: (iso) => relativeAge(iso, lang),
   saveState: () => (saveStateEl ? saveStateEl.textContent : ''),
+  tabMenuState: () => {
+    const menu = document.querySelector('#tab-menu');
+    return {
+      hidden: menu.hidden,
+      items: [...menu.querySelectorAll('[data-tab-action]')].filter((b) => !b.hidden).map((b) => b.dataset.tabAction),
+    };
+  },
+  openTabContextMenu: (clientX = 300, clientY = 60) => {
+    const tab = document.querySelector('.tab.active');
+    if (!tab) return false;
+    tab.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX, clientY }));
+    return true;
+  },
+  tabMenuClick: (action) => {
+    const button = document.querySelector('#tab-menu [data-tab-action="' + action + '"]');
+    if (!button) return false;
+    button.click();
+    return true;
+  },
+  cycleTab,
   scrollTo: (top) => {
     editorPane.scrollTop = top;
   },

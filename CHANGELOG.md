@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.24.0
+
+Tabs grew the controls people reach for once they have more than three open.
+
+- **Right-click a tab**: Close, Close others, Close to the right, Copy path, Show in folder. The
+  path actions hide themselves for unsaved tabs.
+- **Ctrl+Tab / Ctrl+Shift+Tab** cycle through tabs, wrapping at the ends.
+- **Why the menu looked broken at first:** the `contextmenu` listener was inserted after a
+  `tabList.appendChild(el)` that did not match the real indentation, so it silently never attached.
+  The menu markup existed and the buttons worked in isolation, which is exactly why the test drives
+  a real right-click on a real tab instead of calling the handler.
+- 248 smoke checks (one new `tab-menu-and-cycle`: the menu opens on the tab, Close others leaves
+  exactly that tab, and cycling changes the active file), 153 unit tests.
+
 ## 1.23.0
 
 The minimum window width is usable now.

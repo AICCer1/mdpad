@@ -165,6 +165,12 @@ restarts.
 **Check spelling** (Settings → Appearance) turns the checker on or off; right-click a word with a
 red underline for suggestions, **Add to dictionary** or **Ignore**.
 
+## Tabs
+
+Tabs can be dragged to reorder, closed with the ×, and **Ctrl+Tab / Ctrl+Shift+Tab** cycle through
+them. Right-click a tab for **Close**, **Close others**, **Close to the right**, **Copy path** and
+**Show in folder** (the path actions need a saved file).
+
 ## Small windows
 
 The window can go down to 720 px wide. Below ~920 px both sidebars narrow, the HTML and PDF
