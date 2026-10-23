@@ -772,6 +772,61 @@ document.querySelectorAll('[data-cmd]').forEach((button) => {
 
 // Moving a row by editing positions inside a table is easy to get wrong; rebuilding the table
 // with two rows swapped is not.
+// Notion-style row grip: appears at the left edge of the row under the pointer and can drag the
+// row to a new position.
+let rowDragFrom = -1;
+let rowDragHandleEl = null;
+
+function rowElements() {
+  const table = document.querySelector('.tiptap table');
+  return table ? [...table.querySelectorAll('tbody > tr, thead > tr')] : [];
+}
+
+function ensureRowHandle() {
+  if (rowDragHandleEl) return rowDragHandleEl;
+  const handle = document.createElement('div');
+  handle.id = 'row-handle';
+  handle.className = 'row-handle';
+  handle.hidden = true;
+  handle.title = 'Drag to move this row';
+  handle.innerHTML =
+    '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true">' +
+    '<circle cx="9" cy="7" r="1.4"/><circle cx="15" cy="7" r="1.4"/>' +
+    '<circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/>' +
+    '<circle cx="9" cy="17" r="1.4"/><circle cx="15" cy="17" r="1.4"/></svg>';
+  document.body.appendChild(handle);
+  rowDragHandleEl = handle;
+  return handle;
+}
+
+function showRowHandle(index) {
+  const handle = ensureRowHandle();
+  const rows = rowElements();
+  const row = rows[index];
+  if (!row) {
+    handle.hidden = true;
+    return;
+  }
+  const rect = row.getBoundingClientRect();
+  handle.style.top = rect.top + rect.height / 2 - 11 + 'px';
+  handle.style.left = rect.left - 26 + 'px';
+  handle.hidden = false;
+  handle.dataset.row = String(index);
+}
+
+function hideRowHandle() {
+  if (rowDragHandleEl) rowDragHandleEl.hidden = true;
+}
+
+function rowIndexAt(y) {
+  const rows = rowElements();
+  for (let i = 0; i < rows.length; i += 1) {
+    const rect = rows[i].getBoundingClientRect();
+    if (y < rect.bottom) return i;
+  }
+  return rows.length - 1;
+}
+
 function closeTableMenu() {
   const menu = document.querySelector('#table-menu');
   if (menu) menu.hidden = true;
@@ -787,6 +842,52 @@ function openTableMenu(x, y) {
   menu.style.left = Math.max(8, left) + 'px';
   menu.style.top = Math.max(8, top) + 'px';
 }
+
+editor.view.dom.addEventListener('mousemove', (event) => {
+  if (rowDragFrom >= 0) return;
+  const cell = event.target.closest ? event.target.closest('td, th') : null;
+  if (!cell) {
+    hideRowHandle();
+    return;
+  }
+  const row = cell.closest('tr');
+  const rows = rowElements();
+  const index = rows.indexOf(row);
+  if (index >= 0) showRowHandle(index);
+});
+
+editor.view.dom.addEventListener('mouseleave', () => {
+  if (rowDragFrom < 0) hideRowHandle();
+});
+
+document.addEventListener('pointerdown', (event) => {
+  if (event.target && event.target.closest && event.target.closest('#row-handle')) {
+    rowDragFrom = Number(event.target.closest('#row-handle').dataset.row);
+    event.preventDefault();
+    return;
+  }
+  hideRowHandle();
+});
+document.addEventListener('pointermove', (event) => {
+  if (rowDragFrom < 0) return;
+  const rows = rowElements();
+  rows.forEach((row) => row.classList.remove('row-drop-target'));
+  const index = rowIndexAt(event.clientY);
+  if (rows[index] && index !== rowDragFrom) rows[index].classList.add('row-drop-target');
+});
+document.addEventListener('pointerup', (event) => {
+  if (rowDragFrom < 0) return;
+  const from = rowDragFrom;
+  rowDragFrom = -1;
+  rowElements().forEach((row) => row.classList.remove('row-drop-target'));
+  hideRowHandle();
+  const to = rowIndexAt(event.clientY);
+  if (to !== from) {
+    const coords = editor.view.posAtCoords({ left: event.clientX, top: event.clientY });
+    if (coords) editor.chain().focus().setTextSelection(coords.pos).run();
+    moveRowTo(from, to);
+  }
+});
 
 editor.view.dom.addEventListener('contextmenu', (event) => {
   const cell = event.target.closest ? event.target.closest('td, th') : null;
@@ -818,6 +919,31 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') closeTableMenu();
 });
 window.addEventListener('blur', closeTableMenu);
+
+// Reorder by rebuilding the table; never by arithmetic on positions inside it.
+function moveRowTo(from, to) {
+  if (from === to || from < 0 || to < 0) return false;
+  const { state } = editor;
+  const { $from } = state.selection;
+  let tableDepth = -1;
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    if ($from.node(depth).type.name === 'table') {
+      tableDepth = depth;
+      break;
+    }
+  }
+  if (tableDepth < 0) return false;
+  const table = $from.node(tableDepth);
+  const rows = [];
+  table.content.forEach((row) => rows.push(row));
+  if (from >= rows.length || to >= rows.length) return false;
+  const [moved] = rows.splice(from, 1);
+  rows.splice(to, 0, moved);
+  const tableStart = $from.before(tableDepth);
+  const replacement = table.type.create(table.attrs, rows);
+  editor.view.dispatch(state.tr.replaceWith(tableStart, tableStart + table.nodeSize, replacement));
+  return true;
+}
 
 function moveTableRow(direction) {
   const { state } = editor;
@@ -2829,6 +2955,7 @@ function commandList() {
     { id: 'ai', hint: 'Ctrl+J', label: p('palette.ai'), run: openAI },
     { id: 'appearance', hint: 'Aa', label: p('cmd.appearance'), run: () => openSettings('appearance') },
     { id: 'split', hint: 'Ctrl+Alt+2', label: p('palette.split'), run: () => splitWindowRequest() },
+    { id: 'unsplit', hint: 'Ctrl+Alt+1', label: p('palette.unsplit'), run: () => unsplitWindowRequest() },
     { id: 'settings', hint: 'Ctrl+,', label: p('palette.settings'), run: openSettings },
     { id: 'shortcuts', hint: 'F1', label: p('palette.shortcuts'), run: openShortcuts },
     { id: 'stats', hint: '', label: p('palette.stats'), run: openStats },
@@ -3074,6 +3201,13 @@ document.querySelector('#open-appearance').addEventListener('click', () => openS
 
 // Side-by-side editing uses two real windows placed on the two halves of the display; an unsaved
 // document has no path to open in the second one, so say that instead of doing nothing.
+async function unsplitWindowRequest() {
+  const result = await window.api.unsplitWindow().catch(() => ({ ok: false }));
+  if (result && result.ok) return true;
+  showToast(t('menu.unsplitFailed', lang), 3600);
+  return false;
+}
+
 async function splitWindowRequest() {
   const result = await window.api.splitWindow().catch(() => ({ ok: false, reason: 'error' }));
   if (result && result.ok) return true;
@@ -3801,6 +3935,7 @@ window.__mdpad = {
   openSettings,
   toggleFilesPane,
   splitWindow: () => splitWindowRequest(),
+  unsplitWindow: () => unsplitWindowRequest(),
   setTheme: (theme) => setTheme(theme),
   applyPreset: (key) => {
     const preset = applyPreset(key);
@@ -3870,6 +4005,16 @@ window.__mdpad = {
     classes: editor.view.dom.className,
     html: editor.view.dom.innerHTML.slice(0, 400),
   }),
+  rowHandleState: () => {
+    const handle = document.querySelector('#row-handle');
+    return {
+      exists: Boolean(handle),
+      hidden: handle ? handle.hidden : true,
+      row: handle ? Number(handle.dataset.row) : -1,
+      dropTargets: document.querySelectorAll('.row-drop-target').length,
+    };
+  },
+  moveRowTo,
   tableMenuState: () => {
     const menu = document.querySelector('#table-menu');
     return { hidden: menu.hidden, items: menu.querySelectorAll('[data-tm]').length };

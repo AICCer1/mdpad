@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.15.0
+
+Two loose ends from 1.14.0, and a table grip.
+
+- **Splits can be undone.** `View → Merge the split windows` (Ctrl+Alt+1) closes the twin and
+  restores the bounds the first window had before the split. The pair is remembered per window; if
+  you close the twin by hand, merging still puts the first window back.
+- **A Notion-style row grip.** Hovering a table row shows a grip at its left edge; drag it to move
+  that row anywhere in the table, with the target row highlighted. Reordering rebuilds the table
+  (same approach as the row move in 1.13.0).
+- **Why the merge first said "not split":** only the menu path recorded the pair, not the IPC path
+  that the palette and the tests use. Both paths record it now.
+- 234 smoke checks (two new: `unsplit-windows` closing the twin and restoring the size, and
+  `table-row-drag` moving the second row to the end), 153 unit tests.
+
 ## 1.14.0
 
 Two windows, side by side.

@@ -51,7 +51,7 @@ empty tree offers **Open a folder** instead of a sentence. The outline header co
 the document, and the section that currently holds the caret is marked with an accent rule, so you
 can see where you are without reading the text.
 
-**Tables.** Right-click any cell for the full table menu: add a row or column on either side, move the row
+**Tables.** Hover a row and a grip appears on its left edge; drag it to move that row. Right-click any cell for the full table menu: add a row or column on either side, move the row
 up or down, toggle the header row, or delete the row, column or table. Column borders can be
 dragged; widths are a view setting (markdown has no syntax for them). Hover a table to get a small toolbar with add row, add column and the two delete
 actions, so a table can be edited without visiting the bar. Pressing Tab in the last cell appends a row, the way Notion does. The bar above the editor
@@ -149,8 +149,9 @@ Data lives in `%APPDATA%\mdpad`: `backups/`, `draftsRecover/`, `session.json`,
 
 **View → Split into two windows** (Ctrl+Alt+2, or the palette) tiles the current window and a new
 one on the two halves of the display, both editing the same saved file. Save it or the command
-explains why it cannot split. Each window keeps its own scroll position and tabs; closing one
-leaves the other running.
+explains why it cannot split. Each window keeps its own scroll position and tabs; closing one leaves the other running.
+**View → Merge the split windows** (Ctrl+Alt+1) closes the second window and restores the size the
+first one had before the split.
 
 ## Export
 

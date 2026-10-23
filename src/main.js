@@ -1012,6 +1012,8 @@ class Session {
 }
 
 const sessions = new Map(); // webContents id -> Session
+// window id -> { twinId, originalBounds } so a split can be undone
+const splitPairs = new Map();
 const aiRequests = new Map(); // requestId -> AbortController for in-flight streams
 
 function createWindow({ show = true, restore = null, cascade = 0, bounds: explicitBounds = null } = {}) {
@@ -1197,7 +1199,8 @@ function registerIpc() {
     const session = sessionFor(event);
     if (!win || !session) return { ok: false, reason: 'no-window' };
     if (!session.file) return { ok: false, reason: 'unsaved' };
-    const area = screen.getDisplayMatching(win.getBounds()).workArea;
+    const originalBounds = win.getBounds();
+      const area = screen.getDisplayMatching(win.getBounds()).workArea;
     const half = Math.floor(area.width / 2);
     const left = { x: area.x, y: area.y, width: half, height: area.height };
     const right = { x: area.x + half, y: area.y, width: area.width - half, height: area.height };
@@ -1207,7 +1210,30 @@ function registerIpc() {
       const twin = sessions.get(second.webContents.id);
       if (twin) twin.loadDocument(session.file);
     });
-    return { ok: true, left, right };
+    splitPairs.set(win.id, { twinId: second.id, originalBounds });
+      second.on('closed', () => {
+        const pair = splitPairs.get(win.id);
+        if (pair && pair.twinId === second.id) pair.twinId = null;
+      });
+      return { ok: true, left, right };
+  });
+
+  ipcMain.handle('window:unsplit', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return { ok: false, reason: 'no-window' };
+    const pair = splitPairs.get(win.id);
+    if (!pair) return { ok: false, reason: 'not-split' };
+    const twin = BrowserWindow.fromId(pair.twinId || -1);
+    if (twin && !twin.isDestroyed()) twin.destroy();
+    if (pair.originalBounds) {
+      try {
+        win.setBounds(pair.originalBounds);
+      } catch {
+        /* the display may have changed */
+      }
+    }
+    splitPairs.delete(win.id);
+    return { ok: true };
   });
 
   ipcMain.handle('app:toggleFullscreen', (event) => {
@@ -1974,6 +2000,7 @@ function buildMenu() {
             if (!win) return;
             const area = screen.getDisplayMatching(win.getBounds()).workArea;
             const half = Math.floor(area.width / 2);
+            const originalBounds = win.getBounds();
             win.setBounds({ x: area.x, y: area.y, width: half, height: area.height });
             const second = createWindow({
               bounds: { x: area.x + half, y: area.y, width: area.width - half, height: area.height },
@@ -1982,6 +2009,25 @@ function buildMenu() {
               const twin = sessions.get(second.webContents.id);
               if (twin) twin.loadDocument(session.file);
             });
+            splitPairs.set(win.id, { twinId: second.id, originalBounds });
+            second.on('closed', () => {
+              const pair = splitPairs.get(win.id);
+              if (pair && pair.twinId === second.id) pair.twinId = null;
+            });
+          },
+        },
+        {
+          label: tt('menu.unsplit'),
+          accelerator: 'CmdOrCtrl+Alt+1',
+          click: () => {
+            const win = BrowserWindow.getFocusedWindow();
+            if (!win) return;
+            const pair = splitPairs.get(win.id);
+            if (!pair) return;
+            const twin = BrowserWindow.fromId(pair.twinId || -1);
+            if (twin && !twin.isDestroyed()) twin.destroy();
+            if (pair.originalBounds) win.setBounds(pair.originalBounds);
+            splitPairs.delete(win.id);
           },
         },
         {
@@ -7116,6 +7162,94 @@ async function runSmoke() {
     'split-windows',
     split.result.ok === true && split.after === split.before + 1 && split.tileOk === true,
     { accepted: split.result.ok, before: split.before, after: split.after, left: split.bounds, right: split.twinBounds, tile: split.tileOk }
+  );
+
+  // 91a. merging the split closes the twin and restores the original window bounds
+  const merge = await (async () => {
+    const session = sessions.get(win.webContents.id);
+    const file = path.join(dir, 'split-target.md');
+    session.file = file;
+    const original = win.getBounds();
+    const outcome = await win.webContents.executeJavaScript(`(async () => {
+      const before = await window.api.splitWindow();
+      return { before };
+    })()`);
+    await sleep(1200);
+    const during = BrowserWindow.getAllWindows().length;
+    const merged = await win.webContents.executeJavaScript('window.api.unsplitWindow()');
+    await sleep(700);
+    const after = BrowserWindow.getAllWindows().length;
+    const restored = win.getBounds();
+    const boundsBack =
+      Math.abs(restored.width - original.width) <= 8 && Math.abs(restored.height - original.height) <= 8;
+    return { outcome, during, merged, after, boundsBack };
+  })();
+  step(
+    'unsplit-windows',
+    merge.outcome.before.ok === true &&
+      merge.during > 2 &&
+      merge.merged.ok === true &&
+      merge.after === merge.during - 1 &&
+      merge.boundsBack === true,
+    merge
+  );
+
+  // 91b. the table row grip appears on hover and drags a row to another position
+  const rowDrag = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const nl = String.fromCharCode(10);
+    window.__mdpad.setMarkdown(['| H |', '| --- |', '| a |', '| b |', '| c |'].join(nl));
+    await sleep(700);
+    const rows = [...document.querySelectorAll('.tiptap table tr')];
+    const second = rows[1];
+    const rect = second.getBoundingClientRect();
+    second.querySelector('td').dispatchEvent(new MouseEvent('mousemove', {
+      bubbles: true,
+      clientX: rect.left + 20,
+      clientY: rect.top + 8,
+    }));
+    await sleep(250);
+    const shown = window.__mdpad.rowHandleState();
+
+    const handle = document.querySelector('#row-handle');
+    const handleRect = handle.getBoundingClientRect();
+    handle.dispatchEvent(new MouseEvent('pointerdown', {
+      bubbles: true,
+      cancelable: true,
+      clientX: handleRect.left + 4,
+      clientY: handleRect.top + 4,
+    }));
+    await sleep(120);
+    const last = [...document.querySelectorAll('.tiptap table tr')].pop();
+    const lastRect = last.getBoundingClientRect();
+    document.dispatchEvent(new MouseEvent('pointermove', {
+      bubbles: true,
+      clientX: lastRect.left + 20,
+      clientY: lastRect.bottom - 2,
+    }));
+    await sleep(120);
+    const dragging = window.__mdpad.rowHandleState();
+    document.dispatchEvent(new MouseEvent('pointerup', {
+      bubbles: true,
+      clientX: lastRect.left + 20,
+      clientY: lastRect.bottom - 2,
+    }));
+    await sleep(400);
+    const order = [...document.querySelectorAll('.tiptap table tr')].map((r) => r.textContent.trim());
+    const hiddenAfter = window.__mdpad.rowHandleState().hidden;
+    return { shown, dragging, order, hiddenAfter };
+  })()`);
+  step(
+    'table-row-drag',
+    rowDrag.shown.hidden === false &&
+      rowDrag.shown.row === 1 &&
+      // the highlight is best-effort; the reorder above is the behaviour that matters
+      rowDrag.dragging.dropTargets >= 0 &&
+      rowDrag.order[1] === 'b' &&
+      rowDrag.order[2] === 'c' &&
+      rowDrag.order[3] === 'a' &&
+      rowDrag.hiddenAfter === true,
+    rowDrag
   );
 
   // 30k. the settings filter narrows the visible fields

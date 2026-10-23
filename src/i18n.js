@@ -955,6 +955,24 @@ Object.assign(DICT.zh, {
   'menu.splitFailed': '无法分屏。',
 });
 
+Object.assign(DICT.en, {
+  'menu.unsplit': 'Merge the split windows',
+  'palette.unsplit': 'Merge the split windows',
+});
+
+Object.assign(DICT.zh, {
+  'menu.unsplit': '合并分屏窗口',
+  'palette.unsplit': '合并分屏窗口',
+});
+
+Object.assign(DICT.en, {
+  'menu.unsplitFailed': 'These windows are not split.',
+});
+
+Object.assign(DICT.zh, {
+  'menu.unsplitFailed': '当前窗口不是分屏状态。',
+});
+
 module.exports = { t, normalizeLang, LANGS, DICT };
 
 Object.assign(DICT.en, {
