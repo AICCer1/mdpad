@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.6.0
+
+Mermaid, redone the way Typora does it.
+
+- **The diagram replaces its source.** It used to be drawn *under* a permanently visible code
+  block, which made the feature feel like a preview gadget. Now the block *is* the drawing.
+- **Click to edit, Esc to preview.** Clicking a drawing brings the source back; Esc or a click
+  elsewhere returns to the drawing. Each diagram keeps its own state, so editing one does not
+  disturb the others.
+- **A failed diagram keeps its source.** Showing an error where the code should be would hide the
+  very thing the user needs to fix; the source stays and the parser message appears underneath.
+- **Theme changes redraw.** The render cache is keyed by theme, and switching theme now
+  re-initialises the renderer and repaints every diagram instead of leaving light-mode colours on
+  a dark page.
+- **Why diagrams sometimes never appeared:** when a render finished, the node view only re-painted
+  the SVG but never re-applied its mode, so a freshly loaded document could keep showing the
+  source. The repaint now goes through the node view's own refresh, and hiding the source is
+  declared in `ignoreMutation` so ProseMirror stops rebuilding the view (which silently reset edit
+  mode).
+- 219 smoke checks (two new), 148 unit tests.
+
 ## 1.5.1
 
 Finding the font controls.

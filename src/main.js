@@ -6395,6 +6395,89 @@ async function runSmoke() {
     fontEntry
   );
 
+  // 81a. mermaid behaves like Typora: the diagram replaces the code, clicking edits, Esc previews
+  const mermaidTypora = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const nl = String.fromCharCode(10);
+    const fence = String.fromCharCode(96, 96, 96);
+    const doc = [
+      '# Diagrams',
+      '',
+      fence + 'mermaid',
+      'graph TD;',
+      '  A-->B;',
+      fence,
+      '',
+      'between',
+      '',
+      fence + 'mermaid',
+      'sequenceDiagram;',
+      '  A->>B: hi',
+      fence,
+    ].join(nl);
+    window.__mdpad.setMarkdown(doc);
+    await sleep(2200);
+
+    const initial = window.__mdpad.mermaidState();
+    const block = document.querySelector('.code-block.is-mermaid');
+    block.querySelector('.mermaid-preview').click();
+    await sleep(500);
+    const editing = window.__mdpad.mermaidState();
+
+    // Esc returns to the diagram.
+    const code = block.querySelector('pre code');
+    code.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await sleep(400);
+    const afterEsc = window.__mdpad.mermaidState();
+
+    // A theme switch must redraw, not leave the previous palette on screen.
+    const themeBefore = document.documentElement.dataset.theme;
+    window.__mdpad.setTheme('dark');
+    await sleep(1500);
+    const darkState = window.__mdpad.mermaidState();
+    window.__mdpad.setTheme(themeBefore || 'light');
+    await sleep(1200);
+    const backState = window.__mdpad.mermaidState();
+    return { count: initial.length, initial, editing, afterEsc, darkState, backState };
+  })()`);
+  step(
+    'mermaid-typora-mode',
+    mermaidTypora.count === 2 &&
+      mermaidTypora.initial.every((b) => b.preview && b.sourceHidden && b.svg && !b.error) &&
+      // Clicking one diagram edits that one; the other keeps its preview.
+      mermaidTypora.editing[0].sourceHidden === false &&
+      mermaidTypora.editing[0].preview === false &&
+      mermaidTypora.editing[1].preview === true &&
+      mermaidTypora.afterEsc.every((b) => b.preview && b.sourceHidden) &&
+      mermaidTypora.darkState.every((b) => b.svg) &&
+      mermaidTypora.backState.every((b) => b.svg),
+    {
+      count: mermaidTypora.count,
+      initial: mermaidTypora.initial,
+      editing: mermaidTypora.editing,
+      afterEsc: mermaidTypora.afterEsc,
+      dark: mermaidTypora.darkState,
+    }
+  );
+
+  // 81b. a broken diagram keeps its source visible instead of hiding it behind an error
+  const mermaidBroken = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const nl = String.fromCharCode(10);
+    const fence = String.fromCharCode(96, 96, 96);
+    window.__mdpad.setMarkdown([fence + 'mermaid', 'graph TD; A-->', fence].join(nl));
+    await sleep(1800);
+    const state = window.__mdpad.mermaidState();
+    return { state };
+  })()`);
+  step(
+    'mermaid-error-keeps-source',
+    mermaidBroken.state.length === 1 &&
+      mermaidBroken.state[0].error === true &&
+      mermaidBroken.state[0].sourceHidden === false,
+    mermaidBroken
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -6668,6 +6751,14 @@ const SAMPLE_DOC = [
   '- Atomic saves, versioned backups, recovery drafts',
   '- Tables, math and code stay editable',
   '',
+  'Diagrams work too:',
+  '',
+  '```mermaid',
+  'graph LR;',
+  '  write-->backup;',
+  '  backup-->restore;',
+  '```',
+  '',
   '| Feature | State |',
   '| --- | --- |',
   '| Autosave | 5 s idle |',
@@ -6675,14 +6766,6 @@ const SAMPLE_DOC = [
   '',
   '```js',
   "const backup = saveDocument(file, contents);",
-  '```',
-  '',
-  'Diagrams work too:',
-  '',
-  '```mermaid',
-  'graph LR;',
-  '  write-->backup;',
-  '  backup-->restore;',
   '```',
   '',
   'Inline math $a^2 + b^2 = c^2$ and a display block:',

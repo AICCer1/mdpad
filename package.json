@@ -1,6 +1,6 @@
 {
   "name": "mdpad",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "private": true,
   "description": "A small Electron markdown editor: WYSIWYG editing, crash-safe saving, tabs, file tree and AI writing.",
   "main": "src/main.js",

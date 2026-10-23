@@ -160,7 +160,9 @@ function renderMermaidIntoCache(source) {
       // A meta-only transaction does not re-run node views, so repaint the live previews
       // directly. They carry the source they were built from in a data attribute.
       for (const el of document.querySelectorAll('.mermaid-preview')) {
-        if (el.dataset.source === text && el.isConnected) paintMermaid(el, text);
+        if (el.dataset.source !== text || !el.isConnected) continue;
+        if (typeof el._refresh === 'function') el._refresh();
+        else paintMermaid(el, text);
       }
     });
 }
@@ -188,6 +190,13 @@ function paintMermaid(preview, source) {
   preview.classList.remove('is-error');
 }
 
+function refreshMermaidPreviews() {
+  mermaidReady = false; // re-initialise with the theme colour palette
+  for (const el of document.querySelectorAll('.mermaid-preview')) {
+    if (el.isConnected && typeof el._refresh === 'function') el._refresh();
+  }
+}
+
 // Per-cell alignment. Markdown tables only describe column alignment, so this is presented as a
 // view setting: it is kept in the editor and in HTML/PDF export, and the export note says so.
 const cellAlignment = {
@@ -201,6 +210,9 @@ const cellAlignment = {
 const AlignedTableCell = TableCell.extend({ addAttributes() { return { ...this.parent(), ...cellAlignment }; } });
 const AlignedTableHeader = TableHeader.extend({ addAttributes() { return { ...this.parent(), ...cellAlignment }; } });
 
+// Mermaid, the way Typora does it: the rendered diagram replaces the source, clicking the
+// diagram brings the source back, Esc or a click elsewhere returns to the diagram. A failed
+// diagram keeps its source visible — hiding code behind an error message would be a trap.
 const MermaidCodeBlock = CodeBlockLowlight.extend({
   addNodeView() {
     return ({ node }) => {
@@ -210,17 +222,74 @@ const MermaidCodeBlock = CodeBlockLowlight.extend({
       const code = document.createElement('code');
       pre.appendChild(code);
       wrapper.appendChild(pre);
+
       const preview = document.createElement('div');
       preview.className = 'mermaid-preview';
       wrapper.appendChild(preview);
 
+      const hint = document.createElement('div');
+      hint.className = 'mermaid-hint';
+      hint.textContent = 'Click to edit · Esc to preview';
+      wrapper.appendChild(hint);
+
       let current = node;
-      const sync = () => {
-        const isMermaid = current.attrs.language === 'mermaid';
-        preview.hidden = !isMermaid;
+      let mode = 'preview';
+
+      const isMermaid = () => current.attrs.language === 'mermaid';
+      const entry = () => mermaidCache.get(mermaidKey(current.textContent.trim()));
+
+      const apply = () => {
+        if (!isMermaid()) {
+          wrapper.classList.remove('is-mermaid', 'is-preview');
+          pre.hidden = false;
+          preview.hidden = true;
+          hint.hidden = true;
+          return;
+        }
+        wrapper.classList.add('is-mermaid');
         const text = current.textContent.trim();
         preview.dataset.source = text;
-        if (isMermaid) paintMermaid(preview, text);
+        const cached = mermaidCache.get(mermaidKey(text));
+        const failed = Boolean(cached && cached.error);
+        const ready = Boolean(cached && cached.svg);
+        // Show the source while editing, while the first render is pending, or on error.
+        const showSource = mode === 'edit' || failed || !ready;
+        pre.hidden = !showSource;
+        preview.hidden = false;
+        wrapper.classList.toggle('is-preview', !showSource && ready);
+        hint.hidden = !ready || mode === 'edit';
+        paintMermaid(preview, text);
+      };
+      preview._refresh = apply;
+
+      preview.addEventListener('click', () => {
+        const cached = entry();
+        if (!cached || !cached.svg) return;
+        mode = 'edit';
+        apply();
+      });
+
+      code.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && isMermaid() && mode === 'edit') {
+          event.preventDefault();
+          mode = 'preview';
+          apply();
+        }
+      });
+
+      const onOutside = (event) => {
+        if (!isMermaid() || mode !== 'edit') return;
+        if (wrapper.contains(event.target)) return;
+        const cached = entry();
+        if (!cached || !cached.svg) return;
+        mode = 'preview';
+        apply();
+      };
+      document.addEventListener('mousedown', onOutside, true);
+
+      const sync = () => {
+        if (!isMermaid()) mode = 'preview';
+        apply();
       };
       sync();
 
@@ -229,14 +298,27 @@ const MermaidCodeBlock = CodeBlockLowlight.extend({
         contentDOM: code,
         update: (updated) => {
           if (updated.type !== current.type) return false;
-          const languageChanged = updated.attrs.language !== current.attrs.language;
           const textChanged = updated.textContent !== current.textContent;
+          const languageChanged = updated.attrs.language !== current.attrs.language;
           current = updated;
-          if (languageChanged || textChanged) sync();
-          else if (current.attrs.language === 'mermaid') sync();
+          if (textChanged || languageChanged) {
+            mode = 'preview';
+            apply();
+          } else if (isMermaid()) {
+            apply();
+          }
           return true;
         },
-        ignoreMutation: (mutation) => mutation.target === preview,
+        // Toggling pre.hidden is our own doing; without this ProseMirror treats the
+        // structural change as a reason to rebuild the node view, which drops edit mode.
+        ignoreMutation: (mutation) =>
+          mutation.target === pre ||
+          mutation.target === preview ||
+          mutation.target === hint ||
+          mutation.target === wrapper,
+        destroy: () => {
+          document.removeEventListener('mousedown', onOutside, true);
+        },
       };
     };
   },
@@ -2379,6 +2461,7 @@ async function setTheme(theme) {
 // Swap the highlight theme with the app theme instead of filtering colors.
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
+  refreshMermaidPreviews();
   const light = document.querySelector('#hljs-light');
   const dark = document.querySelector('#hljs-dark');
   if (light && dark) {
@@ -3202,6 +3285,13 @@ window.__mdpad = {
   openDrafts: () => openDraftsPanel(),
   refreshDraftsBadge: () => refreshDraftsBadge(),
   mermaidAvailable: () => Boolean(window.mermaid),
+  mermaidState: () =>
+    [...document.querySelectorAll('.code-block.is-mermaid')].map((block) => ({
+      preview: block.classList.contains('is-preview'),
+      sourceHidden: Boolean(block.querySelector('pre').hidden),
+      svg: Boolean(block.querySelector('.mermaid-preview svg')),
+      error: block.querySelector('.mermaid-preview').classList.contains('is-error'),
+    })),
   mermaidCacheSize: () => mermaidCache.size,
   mermaidCacheEntries: () => mermaidCache.size,
   toastInfo: () => {
@@ -3232,6 +3322,7 @@ window.__mdpad = {
   toggleFocusMode,
   openSettings,
   toggleFilesPane,
+  setTheme: (theme) => setTheme(theme),
   applyPreset: (key) => {
     const preset = applyPreset(key);
     if (preset) applyAppearance(preset);

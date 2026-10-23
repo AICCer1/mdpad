@@ -74,7 +74,7 @@ and clusters them by purpose — text style, block style, lists, code, insert, m
 | Table | toolbar ▦ inserts 3×3; the context bar adds/removes rows and columns |
 | Code block | toolbar `{ }`; the language dropdown writes the fence language |
 | Math | toolbar `$x$` / `$$`, or type `$...$` / `$$...$$` directly; the popover previews as you type, and clicking a rendered formula reopens it for editing. Display math is centred with a hover highlight |
-| Diagram | a fenced block with language `mermaid` renders below the code while you type; a broken diagram shows the error instead of hiding the code |
+| Diagram | a fenced block with language `mermaid` becomes the rendered diagram — click it to edit the source, press Esc (or click outside) to go back to the picture; a broken diagram keeps its source visible with the error underneath |
 | Image | paste, drag a file in, or toolbar 🖼 |
 | Link | toolbar 🔗; paste a URL over a selection to link it; Ctrl+click opens it in the browser, a plain click only places the caret |
 | Move a block | Ctrl+Shift+↑ / ↓ |
@@ -173,6 +173,18 @@ and section headings collapse when clicked.
 Settings → **Custom CSS for exports** appends your own rules to HTML and PDF output
 (e.g. a serif body font). `<style>`, `</style>`, `<script>` and `@import` are stripped,
 so pasted CSS cannot inject markup.
+
+### Diagrams
+
+Write a fenced block with the language `mermaid` and the block is replaced by the drawing, like
+Typora. Click the drawing to edit its source; press Esc or click anywhere else and the source is
+replaced by the refreshed drawing. Each diagram remembers its own state, so editing one leaves the
+others as pictures. A diagram that fails to parse keeps its source on screen and prints the parser
+message — nothing is hidden behind an error. Diagrams are redrawn when the theme changes, so dark
+mode gets dark-mode colours.
+
+Mermaid itself ships with the app (2.6 MB), so this works offline. Exports still contain the
+fenced source rather than a picture; that is listed under known limitations in the README.
 
 ## AI writing
 
