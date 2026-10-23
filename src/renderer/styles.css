@@ -1760,3 +1760,25 @@ textarea:focus-visible,
 }
 .ai-foot .primary:hover { filter: brightness(1.05); }
 .ai-history { flex-basis: 100%; }
+
+/* ---- export thumbnail: sketch first, real render when it arrives ---- */
+.export-thumb-frame {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--chrome-line, var(--line));
+}
+.export-thumb { display: block; width: 100%; height: 100%; }
+.export-thumb.is-replaced { display: none; }
+.export-thumb-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  opacity: 1;
+  transition: opacity 140ms var(--ease, ease);
+}
+.export-thumb-img.is-loading { opacity: 0.45; }

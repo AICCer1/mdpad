@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 227 end-to-end checks against a real window
+npm run smoke          # 228 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -134,6 +134,10 @@ opening/closing the settings panel flips it between `flex` and `none`.
   already passed and produced "no SMOKE_RESULT" with no failure listed.
 - `process.exit()` right after the result line can truncate piped stdout on Windows; the runner
   sets `process.exitCode` and exits a tick later instead.
+- The export thumbnail is a real render: `export:thumbnail` builds the same HTML the export
+  would, loads it in one reusable hidden window (420×560, JavaScript off) and returns
+  `capturePage()` as a PNG data URL. It is debounced by 260 ms and guarded by a token so a slow
+  older render cannot overwrite a newer one.
 - Export appearance lives in `exportFont` / `exportMargin`: the HTML path gets a font-family
   override and `body[data-margin]` padding, the PDF path converts the same choice into
   `printToPDF` margins (inches). DOCX and EPUB ignore them by design and the panel disables the

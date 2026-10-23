@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.12.0
+
+The export panel now shows the real page.
+
+- **A rendered thumbnail instead of a sketch.** `export:thumbnail` builds exactly the HTML the
+  export would produce, loads it in one reusable hidden window (420×560, JavaScript disabled) and
+  returns a `capturePage()` PNG. The abstract line drawing stays as an instant placeholder and is
+  replaced when the render arrives.
+- **It follows the controls.** Changing the template, font or margins re-renders it after a 260 ms
+  debounce, guarded by a token so a slow older render cannot overwrite a newer one.
+- **Cheap enough to leave on.** One window is reused for the lifetime of the app, the temporary
+  HTML lives in the user data directory, and nothing is created per keystroke.
+- 228 smoke checks (one new `export-thumbnail`: a PNG data URL with real dimensions, and a
+  different image after switching the font), 153 unit tests.
+
 ## 1.11.0
 
 The AI panel now reads in the order you use it.

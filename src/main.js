@@ -323,6 +323,11 @@ const FONT_STACKS_EXPORT = {
   mono: '"Cascadia Mono", Consolas, monospace',
 };
 
+function exportFontStackFor(key) {
+  const chosen = FONT_KEYS.includes(key) ? key : readSettings().exportFont || 'serif';
+  return FONT_STACKS_EXPORT[chosen] || FONT_STACKS_EXPORT.serif;
+}
+
 function exportFontStack() {
   const key = readSettings().exportFont || 'serif';
   return FONT_STACKS_EXPORT[key] || FONT_STACKS_EXPORT.serif;
@@ -1338,6 +1343,16 @@ function registerIpc() {
   });
 
   ipcMain.handle('export:preview', (event) => previewExport(sessionFor(event)));
+
+  ipcMain.handle('export:thumbnail', async (event, options = {}) => {
+    const session = sessionFor(event);
+    if (!session) return { ok: false, error: 'no session' };
+    try {
+      return await exportThumbnail(session, options);
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
 
   ipcMain.handle('draft:discard', (event) => {
     const s = sessionFor(event);
@@ -6897,6 +6912,35 @@ async function runSmoke() {
     aiLayout
   );
 
+  // 88a. the export panel shows a real rendering, not just a sketch, and it follows the font
+  const thumb = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const nl = String.fromCharCode(10);
+    window.__mdpad.setMarkdown('# Thumbnail check' + nl + nl + 'Some body text for the preview.');
+    await sleep(600);
+    await window.__mdpad.openExportPanel('pdf');
+    // the thumbnail is debounced and needs a real page render
+    await sleep(2600);
+    const first = window.__mdpad.exportThumbState();
+    document.querySelector('#export-font').value = 'kaiti';
+    document.querySelector('#export-font').dispatchEvent(new Event('change', { bubbles: true }));
+    await sleep(2600);
+    const second = window.__mdpad.exportThumbState();
+    document.querySelector('#export-cancel').click();
+    await sleep(300);
+    return { first, second };
+  })()`);
+  step(
+    'export-thumbnail',
+    thumb.first.hidden === false &&
+      thumb.first.src.startsWith('data:image/png') &&
+      thumb.first.width >= 400 && // device pixel ratio can scale the capture
+      thumb.first.bytes > 2000 &&
+      thumb.second.src.startsWith('data:image/png') &&
+      thumb.second.bytes !== thumb.first.bytes,
+    thumb
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -7417,6 +7461,38 @@ html, body { background: #f6efdf !important; color: #4a3f31 !important; }
 </style>`;
   }
   return '';
+}
+
+let thumbWindow = null;
+
+// A real page, rendered small. The panel used to show an abstract sketch, which told the user
+// nothing about the font or the margins they had just picked.
+async function exportThumbnail(session, options = {}) {
+  const name = session.file ? path.basename(session.file, path.extname(session.file)) : 'Untitled';
+  const html = exporter.toHtmlDocument(session.contents, name, {
+    template: options.template || exportTemplate(),
+    css: String(readSettings().exportCss || ''),
+    font: exportFontStackFor(options.font),
+    margin: options.margin || readSettings().exportMargin || 'normal',
+    diagrams: session.exportDiagrams || null,
+  });
+  const file = path.join(userDir(), 'export-thumb.html');
+  fs.mkdirSync(userDir(), { recursive: true });
+  fs.writeFileSync(file, html, 'utf8');
+
+  if (!thumbWindow || thumbWindow.isDestroyed()) {
+    thumbWindow = new BrowserWindow({
+      show: false,
+      width: 420,
+      height: 560,
+      webPreferences: { backgroundThrottling: false, sandbox: false, javascript: false },
+    });
+  }
+  await thumbWindow.loadURL('file://' + file.replace(/\\/g, '/'));
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  const image = await thumbWindow.webContents.capturePage();
+  const png = image.toPNG();
+  return { ok: true, dataUrl: 'data:image/png;base64,' + png.toString('base64'), bytes: png.length };
 }
 
 function previewExport(session) {

@@ -259,6 +259,34 @@ function drawExportThumb(template, font, margin) {
   svg.style.fontFamily = font;
 }
 
+// The sketch is instant and always readable; the real render replaces it once it arrives.
+let exportThumbTimer = null;
+let exportThumbToken = 0;
+
+function refreshExportThumb() {
+  clearTimeout(exportThumbTimer);
+  exportThumbTimer = setTimeout(async () => {
+    const token = (exportThumbToken += 1);
+    const image = document.querySelector('#export-thumb-img');
+    const sketch = document.querySelector('#export-thumb');
+    if (!image) return;
+    const options = {
+      template: document.querySelector('#export-template').value,
+      font: document.querySelector('#export-font').value,
+      margin: document.querySelector('#export-margin').value,
+    };
+    image.classList.add('is-loading');
+    const result = await window.api.exportThumbnail(options).catch(() => ({ ok: false }));
+    if (token !== exportThumbToken) return; // a newer request won
+    image.classList.remove('is-loading');
+    if (result && result.ok && result.dataUrl) {
+      image.src = result.dataUrl;
+      image.hidden = false;
+      if (sketch) sketch.classList.add('is-replaced');
+    }
+  }, 260);
+}
+
 function refreshExportSummary() {
   const summary = document.querySelector('#export-summary');
   if (!summary) return;
@@ -301,6 +329,8 @@ async function openExportPanel(format = 'pdf') {
   document.querySelector('#export-name').value = settings.exportNameTemplate || '{title}';
   document.querySelector('#export-status').textContent = '';
   setExportFormat(format);
+  refreshExportSummary();
+  refreshExportThumb();
   await refreshExportNameHintFor('#export-name', '#export-name-hint');
   document.querySelector('#export-modal').hidden = false;
 }
@@ -2964,9 +2994,18 @@ document.querySelector('#open-appearance').addEventListener('click', () => openS
 document.querySelectorAll('#export-format [data-format]').forEach((button) => {
   button.addEventListener('click', () => setExportFormat(button.dataset.format));
 });
-document.querySelector('#export-template').addEventListener('change', refreshExportSummary);
-document.querySelector('#export-font').addEventListener('change', refreshExportSummary);
-document.querySelector('#export-margin').addEventListener('change', refreshExportSummary);
+document.querySelector('#export-template').addEventListener('change', () => {
+  refreshExportSummary();
+  refreshExportThumb();
+});
+document.querySelector('#export-font').addEventListener('change', () => {
+  refreshExportSummary();
+  refreshExportThumb();
+});
+document.querySelector('#export-margin').addEventListener('change', () => {
+  refreshExportSummary();
+  refreshExportThumb();
+});
 document
   .querySelector('#export-name')
   .addEventListener('input', () => refreshExportNameHintFor('#export-name', '#export-name-hint'));
@@ -3614,6 +3653,16 @@ window.__mdpad = {
   mermaidAvailable: () => Boolean(window.mermaid),
   exportDiagramCount: async () => publishExportDiagrams(),
   openExportPanel,
+  exportThumbState: () => {
+    const image = document.querySelector('#export-thumb-img');
+    return {
+      hidden: image.hidden,
+      src: image.getAttribute('src') ? image.getAttribute('src').slice(0, 30) : '',
+      complete: image.complete,
+      width: image.naturalWidth,
+      bytes: image.getAttribute('src') ? image.getAttribute('src').length : 0,
+    };
+  },
   exportPanelState: () => ({
     open: !document.querySelector('#export-modal').hidden,
     format: exportFormat,
