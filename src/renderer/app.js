@@ -3981,12 +3981,17 @@ window.api.onLoadDraft(({ contents }) => {
 // markdown is compared with what main sends: if the file changed on disk (or another
 // window saved it), the cache is stale and we fall back to reloading the content.
 const editorStateCache = new Map();
+// The editor keeps its selection per tab; the scroll position is DOM state, so remember it too.
+// Losing your place when switching tabs is especially painful in a long document.
+const tabScroll = new Map();
+const editorPane = document.querySelector('.editor-pane');
 let activeTabId = null;
 
 function cacheActiveEditorState() {
   if (!activeTabId) return;
   try {
     editorStateCache.set(activeTabId, { state: editor.view.state, markdown: currentMarkdown() });
+    tabScroll.set(activeTabId, editorPane ? editorPane.scrollTop : 0);
   } catch {
     /* a broken state is not worth caching */
   }
@@ -4007,6 +4012,14 @@ window.api.onLoaded(({ id, file, contents, draft }) => {
     setMarkdown(contents);
   }
   activeTabId = nextId;
+  // Restore after the new content has been laid out; clamp in case the document got shorter.
+  const wantedScroll = (nextId && tabScroll.get(nextId)) || 0;
+  if (editorPane) {
+    requestAnimationFrame(() => {
+      const max = Math.max(0, editorPane.scrollHeight - editorPane.clientHeight);
+      editorPane.scrollTop = Math.min(wantedScroll, max);
+    });
+  }
   docName.textContent = file ? file.split(/[\\/]/).pop() : 'Untitled';
   setDirty(false);
   // Tell main what the editor's own serialization looks like, so the file is not
@@ -4476,6 +4489,10 @@ window.__mdpad = {
   }),
   relativeAge: (iso) => relativeAge(iso, lang),
   saveState: () => (saveStateEl ? saveStateEl.textContent : ''),
+  scrollTo: (top) => {
+    editorPane.scrollTop = top;
+  },
+  scrollTop: () => (editorPane ? Math.round(editorPane.scrollTop) : -1),
   zoom: (direction) => zoomAction(direction),
   zoomIndicator: () => {
     const el = document.querySelector('#zoom-indicator');

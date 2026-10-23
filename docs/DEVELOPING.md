@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 244 end-to-end checks against a real window
+npm run smoke          # 246 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -132,6 +132,9 @@ opening/closing the settings panel flips it between `flex` and `none`.
   meta-only transaction (`aiTargetRefresh`) when it opens or clears.
 - Programmatic edits (AI insert/replace) must call `closeHistory(tr)` in a first transaction,
   otherwise ProseMirror merges them with the typing before them and one undo wipes both.
+- Tab switching caches the ProseMirror state, which restores the selection but not the scroll
+  position: `editorStateCache` also stores `tabScroll`, restored in a `requestAnimationFrame`
+  after the new content is laid out and clamped to the new height.
 - Drafts rows are `div[role=button]`: a `<button>` inside a `<button>` is invalid HTML and the
   inner click is swallowed. The row keeps an Enter/Space handler for keyboard use.
 - `step(name, ok, extra)` spreads `extra` over the result, so an `ok` key inside the details

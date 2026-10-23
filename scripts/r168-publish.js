@@ -6,12 +6,12 @@ const path = require('node:path');
 const https = require('node:https');
 
 const root = 'E:\\code\\mdpad';
-const version = '1.21.0';
+const version = '1.22.0';
 const git = (...args) =>
   execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 
 git('add', '-A');
-git('-c', 'core.autocrlf=false', 'commit', '-q', '-m', `feat: visible zoom controls and a working spellcheck context menu (${version})`);
+git('-c', 'core.autocrlf=false', 'commit', '-q', '-m', `fix: remember the scroll position per tab, guard long mixed documents (${version})`);
 console.log('commit:', git('log', '--oneline', '-1').trim());
 git('push', 'origin', 'main');
 git('tag', '-a', `v${version}`, '-m', `mdpad ${version}`);

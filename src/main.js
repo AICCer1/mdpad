@@ -7778,6 +7778,77 @@ async function runSmoke() {
     spell
   );
 
+  // 98a. a long document keeps its scroll position when you switch tabs and come back
+  const longScroll = await (async () => {
+    const nl = String.fromCharCode(10);
+    const paragraphs = [];
+    for (let i = 0; i < 60; i += 1) paragraphs.push(`Paragraph ${i} with enough text to need scrolling.`);
+    const longDoc = ['# Long A', '', ...paragraphs].join(nl + nl);
+    const fileA = path.join(dir, 'long-a.md');
+    const fileB = path.join(dir, 'long-b.md');
+    fs.writeFileSync(fileA, longDoc);
+    fs.writeFileSync(fileB, '# Long B' + nl + nl + 'short');
+
+    const probe = await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      await window.api.openPath(${JSON.stringify(fileA)});
+      await sleep(700);
+      window.__mdpad.scrollTo(900);
+      await sleep(200);
+      const before = window.__mdpad.scrollTop();
+      await window.api.openPath(${JSON.stringify(fileB)});
+      await sleep(700);
+      const otherTab = window.__mdpad.scrollTop();
+      await window.api.openPath(${JSON.stringify(fileA)});
+      await sleep(800);
+      const back = window.__mdpad.scrollTop();
+      return { before, otherTab, back };
+    })()`);
+    return probe;
+  })();
+  step(
+    'tab-scroll-memory',
+    longScroll.before > 300 &&
+      longScroll.otherTab < 50 &&
+      Math.abs(longScroll.back - longScroll.before) < 120,
+    longScroll
+  );
+
+  // 98b. a mixed long document (text, a 40-row table, math, a diagram) stays responsive
+  const mixedPerf = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const nl = String.fromCharCode(10);
+    const fence = String.fromCharCode(96, 96, 96);
+    const parts = ['# Mixed document', ''];
+    for (let i = 0; i < 80; i += 1) parts.push('Paragraph ' + i + ' with some words in it.');
+    const tableRows = [];
+    for (let i = 0; i < 40; i += 1) tableRows.push('| row ' + i + ' | value ' + i + ' |');
+    parts.push('', '| A | B |' + nl + '| --- | --- |' + nl + tableRows.join(nl));
+    const dollar = String.fromCharCode(36);
+    parts.push('', dollar + dollar + nl + 'a^2 + b^2 = c^2' + nl + dollar + dollar);
+    parts.push('', fence + 'mermaid', 'graph TD;', '  A-->B;', fence);
+    const markdown = parts.join(nl + nl);
+    const started = performance.now();
+    window.__mdpad.setMarkdown(markdown);
+    const loadMs = performance.now() - started;
+    await sleep(1500);
+    const outlineMs = window.__mdpad.outlineMs();
+    const rows = document.querySelectorAll('.tiptap table tr').length;
+    const hasDiagram = Boolean(document.querySelector('.mermaid-preview svg'));
+    const hasMath = Boolean(document.querySelector('.tiptap .katex'));
+    return { chars: markdown.length, loadMs: Math.round(loadMs), outlineMs: Math.round(outlineMs), rows, hasDiagram, hasMath };
+  })()`);
+  step(
+    'long-mixed-doc',
+    mixedPerf.chars > 3000 &&
+      mixedPerf.loadMs < 3000 &&
+      mixedPerf.outlineMs < 400 &&
+      mixedPerf.rows === 41 &&
+      mixedPerf.hasDiagram === true &&
+      mixedPerf.hasMath === true,
+    mixedPerf
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.22.0
+
+A long-document pass.
+
+- **Tabs remember their scroll position.** Tab switching cached the ProseMirror state, which
+  restores the selection but not the scroll offset, so returning to a long file dropped you at the
+  top. `tabScroll` now stores the pane offset per tab, restored after layout and clamped if the
+  document got shorter.
+- **A mixed-document guard**: 80 paragraphs, a 41-row table, display math and a Mermaid diagram must
+  load in under 3 s, render the table and maths, and keep the outline under 400 ms. The first
+  version of this probe reported zero table rows because the generated markdown put blank lines
+  between table rows and between the `$$` fences — the probe was wrong, not the editor.
+- 246 smoke checks (two new: `tab-scroll-memory`, `long-mixed-doc`), 153 unit tests.
+
 ## 1.21.0
 
 Two things every writing app has and this one did not: visible zoom and a working spellchecker.

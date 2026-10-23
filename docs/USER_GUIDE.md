@@ -150,6 +150,12 @@ many will go.
 Data lives in `%APPDATA%\mdpad`: `backups/`, `draftsRecover/`, `session.json`,
 `settings.json`, `ai-history.json`, `logs/mdpad.log`.
 
+## Working with long documents
+
+Switching tabs remembers **where you were** in each document, not just the caret: scroll a long
+file, jump to another tab and back, and you land where you left. A tab that has never been scrolled
+starts at the top.
+
 ## Zoom and spelling
 
 **Ctrl+=** zooms in, **Ctrl+–** zooms out and **Ctrl+0** resets. While the page is zoomed, a small
