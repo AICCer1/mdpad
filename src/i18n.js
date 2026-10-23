@@ -811,4 +811,72 @@ Object.assign(DICT.zh, {
   'settings.exportSection': '导出',
 });
 
+Object.assign(DICT.en, {
+  'menu.fullscreen': 'Full screen',
+});
+
+Object.assign(DICT.zh, {
+  'menu.fullscreen': '全屏',
+});
+
 module.exports = { t, normalizeLang, LANGS, DICT };
+
+Object.assign(DICT.en, {
+  'menu.fullscreen': 'Full screen',
+  'settings.font': 'Editor font',
+  'settings.width': 'Text width',
+  'settings.accent': 'Accent colour',
+  'font.serif': 'Serif (book)',
+  'font.sans': 'Sans (screen)',
+  'font.mono': 'Monospace',
+  'width.narrow': 'Narrow (34 rem)',
+  'width.normal': 'Normal (46 rem)',
+  'width.wide': 'Wide (58 rem)',
+  'accent.blue': 'Blue',
+  'accent.teal': 'Teal',
+  'accent.violet': 'Violet',
+  'accent.amber': 'Amber',
+  'files.hide': 'Hide the file tree',
+  'image.label': 'Image',
+  'table.label': 'Table',
+  'table.rowAbove': '+ row above',
+  'table.rowBelow': '+ row below',
+  'table.colLeft': '+ column left',
+  'table.colRight': '+ column right',
+  'table.deleteRow': '− row',
+  'table.deleteCol': '− column',
+  'table.deleteTable': 'delete table',
+  'table.alignLeft': 'Align left',
+  'table.alignCenter': 'Align centre',
+  'table.alignRight': 'Align right',
+});
+
+Object.assign(DICT.zh, {
+  'menu.fullscreen': '全屏',
+  'settings.font': '编辑字体',
+  'settings.width': '版心宽度',
+  'settings.accent': '强调色',
+  'font.serif': '衬线（书籍感）',
+  'font.sans': '无衬线（屏幕阅读）',
+  'font.mono': '等宽',
+  'width.narrow': '窄（34 rem）',
+  'width.normal': '标准（46 rem）',
+  'width.wide': '宽（58 rem）',
+  'accent.blue': '蓝色',
+  'accent.teal': '青绿',
+  'accent.violet': '紫色',
+  'accent.amber': '琥珀',
+  'files.hide': '隐藏文件树',
+  'image.label': '图片',
+  'table.label': '表格',
+  'table.rowAbove': '+ 上方插入行',
+  'table.rowBelow': '+ 下方插入行',
+  'table.colLeft': '+ 左侧插入列',
+  'table.colRight': '+ 右侧插入列',
+  'table.deleteRow': '− 删除行',
+  'table.deleteCol': '− 删除列',
+  'table.deleteTable': '删除表格',
+  'table.alignLeft': '左对齐',
+  'table.alignCenter': '居中',
+  'table.alignRight': '右对齐',
+});

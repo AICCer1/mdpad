@@ -56,6 +56,7 @@ contextBridge.exposeInMainWorld('api', {
   aiTest: (patch) => ipcRenderer.invoke('ai:test', patch),
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', { url }),
   lastExternal: () => ipcRenderer.invoke('app:lastExternal'),
+  toggleFullscreen: () => ipcRenderer.invoke('app:toggleFullscreen'),
   aiModels: (patch) => ipcRenderer.invoke('ai:models', patch),
   aiUsageList: () => ipcRenderer.invoke('ai:usage:list'),
   aiUsageExport: () => ipcRenderer.invoke('ai:usage:export'),

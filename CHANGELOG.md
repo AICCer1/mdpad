@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.3.0
+
+Eight long-standing rough edges, from the editor's own list.
+
+- **Full screen can be left again.** It was Electron's `togglefullscreen` role with no way out
+  once the menu was hidden. The View item is now a real toggle on F11, and Esc leaves full screen
+  from any window.
+- **Fonts, widths and accents.** Settings gains an editor font (serif / sans / monospace), a text
+  width (34 / 46 / 58 rem) and four accent colours; each applies on save and is remembered.
+- **The file tree collapses.** The ◀ button in the Files header hides it, ▶ brings it back, and
+  the state survives a restart.
+- **Block math is centred.** The wrapper is forced to `display: block`, full column width and
+  `text-align: center`, with the KaTeX display box centred inside it.
+- **Table alignment.** The table bar has left / centre / right for the selected cell. Honest
+  caveat, also in the README: markdown tables only describe *column* alignment, so per-cell
+  alignment lives in the editor and in HTML/PDF exports but not in the .md file.
+- **Table bar and image bar speak Chinese.** Every label is now an i18n key instead of hardcoded
+  English ("+row ↑" → "+ 上方插入行").
+- **A Notion-style table toolbar.** Hovering a table shows a compact bar with add row, add
+  column, delete row, delete column and delete table.
+- 207 smoke checks (six new: fullscreen toggle, appearance, tree collapse, centred math, table
+  tools, localised bar), 142 unit tests.
+
 ## 1.2.0
 
 Mermaid diagrams render in the editor.

@@ -289,6 +289,10 @@ function publicSettings() {
     collapsedSections:
       s.collapsedSections && typeof s.collapsedSections === 'object' ? s.collapsedSections : {},
     focusMode: Boolean(s.focusMode),
+    editorFont: ['serif', 'sans', 'mono'].includes(s.editorFont) ? s.editorFont : 'serif',
+    lineWidth: ['narrow', 'normal', 'wide'].includes(s.lineWidth) ? s.lineWidth : 'normal',
+    accent: ['blue', 'teal', 'violet', 'amber'].includes(s.accent) ? s.accent : 'blue',
+    filesCollapsed: Boolean(s.filesCollapsed),
   };
 }
 
@@ -998,6 +1002,14 @@ function createWindow({ show = true, restore = null, cascade = 0 } = {}) {
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
   // A clicked link must never replace the editor UI: deny popups and hand safe URLs to the OS.
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return;
+    if (input.key === 'Escape' && win.isFullScreen()) {
+      win.setFullScreen(false);
+      event.preventDefault();
+    }
+  });
+
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (event, url) => {
     if (url === win.webContents.getURL()) return;
@@ -1121,6 +1133,11 @@ function sessionFor(event) {
 }
 
 function registerIpc() {
+  ipcMain.handle('app:toggleFullscreen', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    return { fullscreen: toggleFullscreen(win) };
+  });
+
   ipcMain.handle('app:openExternal', async (_e, { url } = {}) => {
     if (!isSafeExternalUrl(url)) return { opened: false, reason: 'unsafe' };
     lastExternalUrl = String(url);
@@ -1290,6 +1307,10 @@ function registerIpc() {
     if (patch.onboarded === true) next.onboarded = true;
     if (patch.guideDismissed === true) next.guideDismissed = true;
     if (patch.focusMode !== undefined) next.focusMode = patch.focusMode === true;
+    if (['serif', 'sans', 'mono'].includes(patch.editorFont)) next.editorFont = patch.editorFont;
+    if (['narrow', 'normal', 'wide'].includes(patch.lineWidth)) next.lineWidth = patch.lineWidth;
+    if (['blue', 'teal', 'violet', 'amber'].includes(patch.accent)) next.accent = patch.accent;
+    if (patch.filesCollapsed !== undefined) next.filesCollapsed = patch.filesCollapsed === true;
     if (patch.collapsedSections && typeof patch.collapsedSections === 'object') {
       const clean = {};
       for (const [key, value] of Object.entries(patch.collapsedSections)) {
@@ -1741,6 +1762,13 @@ function focusedSession() {
   return win ? sessions.get(win.webContents.id) : undefined;
 }
 
+function toggleFullscreen(target) {
+  const win = target && !target.isDestroyed() ? target : focusedWindow();
+  if (!win) return false;
+  win.setFullScreen(!win.isFullScreen());
+  return win.isFullScreen();
+}
+
 function sendMenuAction(action) {
   const s = focusedSession();
   if (s) s.send('menu:action', action);
@@ -1832,7 +1860,11 @@ function buildMenu() {
         { role: 'zoomIn' },
         { role: 'zoomOut' },
         { type: 'separator' },
-        { role: 'togglefullscreen' },
+        {
+          label: tt('menu.fullscreen'),
+          accelerator: 'F11',
+          click: () => toggleFullscreen(BrowserWindow.getFocusedWindow()),
+        },
         { type: 'separator' },
         {
           label: tt('menu.focusMode'),
@@ -5777,6 +5809,173 @@ async function runSmoke() {
       mermaidCheck.broken.length >= 1 &&
       mermaidCheck.broken[0].error === true,
     mermaidCheck
+  );
+
+  // 75a. full screen can be entered and left again
+  await resetUiState();
+  let fsOn = { fullscreen: null };
+  let fsOff = { fullscreen: null };
+  try {
+  fsOn = await win.webContents.executeJavaScript(`window.api.toggleFullscreen()`);
+  fsOff = await win.webContents.executeJavaScript(`window.api.toggleFullscreen()`);
+  } catch (err) {
+    console.error('ROUND_PROBE_ERROR', 'fullscreen', err.message);
+  }
+  step('fullscreen-toggle', fsOn.fullscreen === true && fsOff.fullscreen === false, { on: fsOn, off: fsOff });
+
+  // 75b. appearance: font, text width and accent are real and persisted
+  const appearance = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    document.querySelector('#open-settings').click();
+    await sleep(400);
+    document.querySelector('#set-font').value = 'sans';
+    document.querySelector('#set-width').value = 'narrow';
+    document.querySelector('#set-accent').value = 'teal';
+    document.querySelector('#set-save').click();
+    await sleep(700);
+    const state = window.__mdpad.appearance();
+    const bodyFont = getComputedStyle(document.querySelector('.tiptap')).fontFamily;
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+    const stored = await window.api.getSettings();
+    return { state, bodyFont, accent, stored: { font: stored.editorFont, width: stored.lineWidth, accent: stored.accent } };
+  })()`);
+  step(
+    'appearance-settings',
+    appearance.state.font === 'sans' &&
+      appearance.state.width === 'narrow' &&
+      appearance.state.accent === 'teal' &&
+      /Segoe|sans-serif/i.test(appearance.bodyFont) &&
+      appearance.state.editorWidth <= 620 &&
+      appearance.stored.font === 'sans' &&
+      appearance.stored.accent === 'teal',
+    appearance
+  );
+
+  // 75c. the file tree can be collapsed and comes back
+  let filesPane = null;
+  try {
+  filesPane = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const before = window.__mdpad.appearance().filesCollapsed;
+    window.__mdpad.toggleFilesPane();
+    await sleep(300);
+    const collapsed = window.__mdpad.appearance().filesCollapsed;
+    const width = Math.round(document.querySelector('#files').getBoundingClientRect().width);
+    window.__mdpad.toggleFilesPane();
+    await sleep(300);
+    const reopened = window.__mdpad.appearance().filesCollapsed;
+    return { before, collapsed, width, reopened };
+  })()`);
+  } catch (err) {
+    console.error('ROUND_PROBE_ERROR', 'files', err.message);
+  }
+
+  step(
+    'files-collapse',
+    filesPane.before === false && filesPane.collapsed === true && filesPane.width <= 2 && filesPane.reopened === false,
+    filesPane
+  );
+
+  // 75d. block math is centred and spans the column
+  let mathCentre = null;
+  try {
+  mathCentre = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const nl = String.fromCharCode(10);
+    const d = String.fromCharCode(36);
+    window.__mdpad.setMarkdown(['before', '', d + d, 'x^2 + y^2 = z^2', d + d, '', 'after'].join(nl));
+    await sleep(900);
+    const block = document.querySelector('.tiptap [data-type="block-math"]');
+    if (!block) return { found: false };
+    const style = getComputedStyle(block);
+    const column = document.querySelector('.tiptap').getBoundingClientRect();
+    const rect = block.getBoundingClientRect();
+    return {
+      found: true,
+      textAlign: style.textAlign,
+      display: style.display,
+      widthRatio: Math.round((rect.width / column.width) * 100),
+    };
+  })()`);
+  } catch (err) {
+    console.error('ROUND_PROBE_ERROR', 'math', err.message);
+  }
+
+  step(
+    'math-centred',
+    mathCentre.found &&
+      mathCentre.textAlign === 'center' &&
+      mathCentre.display === 'block' &&
+      mathCentre.widthRatio >= 80,
+    mathCentre
+  );
+
+  // 75e. table cell alignment buttons and the hover toolbar
+  let tableTools = null;
+  try {
+  tableTools = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    window.__mdpad.setMarkdown('');
+    await sleep(300);
+    const ed = window.__mdpad.editor;
+    ed.chain().focus().insertTable({ rows: 3, cols: 2, withHeaderRow: true }).run();
+    await sleep(500);
+    document.querySelector('[data-align="center"]').click();
+    await sleep(300);
+    const align = window.__mdpad.cellAlign();
+    const cell = document.querySelector('.tiptap table td');
+    const rect = cell.getBoundingClientRect();
+    cell.dispatchEvent(new MouseEvent('mousemove', {
+      bubbles: true,
+      clientX: rect.left + 4,
+      clientY: rect.top + 4,
+    }));
+    await sleep(300);
+    const hoverVisible = window.__mdpad.tableHoverVisible();
+    const buttons = [...document.querySelectorAll('#table-hover button')].map((b) => b.textContent);
+    const rowsBefore = document.querySelectorAll('.tiptap table tr').length;
+    document.querySelector('#table-hover button').click();
+    await sleep(400);
+    const rowsAfter = document.querySelectorAll('.tiptap table tr').length;
+    return { align, hoverVisible, buttons, rowsBefore, rowsAfter };
+  })()`);
+  } catch (err) {
+    console.error('ROUND_PROBE_ERROR', 'table', err.message);
+  }
+
+  step(
+    'table-tools',
+    tableTools.align === 'center' &&
+      tableTools.hoverVisible === true &&
+      tableTools.buttons.length === 5 &&
+      tableTools.rowsAfter === tableTools.rowsBefore + 1,
+    tableTools
+  );
+
+  // 75f. the table bar speaks Chinese
+  const zhLabels = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    document.querySelector('#open-settings').click();
+    await sleep(400);
+    document.querySelector('#set-language').value = 'zh';
+    document.querySelector('#set-save').click();
+    await sleep(700);
+    const labels = [...document.querySelectorAll('#table-bar [data-table]')].map((b) => b.textContent.trim());
+    const image = document.querySelector('#image-bar .tablebar-label').textContent.trim();
+    document.querySelector('#open-settings').click();
+    await sleep(400);
+    document.querySelector('#set-language').value = 'en';
+    document.querySelector('#set-save').click();
+    await sleep(700);
+    return { labels, image };
+  })()`);
+  step(
+    'table-localised',
+    Array.isArray(zhLabels.labels) &&
+      zhLabels.labels.length === 7 &&
+      zhLabels.labels.every((label) => /[\u4e00-\u9fff]/.test(label)) &&
+      /[\u4e00-\u9fff]/.test(zhLabels.image),
+    zhLabels
   );
 
   // 30k. the settings filter narrows the visible fields

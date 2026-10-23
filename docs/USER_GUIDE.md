@@ -24,6 +24,19 @@ Settings (⚙ or Ctrl+,).
 Overlays use a theme-aware shadow and border (a soft light-mode shadow turns into a grey
 smudge on a dark page).
 
+**Appearance.** Settings offers an editor font (serif, sans, monospace), a text width
+(narrow 34 rem, normal 46 rem, wide 58 rem) and four accent colours; all three apply
+immediately on save and are remembered.
+
+**File tree.** The ◀ button in the Files header hides the tree and ▶ brings it back; the state
+survives a restart.
+
+**Tables.** Hover a table to get a small toolbar with add row, add column and the two delete
+actions, so a table can be edited without visiting the bar. The bar above the editor carries the
+same actions plus alignment (left, centre, right) for the selected cell. Alignment is a view
+setting: markdown can only describe column alignment, so it survives in the editor and in
+HTML/PDF exports but not in the .md file.
+
 Settings groups its fields into **Export**, **AI writing** and **Usage**, each of which folds
 and remembers its state.
 

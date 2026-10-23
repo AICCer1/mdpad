@@ -27,13 +27,13 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 | Safety | atomic save with a transient-lock retry, 20-version backup rotation with one-click restore, crash drafts with relative age, a recovery panel with per-draft delete and confirmed cleanup, read-only protection, save-failure recovery with Retry, close guard |
 | Export | HTML, PDF (page numbers, verified to paginate), Word and EPUB with their document parts opened and checked; default / compact / table-of-contents templates with a live thumbnail, optional custom CSS, in-app preview with zoom and Esc-to-close that follows the editor theme, word/character footer, name template |
 | AI | Ctrl+J panel against any OpenAI-compatible endpoint; presets, streaming with a self-scrolling result box, Stop, word-level diff review, Retry, persistent context that expires after 30 days, token guard before expensive requests, failure cooldown, local usage log with CSV export reachable from the panel, connection test, custom style guidance, history chips with arrow-key navigation, insert as inline text or a new paragraph, replace the current paragraph, scrolls into view, selectable context scope that is remembered and never auto-narrows once chosen, large-export warning |
-| Polish | window minimum size, responsive AI panel (readable scope control, scroll-hinted presets) and sidebars, consistent SVG toolbar icons grouped by purpose, command palette with shortcuts, match highlighting and usage ranking, recent files, shortcut help, first-run guide (dismissible for good), collapsible Export/AI/Usage settings sections whose state is remembered, a filter that matches section names, with an unsaved-changes hint, a live export-name example and labelled history chips, WCAG contrast audit per theme, theme-aware overlay shadows, focus mode (View menu, Ctrl+Shift+K) that dims everything but the current block, including lighting a whole table from a cell, adapts to the theme and works with find, a Saving…/Saved/Unsaved indicator with separated status items, statistics with selection size and last-saved time, light/dark/sepia themes, English and 简体中文 |
+| Polish | window minimum size, responsive AI panel (readable scope control, scroll-hinted presets) and sidebars, consistent SVG toolbar icons grouped by purpose, command palette with shortcuts, match highlighting and usage ranking, recent files, shortcut help, first-run guide (dismissible for good), collapsible Export/AI/Usage settings sections whose state is remembered, a filter that matches section names, with an unsaved-changes hint, a live export-name example and labelled history chips, WCAG contrast audit per theme, theme-aware overlay shadows, focus mode (View menu, Ctrl+Shift+K) that dims everything but the current block, including lighting a whole table from a cell, adapts to the theme and works with find, a Saving…/Saved/Unsaved indicator with separated status items, statistics with selection size and last-saved time, light/dark/sepia themes with three editor fonts, three text widths and four accent colours, a collapsible file tree, F11 full screen that Esc exits, localised table/image bars, light/dark/sepia themes, English and 简体中文 |
 
 ## Quality gates
 
 ```
 npm test              142 unit tests
-npm run smoke         201 end-to-end checks (dev or packaged)
+npm run smoke         207 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -53,9 +53,9 @@ Current artifacts: `release/mdpad Setup <version>.exe`, `release/mdpad <version>
 - Markdown round-trip covers the modeled nodes; raw HTML blocks and footnotes are not
   modeled, so exotic documents may normalize on first save.
 - Word and EPUB embed local images; both leave remote image URLs as alt text.
-- Mermaid diagrams render in the editor only. Exports keep the fenced source, because Word and
-  EPUB cannot embed the SVG without a rasteriser and the HTML/PDF path would have to run the
-  renderer at export time.
+- Table cell alignment is a view and export setting: markdown tables only describe column
+  alignment, so per-cell `text-align` is kept in the editor and in HTML/PDF exports but not in
+  the `.md` file.
 - Mermaid diagrams render in the editor only. Exports keep the fenced source, because Word and
   EPUB cannot embed the SVG without a rasteriser and the HTML/PDF path would have to run the
   renderer at export time.

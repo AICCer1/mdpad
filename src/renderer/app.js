@@ -187,6 +187,19 @@ function paintMermaid(preview, source) {
   preview.classList.remove('is-error');
 }
 
+// Per-cell alignment. Markdown tables only describe column alignment, so this is presented as a
+// view setting: it is kept in the editor and in HTML/PDF export, and the export note says so.
+const cellAlignment = {
+  textAlign: {
+    default: null,
+    parseHTML: (element) => element.style.textAlign || null,
+    renderHTML: (attributes) => (attributes.textAlign ? { style: 'text-align: ' + attributes.textAlign } : {}),
+  },
+};
+
+const AlignedTableCell = TableCell.extend({ addAttributes() { return { ...this.parent(), ...cellAlignment }; } });
+const AlignedTableHeader = TableHeader.extend({ addAttributes() { return { ...this.parent(), ...cellAlignment }; } });
+
 const MermaidCodeBlock = CodeBlockLowlight.extend({
   addNodeView() {
     return ({ node }) => {
@@ -295,7 +308,8 @@ const editor = new Editor({
     Table.configure({ resizable: false }),
     TableRow,
     TableHeader,
-    TableCell,
+    AlignedTableCell,
+    AlignedTableHeader,
     TaskList,
     TaskItem.configure({ nested: true }),
     Mathematics,
@@ -1757,6 +1771,9 @@ async function openSettings() {
   const aiCfg = await window.api.aiConfig();
   $('#set-theme').value = settings.theme || 'light';
   $('#set-language').value = normalizeLang(settings.language || 'en');
+  $('#set-font').value = FONTS.includes(settings.editorFont) ? settings.editorFont : 'serif';
+  $('#set-width').value = WIDTHS.includes(settings.lineWidth) ? settings.lineWidth : 'normal';
+  $('#set-accent').value = ACCENTS.includes(settings.accent) ? settings.accent : 'blue';
   $('#set-export-template').value = settings.exportTemplate || 'default';
   updateTemplateHint();
   $('#set-export-css').value = settings.exportCss || '';
@@ -1787,6 +1804,9 @@ async function openSettings() {
 
 async function saveSettings() {
   const theme = $('#set-theme').value;
+  const editorFont = $('#set-font').value;
+  const lineWidth = $('#set-width').value;
+  const accent = $('#set-accent').value;
   const language = normalizeLang($('#set-language').value);
   const seconds = Number($('#set-autosave').value);
   const baseUrl = $('#set-ai-base').value.trim();
@@ -1821,8 +1841,12 @@ async function saveSettings() {
     exportNameTemplate: $('#set-export-name').value,
     aiSystemPrompt: $('#set-ai-system').value,
     aiConfirmOverTokens: Number($('#set-ai-confirm').value),
+    editorFont,
+    lineWidth,
+    accent,
   });
   aiConfirmThreshold = Number($('#set-ai-confirm').value);
+  applyAppearance({ editorFont, lineWidth, accent });
   applyTheme(theme);
   applyI18n(language);
 
@@ -2455,6 +2479,113 @@ editor.on('update', syncEmptyHint);
 editor.on('selectionUpdate', syncEmptyHint);
 
 
+// ---- appearance ------------------------------------------------------------
+
+const FONTS = ['serif', 'sans', 'mono'];
+const WIDTHS = ['narrow', 'normal', 'wide'];
+const ACCENTS = ['blue', 'teal', 'violet', 'amber'];
+
+function applyAppearance(settings = {}) {
+  const font = FONTS.includes(settings.editorFont) ? settings.editorFont : 'serif';
+  const width = WIDTHS.includes(settings.lineWidth) ? settings.lineWidth : 'normal';
+  const accent = ACCENTS.includes(settings.accent) ? settings.accent : 'blue';
+  document.documentElement.dataset.font = font;
+  document.documentElement.dataset.width = width;
+  document.documentElement.dataset.accent = accent;
+}
+
+function applyFilesCollapsed(collapsed) {
+  const pane = document.querySelector('#files');
+  if (!pane) return;
+  pane.classList.toggle('collapsed', Boolean(collapsed));
+  const toggle = document.querySelector('#files-toggle');
+  if (toggle) {
+    toggle.textContent = collapsed ? '▶' : '◀';
+    toggle.title = collapsed ? 'Show the file tree' : 'Hide the file tree';
+  }
+}
+
+function toggleFilesPane() {
+  const pane = document.querySelector('#files');
+  if (!pane) return false;
+  const collapsed = !pane.classList.contains('collapsed');
+  applyFilesCollapsed(collapsed);
+  window.api.setSettings({ filesCollapsed: collapsed }).catch(() => {});
+  return collapsed;
+}
+
+document.querySelector('#files-toggle').addEventListener('click', () => toggleFilesPane());
+
+// ---- table: alignment buttons and a hover toolbar ---------------------------
+
+function setCellAlignment(align) {
+  try {
+    editor.chain().focus().setCellAttribute('textAlign', align).run();
+  } catch {
+    /* not in a table */
+  }
+}
+
+for (const button of document.querySelectorAll('[data-align]')) {
+  button.addEventListener('click', () => setCellAlignment(button.dataset.align));
+}
+
+function ensureTableHover() {
+  let bar = document.querySelector('#table-hover');
+  if (bar) return bar;
+  bar = document.createElement('div');
+  bar.id = 'table-hover';
+  bar.className = 'table-hover';
+  bar.hidden = true;
+  const actions = [
+    { label: '＋ row', title: 'Add a row below', run: () => editor.chain().focus().addRowAfter().run() },
+    { label: '＋ col', title: 'Add a column right', run: () => editor.chain().focus().addColumnAfter().run() },
+    { label: '− row', title: 'Delete this row', run: () => editor.chain().focus().deleteRow().run(), danger: true },
+    { label: '− col', title: 'Delete this column', run: () => editor.chain().focus().deleteColumn().run(), danger: true },
+    { label: '✕ table', title: 'Delete the table', run: () => editor.chain().focus().deleteTable().run(), danger: true },
+  ];
+  for (const action of actions) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = action.label;
+    button.title = action.title;
+    button.setAttribute('aria-label', action.title);
+    if (action.danger) button.classList.add('danger');
+    // Keep the editor selection while pressing, but act on click so keyboard activation works.
+    button.addEventListener('pointerdown', (event) => event.preventDefault());
+    button.addEventListener('click', () => {
+      action.run();
+      hideTableHover();
+    });
+    bar.appendChild(button);
+  }
+  document.body.appendChild(bar);
+  return bar;
+}
+
+function hideTableHover() {
+  const bar = document.querySelector('#table-hover');
+  if (bar) bar.hidden = true;
+}
+
+function showTableHover(table) {
+  const bar = ensureTableHover();
+  const rect = table.getBoundingClientRect();
+  bar.hidden = false;
+  const top = Math.max(8, rect.top - 34);
+  const left = Math.min(window.innerWidth - bar.offsetWidth - 12, Math.max(8, rect.right - bar.offsetWidth));
+  bar.style.top = top + 'px';
+  bar.style.left = left + 'px';
+}
+
+editor.view.dom.addEventListener('mousemove', (event) => {
+  const table = event.target.closest ? event.target.closest('table') : null;
+  if (table) showTableHover(table);
+  else hideTableHover();
+});
+editor.view.dom.addEventListener('mouseleave', hideTableHover);
+document.querySelector('.editor-pane').addEventListener('scroll', hideTableHover, { passive: true });
+
 // ---- save indicator --------------------------------------------------------
 
 const saveStateEl = $('#save-state');
@@ -2839,6 +2970,8 @@ window.api.onOutline(() => {});
     aiScopeExplicit = initial.explicit;
   }
   focusModeEnabled = settings.focusMode === true;
+  applyAppearance(settings);
+  applyFilesCollapsed(settings.filesCollapsed === true);
   updateActiveBlock();
   applySectionState(settings.collapsedSections);
   paletteUsage = settings.paletteUsage && typeof settings.paletteUsage === 'object' ? settings.paletteUsage : {};
@@ -2937,6 +3070,22 @@ window.__mdpad = {
   },
   exportPreviewFromSettings: () => window.api.exportPreview(),
   toggleFocusMode,
+  toggleFilesPane,
+  tableHoverVisible: () => {
+    const bar = document.querySelector('#table-hover');
+    return Boolean(bar && !bar.hidden);
+  },
+  cellAlign: () => {
+    const cell = document.querySelector('.tiptap table td, .tiptap table th');
+    return cell ? cell.style.textAlign || 'default' : '';
+  },
+  appearance: () => ({
+    font: document.documentElement.dataset.font,
+    width: document.documentElement.dataset.width,
+    accent: document.documentElement.dataset.accent,
+    editorWidth: Math.round(editor.view.dom.getBoundingClientRect().width),
+    filesCollapsed: document.querySelector('#files').classList.contains('collapsed'),
+  }),
   openUsagePanel,
   aiScopeInfo: () => ({
     scope: aiContextScope,

@@ -257,6 +257,34 @@
         </select>
       </div>
 
+      <div class="field">
+        <label for="set-font" data-i18n="settings.font">Editor font</label>
+        <select id="set-font">
+          <option value="serif" data-i18n="font.serif">Serif (book)</option>
+          <option value="sans" data-i18n="font.sans">Sans (screen)</option>
+          <option value="mono" data-i18n="font.mono">Monospace</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="set-width" data-i18n="settings.width">Text width</label>
+        <select id="set-width">
+          <option value="narrow" data-i18n="width.narrow">Narrow (34 rem)</option>
+          <option value="normal" data-i18n="width.normal">Normal (46 rem)</option>
+          <option value="wide" data-i18n="width.wide">Wide (58 rem)</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="set-accent" data-i18n="settings.accent">Accent colour</label>
+        <select id="set-accent">
+          <option value="blue" data-i18n="accent.blue">Blue</option>
+          <option value="teal" data-i18n="accent.teal">Teal</option>
+          <option value="violet" data-i18n="accent.violet">Violet</option>
+          <option value="amber" data-i18n="accent.amber">Amber</option>
+        </select>
+      </div>
+
       <div class="modal-sub" data-section="export" data-i18n="settings.exportSection">Export</div>
       <div class="field">
         <label for="set-export-template" data-i18n="settings.exportTemplate">Export template</label>
@@ -346,18 +374,22 @@
   </div>
 
   <div id="table-bar" class="tablebar" hidden>
-    <span class="tablebar-label">Table</span>
-    <button data-table="addRowBefore">+row ↑</button>
-    <button data-table="addRowAfter">+row ↓</button>
-    <button data-table="addColumnBefore">+col ←</button>
-    <button data-table="addColumnAfter">+col →</button>
-    <button data-table="deleteRow">−row</button>
-    <button data-table="deleteColumn">−col</button>
-    <button data-table="deleteTable">delete</button>
+    <span class="tablebar-label" data-i18n="table.label">Table</span>
+    <button data-table="addRowBefore" data-i18n="table.rowAbove">+ row above</button>
+    <button data-table="addRowAfter" data-i18n="table.rowBelow">+ row below</button>
+    <button data-table="addColumnBefore" data-i18n="table.colLeft">+ column left</button>
+    <button data-table="addColumnAfter" data-i18n="table.colRight">+ column right</button>
+    <button data-table="deleteRow" data-i18n="table.deleteRow">− row</button>
+    <button data-table="deleteColumn" data-i18n="table.deleteCol">− column</button>
+    <button data-table="deleteTable" data-i18n="table.deleteTable">delete table</button>
+    <span class="sep"></span>
+    <button data-align="left" data-i18n="table.alignLeft" title="Align left">⯇</button>
+    <button data-align="center" data-i18n="table.alignCenter" title="Align centre">≡</button>
+    <button data-align="right" data-i18n="table.alignRight" title="Align right">⯈</button>
   </div>
 
   <div id="image-bar" class="tablebar" hidden>
-    <span class="tablebar-label">Image</span>
+    <span class="tablebar-label" data-i18n="image.label">Image</span>
     <button data-img="w:25%">25%</button>
     <button data-img="w:50%">50%</button>
     <button data-img="w:75%">75%</button>
@@ -386,6 +418,7 @@
       <div class="files-head">
         <span id="files-root" class="files-root" title="Folder">Files</span>
         <button id="files-choose" class="icon" title="Open folder">📂</button>
+        <button id="files-toggle" class="icon files-toggle" title="Hide the file tree" data-i18n-title="files.hide">◀</button>
       </div>
       <div id="tree" class="tree"></div>
     </aside>
