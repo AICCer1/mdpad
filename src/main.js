@@ -6941,6 +6941,91 @@ async function runSmoke() {
     thumb
   );
 
+  // 89a. a table cell opens a menu on right click, and the row actions really reorder
+  const tableMenu = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const nl = String.fromCharCode(10);
+    const table = ['| A | B |', '| --- | --- |', '| r1 | x |', '| r2 | y |'];
+    window.__mdpad.setMarkdown(['# Table', '', ...table].join(nl));
+    await sleep(700);
+    const ed = window.__mdpad.editor;
+    let cellPos = null;
+    ed.state.doc.descendants((node, pos) => {
+      if (cellPos === null && node.type.name === 'tableCell' && node.textContent.trim() === 'r1') cellPos = pos + 1;
+      return true;
+    });
+    ed.commands.setTextSelection(cellPos || 1);
+    const cell = [...document.querySelectorAll('.tiptap td, .tiptap th')].find((el) => el.textContent.trim() === 'r1');
+    const rect = cell.getBoundingClientRect();
+    cell.dispatchEvent(new MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      clientX: rect.left + 6,
+      clientY: rect.top + 6,
+    }));
+    await sleep(250);
+    const opened = window.__mdpad.tableMenuState();
+
+    // Move the selected row down, then read the first column order back.
+    document.querySelector('#table-menu [data-tm="moveRowDown"]').click();
+    await sleep(400);
+    const afterMove = window.__mdpad.tableFirstColumn();
+    const menuClosed = window.__mdpad.tableMenuState().hidden;
+
+    // Header toggle flips the first row's cell type.
+    const beforeHeader = /<th/.test(ed.getHTML());
+    ed.commands.focus();
+    ed.commands.toggleHeaderRow();
+    await sleep(300);
+    const afterHeader = /<th/.test(ed.getHTML());
+    return { opened, afterMove, menuClosed, beforeHeader, afterHeader };
+  })()`);
+  step(
+    'table-cell-menu',
+    tableMenu.opened.hidden === false &&
+      tableMenu.opened.items === 10 &&
+      tableMenu.afterMove.join(',') === 'A,r2,r1' &&
+      tableMenu.menuClosed === true &&
+      tableMenu.beforeHeader !== tableMenu.afterHeader,
+    tableMenu
+  );
+
+  // 89b. column widths are part of the document's view state and render as <col> widths
+  const tableResize = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const ed = window.__mdpad.editor;
+    ed.commands.focus();
+    let cellPos = null;
+    ed.state.doc.descendants((node, pos) => {
+      if (cellPos === null && node.type.name === 'tableCell') cellPos = pos + 1;
+      return true;
+    });
+    ed.commands.setTextSelection(cellPos || 1);
+    await sleep(200);
+    const wrapper = document.querySelector('.tiptap .tableWrapper');
+    const colBefore = document.querySelector('.tiptap table colgroup col');
+    const beforeWidth = colBefore ? colBefore.getAttribute('style') : '';
+    ed.chain().focus().setCellAttribute('colwidth', [140]).run();
+    await sleep(300);
+    const colAfter = document.querySelector('.tiptap table colgroup col');
+    const afterWidth = colAfter ? colAfter.getAttribute('style') : '';
+    return {
+      wrapper: Boolean(wrapper),
+      hasColgroup: Boolean(colBefore),
+      beforeWidth,
+      afterWidth,
+      stored: window.__mdpad.tableColumnWidths().length,
+    };
+  })()`);
+  step(
+    'table-resize',
+    tableResize.wrapper === true &&
+      tableResize.hasColgroup === true &&
+      /min-width|width/.test(tableResize.beforeWidth || '') &&
+      /140px/.test(tableResize.afterWidth || ''),
+    tableResize
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

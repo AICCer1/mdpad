@@ -1782,3 +1782,49 @@ textarea:focus-visible,
   transition: opacity 140ms var(--ease, ease);
 }
 .export-thumb-img.is-loading { opacity: 0.45; }
+
+/* ---- table: resize handles and cell menu ---- */
+.column-resize-handle {
+  position: absolute;
+  right: -3px;
+  top: 0;
+  bottom: -1px;
+  width: 6px;
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 3px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 100ms var(--ease, ease);
+}
+.ProseMirror.resize-cursor .column-resize-handle,
+.ProseMirror .selectedCell + .column-resize-handle { opacity: 1; }
+.ProseMirror.resize-cursor { cursor: col-resize; }
+.tableWrapper { overflow-x: auto; }
+.table-menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 190px;
+  padding: 5px;
+  border: 1px solid var(--popover-border, var(--line));
+  border-radius: var(--r-md, 8px);
+  background: var(--panel);
+  box-shadow: var(--popover-shadow, 0 12px 32px rgba(0, 0, 0, 0.2));
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.table-menu button {
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: var(--r-sm, 5px);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.table-menu button:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.table-menu button.danger { color: #c0392b; }
+.table-menu button.danger:hover { background: rgba(192, 57, 43, 0.12); }
+.table-menu-sep { height: 1px; margin: 4px 2px; background: var(--chrome-line, var(--line)); }

@@ -22,7 +22,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 | Area | Summary |
 | --- | --- |
-| Editing | find with a bounded match list; WYSIWYG markdown: headings, lists, tables (Tab in the last cell appends a row), code with highlighting, KaTeX math (centred display blocks, hover cue, live preview, click-to-edit), Mermaid diagrams that replace their fence and open for editing on click (Esc previews again), images with size/alignment, task lists, pasting a URL over a selection links it, Ctrl+click opens links in the browser (a plain click just places the caret) |
+| Editing | find with a bounded match list; WYSIWYG markdown: headings, lists, tables (resizable columns, a right-click cell menu with row move and header toggle, Tab in the last cell appends a row), code with highlighting, KaTeX math (centred display blocks, hover cue, live preview, click-to-edit), Mermaid diagrams that replace their fence and open for editing on click (Esc previews again), images with size/alignment, task lists, pasting a URL over a selection links it, Ctrl+click opens links in the browser (a plain click just places the caret) |
 | Files | drag-reorderable tabs with per-tab undo history (Ctrl+T, reopen with Ctrl+Shift+T), command-line files opened as tabs, multiple windows (Ctrl+Shift+N), lazy file tree (Ctrl+K), recent files, multi-window session restore with truncation notice and crash-loop protection |
 | Safety | atomic save with a transient-lock retry, 20-version backup rotation with one-click restore, crash drafts with relative age, a recovery panel with per-draft delete and confirmed cleanup, read-only protection, save-failure recovery with Retry, close guard |
 | Export | one panel for format, template, document font, page margins and file name, with a real rendered page thumbnail (not a sketch) and a live summary before writing; HTML, PDF (page numbers, verified to paginate), Word and EPUB with their document parts opened and checked; default / compact / table-of-contents templates with a live thumbnail, optional custom CSS, in-app preview with zoom and Esc-to-close that follows the editor theme, an Open / Show-in-folder prompt after each export, word/character footer, name template |
@@ -33,7 +33,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              142 unit tests
-npm run smoke         228 end-to-end checks (dev or packaged)
+npm run smoke         230 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -53,6 +53,8 @@ Current artifacts: `release/mdpad Setup <version>.exe`, `release/mdpad <version>
 - Markdown round-trip covers the modeled nodes; raw HTML blocks and footnotes are not
   modeled, so exotic documents may normalize on first save.
 - Word and EPUB embed local images; both leave remote image URLs as alt text.
+- Column widths are editor-only: markdown has no syntax for them, so they are kept while the
+  document is open and not written to the file.
 - Table cell alignment is a view and export setting: markdown tables only describe column
   alignment, so per-cell `text-align` is kept in the editor and in HTML/PDF exports but not in
   the `.md` file.

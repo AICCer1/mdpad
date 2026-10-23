@@ -597,7 +597,7 @@ const editor = new Editor({
         },
       };
     },
-  }).configure({ resizable: false }),
+  }).configure({ resizable: true, handleWidth: 6, cellMinWidth: 60, lastColumnResizable: true }),
     TableRow,
     TableHeader,
     AlignedTableCell,
@@ -769,6 +769,86 @@ const commands = {
 document.querySelectorAll('[data-cmd]').forEach((button) => {
   button.addEventListener('click', () => commands[button.dataset.cmd]?.());
 });
+
+// Moving a row by editing positions inside a table is easy to get wrong; rebuilding the table
+// with two rows swapped is not.
+function closeTableMenu() {
+  const menu = document.querySelector('#table-menu');
+  if (menu) menu.hidden = true;
+}
+
+function openTableMenu(x, y) {
+  const menu = document.querySelector('#table-menu');
+  if (!menu) return;
+  menu.hidden = false;
+  const rect = menu.getBoundingClientRect();
+  const left = Math.min(x, window.innerWidth - rect.width - 8);
+  const top = Math.min(y, window.innerHeight - rect.height - 8);
+  menu.style.left = Math.max(8, left) + 'px';
+  menu.style.top = Math.max(8, top) + 'px';
+}
+
+editor.view.dom.addEventListener('contextmenu', (event) => {
+  const cell = event.target.closest ? event.target.closest('td, th') : null;
+  if (!cell) return;
+  event.preventDefault();
+  const coords = editor.view.posAtCoords({ left: event.clientX, top: event.clientY });
+  if (coords) editor.chain().focus().setTextSelection(coords.pos).run();
+  openTableMenu(event.clientX, event.clientY);
+});
+
+document.querySelectorAll('#table-menu [data-tm]').forEach((button) => {
+  button.addEventListener('click', () => {
+    const action = button.dataset.tm;
+    closeTableMenu();
+    if (action === 'moveRowUp') return moveTableRow(-1);
+    if (action === 'moveRowDown') return moveTableRow(1);
+    const chain = editor.chain().focus();
+    if (action === 'deleteTable') chain.deleteTable().run();
+    else if (typeof chain[action] === 'function') chain[action]().run();
+    return true;
+  });
+});
+
+document.addEventListener('mousedown', (event) => {
+  const menu = document.querySelector('#table-menu');
+  if (menu && !menu.hidden && !menu.contains(event.target)) closeTableMenu();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closeTableMenu();
+});
+window.addEventListener('blur', closeTableMenu);
+
+function moveTableRow(direction) {
+  const { state } = editor;
+  const { $from } = state.selection;
+  let tableDepth = -1;
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    if ($from.node(depth).type.name === 'table') {
+      tableDepth = depth;
+      break;
+    }
+  }
+  if (tableDepth < 0) return false;
+  const table = $from.node(tableDepth);
+  const rowIndex = $from.index(tableDepth);
+  const target = rowIndex + direction;
+  const rows = [];
+  table.content.forEach((row) => rows.push(row));
+  if (target < 0 || target >= rows.length) return false;
+  [rows[rowIndex], rows[target]] = [rows[target], rows[rowIndex]];
+  const tableStart = $from.before(tableDepth);
+  const replacement = table.type.create(table.attrs, rows);
+  const tr = state.tr.replaceWith(tableStart, tableStart + table.nodeSize, replacement);
+  editor.view.dispatch(tr);
+  // ResolvedPos has no .near(); let the editor coerce a valid text selection for us.
+  try {
+    editor.commands.setTextSelection(Math.min(tableStart + 2, editor.state.doc.content.size));
+  } catch {
+    /* the caret position is cosmetic */
+  }
+  return true;
+}
 
 document.querySelectorAll('[data-table]').forEach((button) => {
   button.addEventListener('click', () => {
@@ -3773,6 +3853,48 @@ window.__mdpad = {
       classes: [...outlineList.querySelectorAll('.outline-item')].map((n) => n.className),
     };
   },
+  tableDebug: () => ({
+    handles: document.querySelectorAll('.column-resize-handle').length,
+    wrappers: document.querySelectorAll('.tableWrapper').length,
+    classes: editor.view.dom.className,
+    html: editor.view.dom.innerHTML.slice(0, 400),
+  }),
+  tableMenuState: () => {
+    const menu = document.querySelector('#table-menu');
+    return { hidden: menu.hidden, items: menu.querySelectorAll('[data-tm]').length };
+  },
+  tableRowCount: () => {
+    let rows = 0;
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === 'tableRow') rows += 1;
+      return true;
+    });
+    return rows;
+  },
+  tableFirstColumn: () => {
+    const rows = [];
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === 'tableRow') {
+        const first = node.firstChild;
+        rows.push(first ? first.textContent.trim() : '');
+        return false;
+      }
+      return true;
+    });
+    return rows;
+  },
+  tableColumnWidths: () => {
+    const widths = [];
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
+        (node.attrs.colwidth || []).forEach((w) => widths.push(w));
+        return false;
+      }
+      return true;
+    });
+    return widths;
+  },
+  moveTableRow,
   outlineCurrent: () => {
     const current = document.querySelector('#outline-list .outline-item.is-current');
     return current ? current.textContent : '';

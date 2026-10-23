@@ -51,7 +51,9 @@ empty tree offers **Open a folder** instead of a sentence. The outline header co
 the document, and the section that currently holds the caret is marked with an accent rule, so you
 can see where you are without reading the text.
 
-**Tables.** Hover a table to get a small toolbar with add row, add column and the two delete
+**Tables.** Right-click any cell for the full table menu: add a row or column on either side, move the row
+up or down, toggle the header row, or delete the row, column or table. Column borders can be
+dragged; widths are a view setting (markdown has no syntax for them). Hover a table to get a small toolbar with add row, add column and the two delete
 actions, so a table can be edited without visiting the bar. Pressing Tab in the last cell appends a row, the way Notion does. The bar above the editor
 carries the same actions plus alignment (left, centre, right) for the selected cell. Alignment is a view
 setting: markdown can only describe column alignment, so it survives in the editor and in

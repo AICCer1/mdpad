@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.13.0
+
+Tables stop being the most primitive part of the editor.
+
+- **Resizable columns.** `Table` now runs with `resizable: true`, so the plugin adds a column
+  `<colgroup>` and drag handles; widths are a view setting, because markdown has no syntax for
+  them, and the README says so.
+- **A right-click menu on any cell**: add a row above/below, add a column left/right, **move the
+  row up or down**, toggle the header row, delete the row, the column or the table. Ten actions,
+  grouped, with the destructive ones in red.
+- **Row move rebuilds the table** with two rows swapped instead of doing position arithmetic inside
+  it. The first version looked right and did nothing: it ended with
+  `resolvedPos.constructor.near(...)`, and `ResolvedPos` has no `.near`, so the transaction threw
+  after it had been built. The menu now dispatches the replacement and lets the editor coerce the
+  caret.
+- 230 smoke checks (two new: `table-cell-menu` for the menu, the row order after a move and the
+  header toggle; `table-resize` for the wrapper, colgroup and a width written to the `<col>`),
+  153 unit tests.
+
 ## 1.12.0
 
 The export panel now shows the real page.
