@@ -24,6 +24,11 @@ Settings (⚙ or Ctrl+,).
 Overlays use a theme-aware shadow and border (a soft light-mode shadow turns into a grey
 smudge on a dark page).
 
+**Typography presets.** Instead of juggling three settings, pick a preset: Book (serif, warm
+accent), Report (Cambria, blue), Minimal (sans, wide), Technical (Arial, teal) or Chinese
+(微软雅黑). Each sets the font, width and accent together; the individual controls stay available
+underneath for tweaking.
+
 **Appearance.** Settings offers ten editor fonts (Georgia, Segoe UI, 微软雅黑, 宋体, 楷体, 仿宋,
 Times New Roman, Arial, Cambria, Consolas), a text width
 (narrow 34 rem, normal 46 rem, wide 58 rem) and four accent colours; all three apply
@@ -33,8 +38,8 @@ immediately on save and are remembered.
 a collapsed tree is always recoverable, and the state survives a restart.
 
 **Tables.** Hover a table to get a small toolbar with add row, add column and the two delete
-actions, so a table can be edited without visiting the bar. The bar above the editor carries the
-same actions plus alignment (left, centre, right) for the selected cell. Alignment is a view
+actions, so a table can be edited without visiting the bar. Pressing Tab in the last cell appends a row, the way Notion does. The bar above the editor
+carries the same actions plus alignment (left, centre, right) for the selected cell. Alignment is a view
 setting: markdown can only describe column alignment, so it survives in the editor and in
 HTML/PDF exports but not in the .md file.
 

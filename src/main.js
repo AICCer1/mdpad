@@ -6069,6 +6069,98 @@ async function runSmoke() {
     exportToast
   );
 
+  // 77a. a preset sets font, width and accent together
+  const presetCheck = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const preset = window.__mdpad.applyPreset('minimal');
+    await sleep(200);
+    const state = window.__mdpad.appearance();
+    const family = getComputedStyle(document.querySelector('.tiptap')).fontFamily;
+    document.querySelector('#open-settings').click();
+    await sleep(700);
+    const selectValue = document.querySelector('#set-preset').value;
+    document.querySelector('#set-preset').value = 'book';
+    document.querySelector('#set-preset').dispatchEvent(new Event('change', { bubbles: true }));
+    await sleep(200);
+    const afterSelect = window.__mdpad.appearance();
+    document.querySelector('#set-save').click();
+    await sleep(700);
+    const stored = await window.api.getSettings();
+    return {
+      preset,
+      state,
+      family,
+      selectValue,
+      afterSelect,
+      stored: { font: stored.editorFont, width: stored.lineWidth, accent: stored.accent },
+    };
+  })()`);
+  step(
+    'typography-preset',
+    presetCheck.preset &&
+      presetCheck.state.font === 'sans' &&
+      presetCheck.state.width === 'wide' &&
+      presetCheck.state.accent === 'violet' &&
+      /Segoe|sans-serif/i.test(presetCheck.family) &&
+      presetCheck.afterSelect.font === 'serif' &&
+      presetCheck.afterSelect.accent === 'amber' &&
+      presetCheck.stored.font === 'serif' &&
+      presetCheck.stored.accent === 'amber',
+    presetCheck
+  );
+
+  // 77b. Tab in the last table cell adds a row instead of trapping the caret
+  const tabRow = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    window.__mdpad.setMarkdown('');
+    await sleep(300);
+    const ed = window.__mdpad.editor;
+    ed.chain().focus().insertTable({ rows: 2, cols: 2, withHeaderRow: true }).run();
+    await sleep(400);
+    const before = document.querySelectorAll('.tiptap table tr').length;
+    // Walk to the last cell, then press Tab.
+    while (ed.can().goToNextCell()) ed.commands.goToNextCell();
+    const lastCell = ed.state.selection.$from;
+    const pos = lastCell.pos;
+    ed.view.dispatch(ed.state.tr.setSelection(ed.state.selection.constructor.near(ed.state.doc.resolve(pos))));
+    const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    // ProseMirror routes keys through handleKeyDown props, not through a DOM listener we can
+    // simply dispatch into from a synthetic event.
+    const handled = ed.view.someProp('handleKeyDown', (fn) => fn(ed.view, event));
+    await sleep(500);
+    const after = document.querySelectorAll('.tiptap table tr').length;
+    return { before, after, handled: Boolean(handled) };
+  })()`);
+  step('table-tab-row', tabRow.handled === true && tabRow.after === tabRow.before + 1, tabRow);
+
+  // 77c. one undo removes an AI insertion and keeps the text typed before it
+  const aiUndo = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    window.__mdpad.setMarkdown('Alpha paragraph');
+    await sleep(400);
+    const ed = window.__mdpad.editor;
+    ed.chain().focus('end').insertContent(' typed').run();
+    await sleep(250);
+    window.__mdpad.aiInsert(' AI-TEXT');
+    await sleep(350);
+    const withAi = ed.getText();
+    ed.commands.undo();
+    await sleep(250);
+    const afterOneUndo = ed.getText();
+    ed.commands.undo();
+    await sleep(250);
+    const afterTwo = ed.getText();
+    return { withAi, afterOneUndo, afterTwo };
+  })()`);
+  step(
+    'ai-undo-single-step',
+    /AI-TEXT/.test(aiUndo.withAi) &&
+      !/AI-TEXT/.test(aiUndo.afterOneUndo) &&
+      /typed/.test(aiUndo.afterOneUndo) &&
+      !/typed/.test(aiUndo.afterTwo),
+    aiUndo
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

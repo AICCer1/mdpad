@@ -11,6 +11,7 @@ import { Markdown } from '@tiptap/markdown';
 import { Image } from '@tiptap/extension-image';
 import { Link } from '@tiptap/extension-link';
 import { Table, TableRow, TableHeader, TableCell } from '@tiptap/extension-table';
+import { closeHistory } from 'prosemirror-history';
 import { TaskList } from '@tiptap/extension-task-list';
 import { TaskItem } from '@tiptap/extension-task-item';
 import { Mathematics } from '@tiptap/extension-mathematics';
@@ -305,7 +306,31 @@ const editor = new Editor({
     MermaidCodeBlock.configure({ lowlight }),
     Markdown,
     SizedImage.configure({ inline: false, allowBase64: true }),
-    Table.configure({ resizable: false }),
+    Table.extend({
+    addKeyboardShortcuts() {
+      const parent = this.parent ? this.parent() : {};
+      return {
+        ...parent,
+        Tab: () => {
+          const { state } = this.editor;
+          const { $from } = state.selection;
+          let inTable = false;
+          for (let depth = $from.depth; depth > 0; depth -= 1) {
+            if ($from.node(depth).type.name === 'table') {
+              inTable = true;
+              break;
+            }
+          }
+          if (!inTable) return false;
+          // No next cell means we are in the last one: append a row, like Notion.
+          if (!this.editor.can().goToNextCell()) {
+            return this.editor.chain().focus().addRowAfter().goToNextCell().run();
+          }
+          return this.editor.commands.goToNextCell();
+        },
+      };
+    },
+  }).configure({ resizable: false }),
     TableRow,
     TableHeader,
     AlignedTableCell,
@@ -1330,13 +1355,20 @@ function paragraphRange() {
 function insertAI(text, replace, asParagraph = false) {
   if (!text) return;
   const range = replace ? aiSelection || paragraphRange() : null;
+  // Undo must treat an AI edit as one action, not merge it with the typing that preceded it:
+  // closeHistory on a first transaction opens a fresh group for everything that follows.
+  const group = () =>
+    editor.chain().command(({ tr }) => {
+      closeHistory(tr);
+      return true;
+    });
   if (range) {
-    editor.chain().focus().insertContentAt({ from: range.from, to: range.to }, text).run();
+    group().focus().insertContentAt({ from: range.from, to: range.to }, text).run();
   } else if (asParagraph) {
     // Start a fresh block first so the result does not merge into the current paragraph.
-    editor.chain().focus().splitBlock().insertContent(text).run();
+    group().focus().splitBlock().insertContent(text).run();
   } else {
-    editor.chain().focus().insertContent(text).run();
+    group().focus().insertContent(text).run();
   }
   // Bring the inserted text into view; in a long document it may land off-screen.
   try {
@@ -2482,6 +2514,25 @@ editor.on('selectionUpdate', syncEmptyHint);
 // ---- appearance ------------------------------------------------------------
 
 const FONTS = ['serif', 'sans', 'yahei', 'simsun', 'kaiti', 'fangsong', 'times', 'arial', 'cambria', 'mono'];
+
+// A preset is the combination most people would never assemble by hand. Picking one is the
+// difference between "four settings that happen to look fine" and a document that looks designed.
+const TYPOGRAPHY_PRESETS = {
+  book: { editorFont: 'serif', lineWidth: 'normal', accent: 'amber' },
+  report: { editorFont: 'cambria', lineWidth: 'normal', accent: 'blue' },
+  minimal: { editorFont: 'sans', lineWidth: 'wide', accent: 'violet' },
+  technical: { editorFont: 'arial', lineWidth: 'wide', accent: 'teal' },
+  chinese: { editorFont: 'yahei', lineWidth: 'normal', accent: 'blue' },
+};
+
+function applyPreset(key) {
+  const preset = TYPOGRAPHY_PRESETS[key];
+  if (!preset) return null;
+  document.querySelector('#set-font').value = preset.editorFont;
+  document.querySelector('#set-width').value = preset.lineWidth;
+  document.querySelector('#set-accent').value = preset.accent;
+  return preset;
+}
 const WIDTHS = ['narrow', 'normal', 'wide'];
 const ACCENTS = ['blue', 'teal', 'violet', 'amber'];
 
@@ -2515,6 +2566,12 @@ function toggleFilesPane() {
 }
 
 document.querySelector('#files-toggle').addEventListener('click', () => toggleFilesPane());
+
+document.querySelector('#set-preset').addEventListener('change', (event) => {
+  const preset = applyPreset(event.target.value);
+  if (!preset) return;
+  applyAppearance(preset);
+});
 
 // ---- table: alignment buttons and a hover toolbar ---------------------------
 
@@ -3133,6 +3190,11 @@ window.__mdpad = {
   exportPreviewFromSettings: () => window.api.exportPreview(),
   toggleFocusMode,
   toggleFilesPane,
+  applyPreset: (key) => {
+    const preset = applyPreset(key);
+    if (preset) applyAppearance(preset);
+    return preset;
+  },
   tableHoverVisible: () => {
     const bar = document.querySelector('#table-hover');
     return Boolean(bar && !bar.hidden);

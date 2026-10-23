@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 210 end-to-end checks against a real window
+npm run smoke          # 213 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -124,6 +124,8 @@ opening/closing the settings panel flips it between `flex` and `none`.
   function for text containing `$`; `test/docs.test.js` rejects duplicated headings.
 - PowerShell rewrites of UTF-8 files can inject a BOM or GBK mojibake. Never use
   `Set-Content -Encoding utf8` on JSON/Markdown; `test/encoding.test.js` guards this.
+- Programmatic edits (AI insert/replace) must call `closeHistory(tr)` in a first transaction,
+  otherwise ProseMirror merges them with the typing before them and one undo wipes both.
 - Mermaid renders into a cache, never into a node view: ProseMirror re-creates node views on
   most transactions, so an async render writing into the then-detached element lands nowhere.
   Node views paint from the cache and a repaint pass updates live previews when a render ends.

@@ -851,6 +851,26 @@ Object.assign(DICT.zh, {
   'export.done': '已导出 {name}',
 });
 
+Object.assign(DICT.en, {
+  'settings.preset': 'Typography preset',
+  'preset.custom': 'Custom',
+  'preset.book': 'Book — serif, warm accent',
+  'preset.report': 'Report — Cambria, blue',
+  'preset.minimal': 'Minimal — Sans, wide',
+  'preset.technical': 'Technical — Arial, teal',
+  'preset.chinese': 'Chinese — Microsoft YaHei',
+});
+
+Object.assign(DICT.zh, {
+  'settings.preset': '排版预设',
+  'preset.custom': '自定义',
+  'preset.book': '书籍 — 衬线，暖色',
+  'preset.report': '报告 — Cambria，蓝色',
+  'preset.minimal': '极简 — 无衬线，宽版心',
+  'preset.technical': '技术文档 — Arial，青绿',
+  'preset.chinese': '中文 — 微软雅黑',
+});
+
 module.exports = { t, normalizeLang, LANGS, DICT };
 
 Object.assign(DICT.en, {

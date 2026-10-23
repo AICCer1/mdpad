@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.4.0
+
+Typography presets, Notion-style table Tab, and an undo bug I only found by testing it.
+
+- **Five typography presets** — Book (serif, warm accent), Report (Cambria, blue), Minimal (sans,
+  wide), Technical (Arial, teal) and Chinese (微软雅黑). Each sets font, text width and accent in
+  one choice; the individual controls remain for fine-tuning. The point is that the default
+  combination looks designed rather than assembled.
+- **Tab in the last table cell appends a row** instead of trapping the caret, with the end of the
+  table detected by "no next cell exists" rather than by position arithmetic.
+- **One undo removes an AI insertion.** It used to merge with the typing before it, so Ctrl+Z
+  after an AI edit wiped the paragraph you had just written. Programmatic edits now open a fresh
+  history group with `closeHistory`.
+- 213 smoke checks (three new), 142 unit tests.
+
 ## 1.3.1
 
 The four things 1.3.0 got wrong.
