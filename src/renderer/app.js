@@ -1798,7 +1798,7 @@ async function openUsagePanel() {
   await renderUsage();
 }
 
-async function openSettings() {
+async function openSettings(section = 'appearance') {
   const settings = await window.api.getSettings();
   const aiCfg = await window.api.aiConfig();
   $('#set-theme').value = settings.theme || 'light';
@@ -1833,7 +1833,21 @@ async function openSettings() {
   const info = await window.api.info();
   $('#set-version').textContent = `mdpad ${info.version}`;
   settingsModal.hidden = false;
-  $('#set-ai-base').focus();
+
+  // Land where the caller asked: the appearance controls are at the top, so the default is a
+  // scroll to the top rather than a jump to the endpoint field.
+  const scroll = document.querySelector('#settings-modal .settings-scroll');
+  const target = document.querySelector(`#settings-modal .modal-sub[data-section="${section}"]`);
+  if (scroll) {
+    if (section === 'ai' && target) {
+      scroll.scrollTop = Math.max(0, target.offsetTop - 8);
+      $('#set-ai-base').focus({ preventScroll: true });
+    } else if (section === 'export' && target) {
+      scroll.scrollTop = Math.max(0, target.offsetTop - 8);
+    } else {
+      scroll.scrollTop = 0;
+    }
+  }
 }
 
 async function saveSettings() {
@@ -2339,6 +2353,7 @@ function commandList() {
     { id: 'find', hint: 'Ctrl+F', label: p('palette.find'), run: openFind },
     { id: 'outline', hint: '', label: p('palette.outline'), run: actions.toggleOutline },
     { id: 'ai', hint: 'Ctrl+J', label: p('palette.ai'), run: openAI },
+    { id: 'appearance', hint: 'Aa', label: p('cmd.appearance'), run: () => openSettings('appearance') },
     { id: 'settings', hint: 'Ctrl+,', label: p('palette.settings'), run: openSettings },
     { id: 'shortcuts', hint: 'F1', label: p('palette.shortcuts'), run: openShortcuts },
     { id: 'stats', hint: '', label: p('palette.stats'), run: openStats },
@@ -2572,6 +2587,8 @@ function toggleFilesPane() {
 }
 
 document.querySelector('#files-toggle').addEventListener('click', () => toggleFilesPane());
+
+document.querySelector('#open-appearance').addEventListener('click', () => openSettings('appearance'));
 
 // Settings navigation: jump to a section inside the scrolling body.
 for (const button of document.querySelectorAll('.settings-nav [data-goto]')) {

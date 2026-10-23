@@ -24,6 +24,10 @@ Settings (⚙ or Ctrl+,).
 Overlays use a theme-aware shadow and border (a soft light-mode shadow turns into a grey
 smudge on a dark page).
 
+**Where the font lives.** The **Aa** button at the right end of the toolbar (or the palette
+entry "Change font and page width") opens Settings at the Appearance section: preset, editor
+font, text width and accent colour.
+
 **Typography presets.** Instead of juggling three settings, pick a preset: Book (serif, warm
 accent), Report (Cambria, blue), Minimal (sans, wide), Technical (Arial, teal) or Chinese
 (微软雅黑). Each sets the font, width and accent together; the individual controls stay available

@@ -6,17 +6,16 @@ const path = require('node:path');
 const https = require('node:https');
 
 const root = 'E:\\code\\mdpad';
-const version = '1.5.0';
+const version = '1.5.1';
 const git = (...args) =>
   execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 
 git('add', '-A');
-git('-c', 'core.autocrlf=false', 'commit', '-q', '-m', `fix: rebuild the AI settings panel, normalise endpoints, prove the client against a real server (${version})`);
+git('-c', 'core.autocrlf=false', 'commit', '-q', '-m', `fix: make the font controls findable — Aa toolbar button, Settings opens at the top (${version})`);
 console.log('commit:', git('log', '--oneline', '-1').trim());
 git('push', 'origin', 'main');
 git('tag', '-a', `v${version}`, '-m', `mdpad ${version}`);
 git('push', 'origin', `v${version}`);
-console.log('tag pushed');
 
 const store = path.join(os.homedir(), '.git-credentials');
 const line = fs

@@ -891,6 +891,16 @@ Object.assign(DICT.zh, {
   'settings.appearanceSection': '外观',
 });
 
+Object.assign(DICT.en, {
+  'ui.appearance': 'Font, width and colour',
+  'cmd.appearance': 'Change font and page width',
+});
+
+Object.assign(DICT.zh, {
+  'ui.appearance': '字体、版心与配色',
+  'cmd.appearance': '调整字体与版心宽度',
+});
+
 module.exports = { t, normalizeLang, LANGS, DICT };
 
 Object.assign(DICT.en, {
@@ -898,8 +908,8 @@ Object.assign(DICT.en, {
   'settings.font': 'Editor font',
   'settings.width': 'Text width',
   'settings.accent': 'Accent colour',
-  'font.serif': 'Serif (book)',
-  'font.sans': 'Sans (screen)',
+  'font.serif': 'Georgia (book)',
+  'font.sans': 'Segoe UI',
   'font.mono': 'Monospace',
   'width.narrow': 'Narrow (34 rem)',
   'width.normal': 'Normal (46 rem)',
@@ -928,8 +938,8 @@ Object.assign(DICT.zh, {
   'settings.font': '编辑字体',
   'settings.width': '版心宽度',
   'settings.accent': '强调色',
-  'font.serif': '衬线（书籍感）',
-  'font.sans': '无衬线（屏幕阅读）',
+  'font.serif': 'Georgia（衬线）',
+  'font.sans': 'Segoe UI（无衬线）',
   'font.mono': '等宽',
   'width.narrow': '窄（34 rem）',
   'width.normal': '标准（46 rem）',

@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.5.1
+
+Finding the font controls.
+
+- **Settings opened at the AI endpoint, not the top.** `openSettings()` focused the endpoint field,
+  which scrolled the new scrolling body down to AI writing — so the Appearance section at the top
+  was never on screen. Opening Settings now scrolls to the top by default, and callers can ask for
+  a section (`openSettings('ai')` still lands on the endpoint).
+- **An Aa button in the toolbar** and a palette entry ("Change font and page width") open Settings
+  directly at Appearance, so the controls are reachable without knowing where they live.
+- Font labels in the dropdown now match the option names (the dictionary still said "Serif (book)"
+  while the option said "Georgia (book)").
+- 217 smoke checks (one new), 148 unit tests.
+
 ## 1.5.0
 
 The AI settings panel, rebuilt — and the client actually tested against a server.

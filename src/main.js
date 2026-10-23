@@ -6351,6 +6351,50 @@ async function runSmoke() {
     keyLifecycle
   );
 
+  // 80a. the font controls are reachable: toolbar button, palette entry, and Settings opens at
+  // the top instead of jumping to the AI endpoint
+  const fontEntry = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    document.querySelector('#settings-modal').hidden = true;
+    document.querySelector('#open-appearance').click();
+    await sleep(800);
+    const modalOpen = !document.querySelector('#settings-modal').hidden;
+    const scroll = document.querySelector('#settings-modal .settings-scroll');
+    const font = document.querySelector('#set-font');
+    const rect = font.getBoundingClientRect();
+    const inView = rect.top >= 0 && rect.bottom <= window.innerHeight;
+    const scrollTop = Math.round(scroll.scrollTop);
+    const options = font.options.length;
+    document.querySelector('#set-cancel').click();
+    await sleep(250);
+
+    // The palette entry must reach the same place.
+    window.__mdpad.openPalette();
+    await sleep(300);
+    const row = [...document.querySelectorAll('#palette-list .palette-row')].find((r) =>
+      /font|字体/i.test(r.textContent)
+    );
+    const paletteHasEntry = Boolean(row);
+    if (row) row.click();
+    await sleep(800);
+    const paletteOpened = !document.querySelector('#settings-modal').hidden;
+    const paletteScrollTop = Math.round(document.querySelector('#settings-modal .settings-scroll').scrollTop);
+    document.querySelector('#set-cancel').click();
+    await sleep(250);
+    return { modalOpen, inView, scrollTop, options, paletteHasEntry, paletteOpened, paletteScrollTop };
+  })()`);
+  step(
+    'font-entry-points',
+    fontEntry.modalOpen &&
+      fontEntry.inView &&
+      fontEntry.scrollTop === 0 &&
+      fontEntry.options >= 8 &&
+      fontEntry.paletteHasEntry &&
+      fontEntry.paletteOpened &&
+      fontEntry.paletteScrollTop === 0,
+    fontEntry
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
