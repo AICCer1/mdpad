@@ -54,6 +54,27 @@ local feed. To make updates installable:
    version, download it and offer to restart. An unsigned download is refused by the updater,
    which is why step 1 of this document comes first.
 
+## Publishing to GitHub Releases
+
+The repository is private (`AICCer1/mdpad`) and the installers are **not** committed — GitHub
+rejects files over 100 MB, and keeping 110 MB binaries in history would bloat every clone. The
+artefacts are attached to a release instead:
+
+```powershell
+git tag -a v1.1.7 -m "mdpad 1.1.7"
+git push origin main --tags
+# then create the release and upload
+#   mdpad Setup <version>.exe, mdpad <version>.exe, *.blockmap, latest.yml, SHA256SUMS.txt
+```
+
+**Gotcha:** GitHub rewrites spaces in asset names to dots (`mdpad Setup 1.1.7.exe` becomes
+`mdpad.Setup.1.1.7.exe`). `latest.yml` still names the original file, so pointing
+`electron-updater` at the GitHub release URL would 404. Two ways out:
+
+- host `release/` yourself behind a generic feed (names preserved), or
+- rename artefacts before packaging, e.g. `"artifactName": "mdpad-${version}-setup.${ext}"`,
+  and regenerate `latest.yml` so the names match.
+
 ## Release checklist
 
 - [ ] `CHANGELOG.md` has a section for the version being shipped
