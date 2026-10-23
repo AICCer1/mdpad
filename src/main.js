@@ -7849,6 +7849,52 @@ async function runSmoke() {
     mixedPerf
   );
 
+  // 99a. at the minimum window width nothing overflows and the text still has room
+  const narrowAudit = await (async () => {
+    const original = win.getBounds();
+    win.setBounds({ x: original.x, y: original.y, width: 740, height: 700 });
+    await sleep(700);
+    const measured = await win.webContents.executeJavaScript(`(() => {
+      const rect = (selector) => {
+        const el = document.querySelector(selector);
+        return el ? Math.round(el.getBoundingClientRect().width) : 0;
+      };
+      const overflow = (selector) => {
+        const el = document.querySelector(selector);
+        return el ? el.scrollWidth > el.clientWidth + 1 : false;
+      };
+      return {
+        width: window.innerWidth,
+        filesWidth: rect('#files'),
+        outlineWidth: rect('#outline'),
+        editorTextWidth: Math.round(document.querySelector('.tiptap').getBoundingClientRect().width),
+        barOverflows: overflow('.bar'),
+        tabsOverflow: overflow('.tabs'),
+        footOverflows: overflow('.foot'),
+        exportHidden: getComputedStyle(document.querySelector('[data-action="exportHtml"]')).display === 'none',
+        settingsVisible: getComputedStyle(document.querySelector('#open-settings')).display !== 'none',
+        backupHidden: getComputedStyle(document.querySelector('#backup-info')).display === 'none',
+      };
+    })()`);
+    win.setBounds(original);
+    await sleep(500);
+    return measured;
+  })();
+  step(
+    'narrow-audit',
+    narrowAudit.width <= 760 &&
+      narrowAudit.filesWidth < 200 &&
+      narrowAudit.outlineWidth < 160 &&
+      narrowAudit.editorTextWidth >= 280 &&
+      narrowAudit.barOverflows === false &&
+      narrowAudit.tabsOverflow === false &&
+      narrowAudit.footOverflows === false &&
+      narrowAudit.exportHidden === true &&
+      narrowAudit.settingsVisible === true &&
+      narrowAudit.backupHidden === true,
+    narrowAudit
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

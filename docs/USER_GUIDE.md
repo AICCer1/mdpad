@@ -165,6 +165,12 @@ restarts.
 **Check spelling** (Settings → Appearance) turns the checker on or off; right-click a word with a
 red underline for suggestions, **Add to dictionary** or **Ignore**.
 
+## Small windows
+
+The window can go down to 720 px wide. Below ~920 px both sidebars narrow, the HTML and PDF
+shortcuts leave the top bar (the export panel, menu and palette still reach them), the backup count
+hides, and the toolbar fades at its right edge to show that it scrolls.
+
 ## Two windows side by side
 
 **View → Split into two windows** (Ctrl+Alt+2, or the palette) tiles the current window and a new

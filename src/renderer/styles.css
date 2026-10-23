@@ -2083,3 +2083,32 @@ textarea:focus-visible,
 .zoom-indicator:hover { color: var(--text); border-color: var(--accent); }
 .field-inline { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .field-inline input[type='checkbox'] { width: 16px; height: 16px; accent-color: var(--accent); }
+
+/* ---- narrow windows ----
+   The minimum window is 720 px wide, at which two 220 px sidebars leave almost nothing for the
+   text. Shrink both, drop the export shortcuts from the top bar (they remain in the menu,
+   palette and the export panel) and let the toolbar hint that it scrolls. */
+@media (max-width: 920px) {
+  .files { flex-basis: 168px; }
+  .outline { flex-basis: 132px; }
+  .bar-actions [data-action="exportHtml"],
+  .bar-actions [data-action="exportPdf"] { display: none; }
+  .tab { max-width: 150px; }
+  .foot #backup-info { display: none; }
+  .mdpad-prose { padding: 32px 28px 90px; }
+}
+
+@media (max-width: 780px) {
+  .files { flex-basis: 148px; }
+  .outline { flex-basis: 118px; }
+  .bar { gap: 6px; padding: 0 10px; }
+  .doc-name { max-width: 150px; }
+  .toolbar { padding: 0 8px; }
+  .foot { font-size: 10.5px; }
+}
+
+.toolbar {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
+}
+.toolbar:hover { -webkit-mask-image: none; mask-image: none; }

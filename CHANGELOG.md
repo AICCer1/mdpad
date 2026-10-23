@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.23.0
+
+The minimum window width is usable now.
+
+- **At 740 px** the two sidebars took 440 px and left ~280 px for text. Below 920 px they shrink
+  (168 / 132 px), the HTML and PDF shortcuts leave the top bar (still reachable from the menu,
+  palette and export panel), the backup count hides and the editor gets back its padding.
+- **The toolbar fades at its right edge** to show it scrolls, instead of looking clipped. The fade
+  disappears on hover.
+- A smoke check measures the result at 740 px: both sidebars narrower, text column at least 280 px,
+  and no horizontal overflow in the top bar, tab strip or footer.
+- 247 smoke checks (one new `narrow-audit`), 153 unit tests.
+
 ## 1.22.0
 
 A long-document pass.
