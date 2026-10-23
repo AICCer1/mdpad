@@ -7252,6 +7252,70 @@ async function runSmoke() {
     rowDrag
   );
 
+  // 92a. the find bar groups its fields, reports a match counter, and flags "no results"
+  const findBar = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    window.__mdpad.setMarkdown('# Find' + String.fromCharCode(10, 10) + 'alpha beta alpha');
+    await sleep(500);
+    document.querySelector('[data-action="find"]').click();
+    await sleep(300);
+    const bar = document.querySelector('#findbar');
+    const field = bar.querySelector('.findbar-field');
+    const input = bar.querySelector('#find-input');
+    input.value = 'alpha';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(400);
+    const found = {
+      text: document.querySelector('#find-count').textContent,
+      empty: document.querySelector('#find-count').classList.contains('is-empty'),
+    };
+    input.value = 'zzzznothing';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(400);
+    const missing = {
+      text: document.querySelector('#find-count').textContent,
+      empty: document.querySelector('#find-count').classList.contains('is-empty'),
+    };
+    const icon = Boolean(bar.querySelector('.findbar-icon svg'));
+    const navIcons = bar.querySelectorAll('.findbar-nav .icon-button svg').length;
+    const fields = bar.querySelectorAll('.findbar-field').length;
+    document.querySelector('#find-close').click();
+    await sleep(200);
+    return { found, missing, icon, navIcons, fields, hidden: bar.hidden };
+  })()`);
+  step(
+    'findbar-layout',
+    findBar.found.text === '1/2' &&
+      findBar.found.empty === false &&
+      findBar.missing.empty === true &&
+      findBar.icon === true &&
+      findBar.navIcons === 3 &&
+      findBar.fields === 2 &&
+      findBar.hidden === true,
+    findBar
+  );
+
+  // 92b. the shortcut sheet is grouped, not one flat table
+  const shortcutGroups = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    window.__mdpad.openShortcuts();
+    await sleep(300);
+    const groups = [...document.querySelectorAll('#shortcuts tr.shortcut-group')].map((row) => row.textContent.trim());
+    const rows = document.querySelectorAll('#shortcuts .shortcut-table tr').length;
+    const open = !document.querySelector('#shortcuts').hidden;
+    document.querySelector('#shortcuts-close').click();
+    await sleep(200);
+    return { groups, rows, open };
+  })()`);
+  step(
+    'shortcuts-grouped',
+    shortcutGroups.open === true &&
+      shortcutGroups.groups.length >= 4 &&
+      shortcutGroups.groups.includes('Editing') &&
+      shortcutGroups.rows > shortcutGroups.groups.length + 8,
+    shortcutGroups
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -7603,6 +7667,19 @@ async function runScreenshots(dir) {
   await sleep(900);
   await shot('02-editor.png');
 
+  await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    document.querySelector('[data-action="find"]').click();
+    await sleep(250);
+    const input = document.querySelector('#find-input');
+    input.value = 'markdown';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(400);
+  })()`);
+  await sleep(300);
+  await shot('08-find.png');
+  await win.webContents.executeJavaScript(`document.querySelector('#find-close').click()`);
+  await sleep(250);
   await win.webContents.executeJavaScript(`window.__mdpad.openPalette()`);
   await sleep(350);
   await shot('03-palette.png');

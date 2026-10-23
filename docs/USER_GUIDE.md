@@ -153,6 +153,12 @@ explains why it cannot split. Each window keeps its own scroll position and tabs
 **View → Merge the split windows** (Ctrl+Alt+1) closes the second window and restores the size the
 first one had before the split.
 
+## Finding text
+
+**Ctrl+F** opens the find bar: the search field on the left with a live match counter ("3/12", or
+"No results" in red), the replace field beside it, and previous / next / close as icon buttons on
+the right. Enter goes to the next match, Shift+Enter to the previous one, Esc closes the bar.
+
 ## Export
 
 HTML, PDF, Word (.docx) and EPUB, from the File menu, the palette, or the HTML/PDF buttons in the

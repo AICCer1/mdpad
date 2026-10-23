@@ -1477,6 +1477,12 @@ function focusMatch() {
   findCount.textContent = findInput.value
     ? `${matches.length ? matchIndex + 1 : 0}/${matches.length}${findTruncated ? '+' : ''}`
     : '';
+  findCount.classList.toggle('is-empty', Boolean(findInput.value) && matches.length === 0);
+  findCount.title = findInput.value
+    ? matches.length
+      ? `${matches.length} match(es)${findTruncated ? ', list truncated' : ''}`
+      : 'No results'
+    : '';
   if (matchIndex < 0 || !matches.length) return;
   const { from, to } = matches[matchIndex];
   editor.chain().focus().setTextSelection({ from, to }).run();

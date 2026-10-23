@@ -213,15 +213,20 @@
     <div class="modal-card">
       <div class="modal-title" data-i18n="shortcuts.title">Keyboard shortcuts</div>
       <table class="shortcut-table">
+        <tr class="shortcut-group"><td colspan="2">Files and tabs</td></tr>
         <tr><td>Ctrl+N / Ctrl+T</td><td data-i18n="sc.newDoc">New document / new tab</td></tr>
         <tr><td>Ctrl+O / Ctrl+K</td><td data-i18n="sc.open">Open file / open folder</td></tr>
         <tr><td>Ctrl+S / Ctrl+Shift+S</td><td data-i18n="sc.save">Save / save as</td></tr>
+        <tr class="shortcut-group"><td colspan="2">Editing</td></tr>
         <tr><td>Ctrl+F</td><td data-i18n="sc.find">Find &amp; replace</td></tr>
+        <tr class="shortcut-group"><td colspan="2">Writing</td></tr>
         <tr><td>Ctrl+J</td><td data-i18n="sc.ai">AI writing</td></tr>
         <tr><td>Ctrl+,</td><td data-i18n="sc.settings">Settings</td></tr>
+        <tr class="shortcut-group"><td colspan="2">View</td></tr>
         <tr><td>Ctrl+Shift+P</td><td data-i18n="sc.palette">Command palette</td></tr>
         <tr><td>Ctrl+Shift+O</td><td data-i18n="sc.outline">Toggle outline</td></tr>
         <tr><td>Ctrl+Shift+N</td><td data-i18n="sc.newWindow">New window</td></tr>
+        <tr class="shortcut-group"><td colspan="2">Export</td></tr>
         <tr><td>Ctrl+Shift+E / Ctrl+Shift+P</td><td data-i18n="sc.export">Export HTML / PDF</td></tr>
         <tr><td>Ctrl+Shift+↑ / ↓</td><td data-i18n="sc.moveBlock">Move the current block</td></tr>
         <tr><td>Ctrl+Shift+V</td><td data-i18n="sc.preview">Preview the export</td></tr>
@@ -538,14 +543,23 @@
   </div>
 
   <div id="findbar" class="findbar" hidden>
-    <input id="find-input" type="text" placeholder="Find" autocomplete="off">
-    <input id="replace-input" type="text" placeholder="Replace with" autocomplete="off">
-    <button id="find-prev" data-icon="chevronUp" title="Previous (Shift+Enter)">Previous</button>
-    <button id="find-next" data-icon="chevronDown" title="Next (Enter)">Next</button>
-    <button id="replace-one">Replace</button>
-    <button id="replace-all">All</button>
-    <span id="find-count" class="find-count"></span>
-    <button id="find-close" data-icon="close" title="Close (Esc)">Close</button>
+    <div class="findbar-field">
+      <span class="findbar-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+      </span>
+      <input id="find-input" type="text" placeholder="Find" autocomplete="off" aria-label="Find">
+      <span id="find-count" class="find-count" aria-live="polite"></span>
+    </div>
+    <div class="findbar-field findbar-replace">
+      <input id="replace-input" type="text" placeholder="Replace with" autocomplete="off" aria-label="Replace with">
+      <button id="replace-one" title="Replace this match">Replace</button>
+      <button id="replace-all" title="Replace every match">All</button>
+    </div>
+    <div class="findbar-nav">
+      <button id="find-prev" class="icon-button" data-icon="chevronUp" title="Previous match (Shift+Enter)">Previous</button>
+      <button id="find-next" class="icon-button" data-icon="chevronDown" title="Next match (Enter)">Next</button>
+      <button id="find-close" class="icon-button" data-icon="close" title="Close (Esc)">Close</button>
+    </div>
   </div>
 
   <main class="layout">

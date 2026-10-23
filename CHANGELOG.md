@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.16.0
+
+The secondary surfaces caught up with the rest of the chrome.
+
+- **The find bar is grouped.** The search field carries a magnifier and the match counter inside it
+  (so the count sits where you look), the replace field and its two buttons form a second group,
+  and previous / next / close are icon buttons on the right. "No results" turns red instead of
+  reading like an ordinary count.
+- **The shortcut sheet is grouped** by area (Files and tabs, Editing, Writing, View, Export) with
+  small-caps headings, instead of one flat list of thirteen rows.
+- **Statistics align their numbers** to the right with tabular figures, so "1" and "12,480" line up.
+- A new screenshot (`08-find.png`) documents the find bar.
+- 236 smoke checks (two new: `findbar-layout` for the grouping, counter and icon navigation, and
+  `shortcuts-grouped` for the sections), 153 unit tests.
+
 ## 1.15.0
 
 Two loose ends from 1.14.0, and a table grip.

@@ -1849,3 +1849,79 @@ textarea:focus-visible,
 .table-row-drop, .row-drop-target td, .row-drop-target th {
   box-shadow: inset 0 2px 0 var(--accent);
 }
+
+/* ---- find bar: fields on the left, navigation on the right ---- */
+.findbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--chrome-line, var(--line));
+  background: var(--panel);
+}
+.findbar-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 240px;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--chrome-line, var(--line));
+  border-radius: var(--r-sm, 5px);
+  background: var(--bg);
+}
+.findbar-field:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent); }
+.findbar-field input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 26px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+.findbar-icon { display: flex; color: var(--muted); }
+.find-count {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.find-count.is-empty { color: #c0392b; }
+.findbar-field button {
+  font: inherit;
+  font-size: 11.5px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--chrome-line, var(--line));
+  border-radius: var(--r-sm, 5px);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+.findbar-field button:hover { border-color: var(--accent); }
+.findbar-nav { display: flex; gap: 2px; }
+.findbar-replace { flex: 0 1 300px; }
+
+/* ---- shortcuts grouped ---- */
+.shortcut-table tr.shortcut-group td {
+  padding-top: 14px;
+  border-bottom: 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.shortcut-table tr.shortcut-group:first-child td { padding-top: 0; }
+.shortcut-table tr.shortcut-group td:first-child { color: var(--muted); font-family: inherit; }
+
+/* ---- statistics numbers line up ---- */
+#stats-table td:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
