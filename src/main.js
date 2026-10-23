@@ -1014,9 +1014,9 @@ class Session {
 const sessions = new Map(); // webContents id -> Session
 const aiRequests = new Map(); // requestId -> AbortController for in-flight streams
 
-function createWindow({ show = true, restore = null, cascade = 0 } = {}) {
+function createWindow({ show = true, restore = null, cascade = 0, bounds: explicitBounds = null } = {}) {
   const savedBounds = restore && restore.bounds ? restore.bounds : null;
-  const bounds = savedBounds ? fitBounds(savedBounds, screen.getAllDisplays()) : null;
+  const bounds = explicitBounds || (savedBounds ? fitBounds(savedBounds, screen.getAllDisplays()) : null);
   const cascadeOffset = cascade ? 40 + cascade * 28 : null;
   const win = new BrowserWindow({
     width: bounds ? bounds.width : 1180,
@@ -1190,6 +1190,24 @@ function registerIpc() {
     if (!file || !fs.existsSync(file)) return { shown: false, reason: 'missing' };
     shell.showItemInFolder(file);
     return { shown: true };
+  });
+
+  ipcMain.handle('window:split', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const session = sessionFor(event);
+    if (!win || !session) return { ok: false, reason: 'no-window' };
+    if (!session.file) return { ok: false, reason: 'unsaved' };
+    const area = screen.getDisplayMatching(win.getBounds()).workArea;
+    const half = Math.floor(area.width / 2);
+    const left = { x: area.x, y: area.y, width: half, height: area.height };
+    const right = { x: area.x + half, y: area.y, width: area.width - half, height: area.height };
+    win.setBounds(left);
+    const second = createWindow({ bounds: right });
+    second.webContents.once('did-finish-load', () => {
+      const twin = sessions.get(second.webContents.id);
+      if (twin) twin.loadDocument(session.file);
+    });
+    return { ok: true, left, right };
   });
 
   ipcMain.handle('app:toggleFullscreen', (event) => {
@@ -1943,6 +1961,29 @@ function buildMenu() {
         { role: 'zoomIn' },
         { role: 'zoomOut' },
         { type: 'separator' },
+        {
+          label: tt('menu.split'),
+          accelerator: 'CmdOrCtrl+Alt+2',
+          click: () => {
+            const session = focusedSession();
+            if (!session || !session.file) {
+              session && session.sendStatus({ error: tt('menu.splitNeedsFile') });
+              return;
+            }
+            const win = BrowserWindow.fromWebContents(session.win.webContents);
+            if (!win) return;
+            const area = screen.getDisplayMatching(win.getBounds()).workArea;
+            const half = Math.floor(area.width / 2);
+            win.setBounds({ x: area.x, y: area.y, width: half, height: area.height });
+            const second = createWindow({
+              bounds: { x: area.x + half, y: area.y, width: area.width - half, height: area.height },
+            });
+            second.webContents.once('did-finish-load', () => {
+              const twin = sessions.get(second.webContents.id);
+              if (twin) twin.loadDocument(session.file);
+            });
+          },
+        },
         {
           label: tt('menu.fullscreen'),
           accelerator: 'F11',
@@ -7024,6 +7065,57 @@ async function runSmoke() {
       /min-width|width/.test(tableResize.beforeWidth || '') &&
       /140px/.test(tableResize.afterWidth || ''),
     tableResize
+  );
+
+  // 90a. an unsaved document refuses to split and says why
+  const splitUnsaved = await (async () => {
+    const session = sessions.get(win.webContents.id);
+    const savedFile = session.file;
+    session.file = null;
+    const result = await win.webContents.executeJavaScript('window.api.splitWindow()');
+    session.file = savedFile;
+    return result;
+  })();
+  // `ok` inside the details would override the step result, so only pass diagnostics.
+  step('split-unsaved', splitUnsaved.ok === false && splitUnsaved.reason === 'unsaved', { reason: splitUnsaved.reason });
+
+  // 90b. a saved document splits into two windows on the two halves of the display
+  const split = await (async () => {
+    const session = sessions.get(win.webContents.id);
+    const file = path.join(dir, 'split-target.md');
+    fs.writeFileSync(file, '# Split' + String.fromCharCode(10, 10) + 'left and right');
+    session.file = file;
+    const before = BrowserWindow.getAllWindows().length;
+    const result = await win.webContents.executeJavaScript('window.api.splitWindow()');
+    // wait for the second window to load the same document
+    let twin = null;
+    for (let i = 0; i < 40 && !twin; i += 1) {
+      await sleep(250);
+      twin = BrowserWindow.getAllWindows().find((candidate) => {
+        if (candidate.isDestroyed() || candidate === win) return false;
+        const candidateSession = sessions.get(candidate.webContents.id);
+        return candidateSession && candidateSession.file === file;
+      });
+    }
+    const after = BrowserWindow.getAllWindows().length;
+    const bounds = win.getBounds();
+    const twinBounds = twin ? twin.getBounds() : null;
+    const area = screen.getDisplayMatching(bounds).workArea;
+    const half = Math.floor(area.width / 2);
+    // Window frames and DPI rounding shift bounds by a few pixels, so compare the halves
+    // against each other rather than against an exact arithmetic split.
+    const tileOk =
+      Boolean(twinBounds) &&
+      Math.abs(twinBounds.x - (bounds.x + bounds.width)) <= 8 &&
+      Math.abs(twinBounds.width + bounds.width - area.width) <= 8;
+    if (twin && !twin.isDestroyed()) twin.destroy();
+    await sleep(300);
+    return { result, before, after, bounds, twinBounds, tileOk, file };
+  })();
+  step(
+    'split-windows',
+    split.result.ok === true && split.after === split.before + 1 && split.tileOk === true,
+    { accepted: split.result.ok, before: split.before, after: split.after, left: split.bounds, right: split.twinBounds, tile: split.tileOk }
   );
 
   // 30k. the settings filter narrows the visible fields

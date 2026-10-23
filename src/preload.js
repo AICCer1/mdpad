@@ -57,6 +57,7 @@ contextBridge.exposeInMainWorld('api', {
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', { url }),
   lastExternal: () => ipcRenderer.invoke('app:lastExternal'),
   toggleFullscreen: () => ipcRenderer.invoke('app:toggleFullscreen'),
+  splitWindow: () => ipcRenderer.invoke('window:split'),
   openExportedFile: (target) => ipcRenderer.invoke('app:openPath', { path: target }),
   revealExportedFile: (target) => ipcRenderer.invoke('app:showInFolder', { path: target }),
   onExported: (cb) => ipcRenderer.on('doc:exported', (_e, payload) => cb(payload)),

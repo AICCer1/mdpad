@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.14.0
+
+Two windows, side by side.
+
+- **View → Split into two windows** (Ctrl+Alt+2, palette entry) tiles the current window and a new
+  one on the two halves of the display, both editing the same saved file. This uses the existing
+  multi-window machinery rather than a second editor instance in one window, so tabs, autosave,
+  drafts and crash recovery keep working unchanged.
+- **Unsaved documents refuse and explain**, instead of opening a second empty window.
+- Each window keeps its own scroll position, tabs and state; closing one leaves the other running.
+- **A test-harness defect found while testing this:** `step(name, ok, extra)` spreads `extra` over
+  the result, so passing an `ok` key among the diagnostics replaced the assertion's own verdict.
+  `split-unsaved` was "failing" with a correct reason because of it. Details are now diagnostics
+  only.
+- 232 smoke checks (two new: `split-unsaved`, `split-windows` with both halves tiled and the twin
+  opening the same document), 153 unit tests.
+
 ## 1.13.0
 
 Tables stop being the most primitive part of the editor.

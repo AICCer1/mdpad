@@ -145,6 +145,13 @@ many will go.
 Data lives in `%APPDATA%\mdpad`: `backups/`, `draftsRecover/`, `session.json`,
 `settings.json`, `ai-history.json`, `logs/mdpad.log`.
 
+## Two windows side by side
+
+**View → Split into two windows** (Ctrl+Alt+2, or the palette) tiles the current window and a new
+one on the two halves of the display, both editing the same saved file. Save it or the command
+explains why it cannot split. Each window keeps its own scroll position and tabs; closing one
+leaves the other running.
+
 ## Export
 
 HTML, PDF, Word (.docx) and EPUB, from the File menu, the palette, or the HTML/PDF buttons in the

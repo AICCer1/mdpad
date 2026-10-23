@@ -935,6 +935,26 @@ Object.assign(DICT.zh, {
   'ai.title': 'AI 写作',
 });
 
+Object.assign(DICT.en, {
+  'menu.split': 'Split into two windows',
+  'menu.splitNeedsFile': 'Save the document first, then split it into two windows.',
+  'palette.split': 'Split into two windows',
+});
+
+Object.assign(DICT.zh, {
+  'menu.split': '分成两个窗口并排',
+  'menu.splitNeedsFile': '请先保存文档，再分成两个窗口。',
+  'palette.split': '分成两个窗口并排',
+});
+
+Object.assign(DICT.en, {
+  'menu.splitFailed': 'The window could not be split.',
+});
+
+Object.assign(DICT.zh, {
+  'menu.splitFailed': '无法分屏。',
+});
+
 module.exports = { t, normalizeLang, LANGS, DICT };
 
 Object.assign(DICT.en, {

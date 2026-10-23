@@ -2828,6 +2828,7 @@ function commandList() {
     { id: 'outline', hint: '', label: p('palette.outline'), run: actions.toggleOutline },
     { id: 'ai', hint: 'Ctrl+J', label: p('palette.ai'), run: openAI },
     { id: 'appearance', hint: 'Aa', label: p('cmd.appearance'), run: () => openSettings('appearance') },
+    { id: 'split', hint: 'Ctrl+Alt+2', label: p('palette.split'), run: () => splitWindowRequest() },
     { id: 'settings', hint: 'Ctrl+,', label: p('palette.settings'), run: openSettings },
     { id: 'shortcuts', hint: 'F1', label: p('palette.shortcuts'), run: openShortcuts },
     { id: 'stats', hint: '', label: p('palette.stats'), run: openStats },
@@ -3070,6 +3071,15 @@ function toggleFilesPane() {
 document.querySelector('#files-toggle').addEventListener('click', () => toggleFilesPane());
 
 document.querySelector('#open-appearance').addEventListener('click', () => openSettings('appearance'));
+
+// Side-by-side editing uses two real windows placed on the two halves of the display; an unsaved
+// document has no path to open in the second one, so say that instead of doing nothing.
+async function splitWindowRequest() {
+  const result = await window.api.splitWindow().catch(() => ({ ok: false, reason: 'error' }));
+  if (result && result.ok) return true;
+  showToast(t(result && result.reason === 'unsaved' ? 'menu.splitNeedsFile' : 'menu.splitFailed', lang), 4200);
+  return false;
+}
 
 document.querySelectorAll('#export-format [data-format]').forEach((button) => {
   button.addEventListener('click', () => setExportFormat(button.dataset.format));
@@ -3790,6 +3800,7 @@ window.__mdpad = {
   toggleFocusMode,
   openSettings,
   toggleFilesPane,
+  splitWindow: () => splitWindowRequest(),
   setTheme: (theme) => setTheme(theme),
   applyPreset: (key) => {
     const preset = applyPreset(key);
