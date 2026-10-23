@@ -138,10 +138,37 @@
   </div>
 
   <div id="ai-popover" class="popover ai-popover" hidden>
+    <div class="ai-titlebar">
+      <span class="ai-title" data-i18n="ai.title">AI writing</span>
+      <span id="ai-target-chip" class="ai-chip" title="What the instruction will act on"></span>
+      <span class="ai-title-actions">
+        <button id="ai-usage-open" class="icon-button" data-icon="list" title="AI usage log" aria-label="AI usage log">Usage</button>
+        <button id="ai-settings" class="icon-button" data-icon="settings" title="AI settings" aria-label="AI settings">Settings</button>
+      </span>
+    </div>
+
     <div id="ai-setup-hint" class="ai-setup" hidden>
       <span id="ai-setup-text">AI is not configured yet.</span>
       <button id="ai-setup-open">Open AI settings</button>
     </div>
+
+    <div class="ai-scope-row">
+      <label for="ai-scope" data-i18n="ai.scopeLabel">Context</label>
+      <select id="ai-scope">
+        <option value="doc" data-i18n="ai.scopeDoc">Whole document</option>
+        <option value="paragraph" data-i18n="ai.scopeParagraph">Current paragraph</option>
+        <option value="none" data-i18n="ai.scopeNone">Selection only</option>
+      </select>
+      <span id="ai-context-note" class="ai-context-note"></span>
+    </div>
+
+    <div class="ai-head">
+      <input id="ai-instruction" type="text" data-i18n-placeholder="ai.instruction" placeholder="Tell it what to do — continue, tighten, translate, turn into a table">
+      <button id="ai-run" data-i18n="ai.run">Run</button>
+      <button id="ai-retry" class="icon-button" data-icon="refresh" title="Run the last instruction again on the current selection" aria-label="Retry" hidden>Retry</button>
+      <button id="ai-stop" class="icon-button" data-icon="stop" hidden title="Cancel the running request" aria-label="Stop">Stop</button>
+    </div>
+
     <div class="ai-presets">
       <button data-preset="Continue writing the next paragraph in the same voice and markdown structure." data-i18n="ai.presetContinue">Continue</button>
       <button data-preset="Tighten this text: remove redundancy, keep meaning and markdown structure." data-i18n="ai.presetTighten">Tighten</button>
@@ -150,42 +177,28 @@
       <button data-preset="Summarize concisely as a bullet list." data-i18n="ai.presetSummarize">Summarize</button>
       <button data-preset="Convert into a markdown table with sensible columns." data-i18n="ai.presetTable">Table</button>
     </div>
-    <div class="ai-head">
-      <input id="ai-instruction" type="text" data-i18n-placeholder="ai.instruction" placeholder="Instruction — continue, tighten, translate, turn into a table…">
-      <button id="ai-run" data-i18n="ai.run">Run</button>
-      <button id="ai-retry" class="icon-button" data-icon="refresh" title="Run the last instruction again on the current selection" aria-label="Retry" hidden>Retry</button>
-      <button id="ai-stop" class="icon-button" data-icon="stop" hidden title="Cancel the running request" aria-label="Stop">Stop</button>
-      <button id="ai-usage-open" class="icon-button" data-icon="list" title="AI usage log" aria-label="AI usage log">Usage</button>
-      <button id="ai-settings" class="icon-button" data-icon="settings" title="AI settings" aria-label="AI settings">Settings</button>
-    </div>
-    <div class="ai-scope-row">
-      <label for="ai-scope" data-i18n="ai.scopeLabel">Context</label>
-      <select id="ai-scope">
-        <option value="doc" data-i18n="ai.scopeDoc">Whole document</option>
-        <option value="paragraph" data-i18n="ai.scopeParagraph">Current paragraph</option>
-        <option value="none" data-i18n="ai.scopeNone">Selection only</option>
-      </select>
-    </div>
-    <div id="ai-context-note" class="ai-context-note"></div>
 
     <textarea id="ai-result" spellcheck="false" data-i18n-placeholder="ai.resultPlaceholder" placeholder="Result streams in here before you insert it"></textarea>
     <div id="ai-diff" class="ai-diff" hidden></div>
+
     <div class="ai-foot">
-      <button id="ai-preview" data-i18n="ai.preview">Preview changes</button>
-      <button id="ai-copy" data-i18n="ai.copy" title="Copy the result">Copy</button>
-      <button id="ai-insert" data-i18n="ai.insert">Insert</button>
-      <button id="ai-paragraph" data-i18n="ai.insertParagraph" title="Insert as a new paragraph">New paragraph</button>
-      <button id="ai-replace" data-i18n="ai.replace">Replace selection</button>
-      <button id="ai-clear" data-i18n="ai.clear" title="Forget previous turns">Clear context</button>
-
+      <div class="ai-foot-group">
+        <button id="ai-insert" class="primary" data-i18n="ai.insert">Insert</button>
+        <button id="ai-paragraph" data-i18n="ai.insertParagraph" title="Insert as a new paragraph">New paragraph</button>
+        <button id="ai-replace" data-i18n="ai.replace">Replace selection</button>
+        <button id="ai-copy" data-i18n="ai.copy" title="Copy the result">Copy</button>
+        <button id="ai-preview" data-i18n="ai.preview">Preview changes</button>
+      </div>
+      <div class="ai-foot-group ai-foot-secondary">
+        <button id="ai-clear" data-i18n="ai.clear" title="Forget previous turns">Clear context</button>
+        <span id="ai-confirm" class="ai-confirm" hidden>
+          <span id="ai-confirm-text"></span>
+          <button id="ai-confirm-yes" data-i18n="ai.send">Send</button>
+          <button id="ai-confirm-no" data-i18n="ai.cancel">Cancel</button>
+        </span>
+        <span id="ai-status" class="ai-status"></span>
+      </div>
       <div id="ai-history" class="ai-history" hidden></div>
-
-      <span id="ai-confirm" class="ai-confirm" hidden>
-        <span id="ai-confirm-text"></span>
-        <button id="ai-confirm-yes" data-i18n="ai.send">Send</button>
-        <button id="ai-confirm-no" data-i18n="ai.cancel">Cancel</button>
-      </span>
-      <span id="ai-status" class="ai-status"></span>
     </div>
   </div>
 

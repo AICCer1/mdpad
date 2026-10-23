@@ -6846,6 +6846,57 @@ async function runSmoke() {
   console.error('TREE_EMPTY', JSON.stringify(treeEmpty));
   step('tree-empty-action', treeEmpty.hasButton && /Open a folder/.test(treeEmpty.text), treeEmpty);
 
+  // 87a. the AI panel reads start to finish: target, instruction, suggestions, result, actions
+  const aiLayout = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    window.__mdpad.aiOpen();
+    await sleep(500);
+    const panel = document.querySelector('#ai-popover');
+    const scope = document.querySelector('.ai-scope-row');
+    const head = document.querySelector('.ai-head');
+    const presets = document.querySelector('.ai-presets');
+    const result = document.querySelector('#ai-result');
+    const foot = document.querySelector('.ai-foot');
+    const chip = document.querySelector('#ai-target-chip');
+    const scopeSelect = document.querySelector('#ai-scope');
+    const beforeChip = chip.textContent.trim();
+
+    scopeSelect.value = 'paragraph';
+    scopeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    await sleep(200);
+    const afterChip = chip.textContent.trim();
+    scopeSelect.value = 'doc';
+    scopeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    await sleep(150);
+
+    const top = (el) => (el ? Math.round(el.getBoundingClientRect().top) : -1);
+    const order = [
+      { key: 'scope', top: top(scope) },
+      { key: 'instruction', top: top(head) },
+      { key: 'presets', top: top(presets) },
+      { key: 'result', top: top(result) },
+      { key: 'actions', top: top(foot) },
+    ];
+    const ascending = order.every((entry, i) => i === 0 || entry.top >= order[i - 1].top);
+    const panelRect = panel.getBoundingClientRect();
+    const runRect = document.querySelector('#ai-run').getBoundingClientRect();
+    const runVisible = runRect.top >= panelRect.top && runRect.bottom <= panelRect.bottom && runRect.width > 10;
+    const insertIsPrimary = document.querySelector('#ai-insert').classList.contains('primary');
+    const noOverflow = panel.scrollWidth <= panel.clientWidth + 1;
+    window.__mdpad.aiClose ? window.__mdpad.aiClose() : document.querySelector('#ai-popover').hidden = true;
+    return { order, ascending, beforeChip, afterChip, runVisible, insertIsPrimary, noOverflow };
+  })()`);
+  step(
+    'ai-panel-layout',
+    aiLayout.ascending &&
+      aiLayout.beforeChip === 'Whole document' &&
+      aiLayout.afterChip === 'Current paragraph' &&
+      aiLayout.runVisible &&
+      aiLayout.insertIsPrimary &&
+      aiLayout.noOverflow,
+    aiLayout
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

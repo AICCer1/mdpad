@@ -203,7 +203,11 @@ source, because the .docx writer needs a raster image.
 
 ## AI writing
 
-Open the panel with **Ctrl+J**.
+Open the panel with **Ctrl+J**. It reads top to bottom: the title row names the target ("Whole
+document" / "Current paragraph" / "Selection only") as a chip, the context row says how much text
+will be sent, the instruction field sits directly above **Run**, the six presets are suggestions
+underneath, then the result box and one primary **Insert** with the secondary actions beside it.
+**Clear context** is separated on the right because it is a different kind of action.
 
 ![AI panel](images/04-ai.png)
 

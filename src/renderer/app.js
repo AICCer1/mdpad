@@ -1149,7 +1149,10 @@ editor.view.dom.addEventListener('click', openMathAtClick);
 
 editor.on('update', renderOutline);
 editor.on('selectionUpdate', () => {
-  if (!aiPopover.hidden) updateContextNote();
+  if (!aiPopover.hidden) {
+    updateContextNote();
+    refreshAiTargetChip();
+  }
   updateActiveBlock();
   markCurrentOutline();
 });
@@ -1481,7 +1484,20 @@ async function refreshAiSetup() {
 
 document.querySelector('#ai-setup-open').addEventListener('click', () => openSettings());
 
+// One place answers "what will this act on?", so the panel does not make people read a select.
+function refreshAiTargetChip() {
+  const chip = document.querySelector('#ai-target-chip');
+  const select = document.querySelector('#ai-scope');
+  if (!chip || !select) return;
+  const option = select.options[select.selectedIndex];
+  const label = option ? option.textContent : '';
+  const hasSelection = !editor.state.selection.empty;
+  chip.textContent = select.value === 'none' && !hasSelection ? 'Selection (none)' : label;
+  chip.classList.toggle('is-empty', select.value === 'none' && !hasSelection);
+}
+
 function openAI() {
+  requestAnimationFrame(refreshAiTargetChip);
   const { from, to, empty } = editor.state.selection;
   aiSelection = empty ? null : { from, to, text: editor.state.doc.textBetween(from, to, ' ') };
   updateContextNote();
@@ -2295,6 +2311,7 @@ $('#ai-test').addEventListener('click', async () => {
 $('#set-filter').addEventListener('input', (event) => filterSettings(event.target.value));
 $('#ai-scope').addEventListener('change', (event) => {
   aiContextScope = event.target.value;
+  refreshAiTargetChip();
   aiScopeExplicit = true;
   aiScopeAuto = false;
   updateContextNote();
@@ -3583,6 +3600,15 @@ window.__mdpad = {
   aiInsertParagraph: (text) => insertAI(text, false, true),
   aiOpen: openAI,
   aiTurns: () => aiHistory.slice(),
+  aiPanelOrder: () => {
+    const panel = document.querySelector('#ai-popover');
+    const order = [...panel.querySelectorAll('[data-order]')].map((el) => el.dataset.order);
+    const positions = ['ai-titlebar', 'ai-scope', 'ai-head', 'ai-presets', 'ai-foot'].map((key) => {
+      const el = panel.querySelector('.' + key) || document.querySelector('#' + key);
+      return el ? { key, top: el.getBoundingClientRect().top } : { key, top: null };
+    });
+    return { order, positions, chip: document.querySelector('#ai-target-chip').textContent };
+  },
   openDrafts: () => openDraftsPanel(),
   refreshDraftsBadge: () => refreshDraftsBadge(),
   mermaidAvailable: () => Boolean(window.mermaid),

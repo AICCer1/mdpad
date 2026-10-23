@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.11.0
+
+The AI panel now reads in the order you use it.
+
+- **Top to bottom: target → instruction → suggestions → result → actions.** Before this the six
+  presets came *above* the instruction field, the scope select sat below Run, and six buttons
+  shared one flat row. Nothing was missing; the order was working against the user.
+- **A target chip in the title row** says what the instruction will act on ("Whole document",
+  "Current paragraph", "Selection only", or "Selection (none)"), and follows both the scope select
+  and the caret.
+- **The context note moved next to the scope**, where it explains the size of what will be sent
+  instead of floating on its own line.
+- **One primary action.** Insert is the only filled button; new paragraph, replace, copy and
+  preview are secondary beside it, and **Clear context** is separated on the right because it
+  resets the conversation rather than acting on the text.
+- Usage and AI settings moved to the title row, out of the typing line.
+- 227 smoke checks (one new `ai-panel-layout`: vertical order, chip text before/after a scope
+  change, Run visible, Insert primary, no horizontal overflow), 153 unit tests.
+
 ## 1.10.0
 
 The sidebars start carrying information.

@@ -927,6 +927,14 @@ Object.assign(DICT.zh, {
   'export.run': '导出',
 });
 
+Object.assign(DICT.en, {
+  'ai.title': 'AI writing',
+});
+
+Object.assign(DICT.zh, {
+  'ai.title': 'AI 写作',
+});
+
 module.exports = { t, normalizeLang, LANGS, DICT };
 
 Object.assign(DICT.en, {
