@@ -214,6 +214,8 @@ that its page breaks may differ from the exported PDF, names the active template
 has 75% / 100% / 125% zoom buttons in its header. Esc closes the preview. In dark or sepia theme the preview
 follows the editor, while the exported file itself stays light so it prints predictably.
 
+![Exported page](images/10-export-page.png)
+
 After each export a toast offers **Open** and **Show in folder**, so the file is one click away
 instead of a folder hunt.
 

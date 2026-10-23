@@ -8003,6 +8003,86 @@ async function runSmoke() {
     slash
   );
 
+  // 102a. a rich document survives export: table, image width, math, code, diagram, TOC
+  const reachExport = await (async () => {
+    const nl = String.fromCharCode(10);
+    const fence = String.fromCharCode(96, 96, 96);
+    const size = (text) => Buffer.byteLength(text, 'utf8');
+    const image =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    const markdown = [
+      '# Rich export',
+      '',
+      'A paragraph with **bold** and `inline code`.',
+      '',
+      '| Name | State |',
+      '| --- | --- |',
+      '| Autosave | 5 s |',
+      '| Backups | 20 |',
+      '',
+      '![one pixel](' + image + ' "w=50%")',
+      '',
+      'Inline math $a^2+b^2=c^2$ and a block:',
+      '',
+      '$$',
+      '\\int_0^1 x^2 dx = \\tfrac{1}{3}',
+      '$$',
+      '',
+      fence + 'js',
+      'const total = items.reduce((sum, item) => sum + item.price, 0);',
+      fence,
+      '',
+      fence + 'mermaid',
+      'graph LR;',
+      '  draft-->export;',
+      fence,
+    ].join(nl);
+
+    await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      window.__mdpad.setMarkdown(${JSON.stringify(markdown)});
+      await sleep(1600);
+      await window.__mdpad.exportDiagramCount();
+    })()`);
+    const session = sessions.get(win.webContents.id);
+    session.contents = markdown;
+    const htmlPath = path.join(dir, 'rich.html');
+    const pdfPath = path.join(dir, 'rich.pdf');
+    await session.exportTo(htmlPath, 'html');
+    await session.exportTo(pdfPath, 'pdf');
+    const htmlText = fs.readFileSync(htmlPath, 'utf8');
+    const pdfBytes = fs.statSync(pdfPath).size;
+    return {
+      bytes: size(htmlText),
+      table: /<table[\s>]/.test(htmlText),
+      tableHeader: /<th>State<\/th>/.test(htmlText),
+      bold: /<strong>bold<\/strong>/.test(htmlText),
+      imageWidth: /<img[^>]+style="[^"]*width:50%/.test(htmlText),
+      inlineMath: /class="katex"/.test(htmlText),
+      displayMath: /math-display/.test(htmlText),
+      codeHighlight: /hljs-keyword/.test(htmlText),
+      diagram: /mermaid-figure/.test(htmlText) && /<svg[\s>]/.test(htmlText),
+      diagramCount: Object.keys(session.exportDiagrams || {}).length,
+      pdfBytes,
+      htmlPath,
+      pdfPath,
+    };
+  })();
+  step(
+    'export-fidelity',
+    reachExport.table &&
+      reachExport.tableHeader &&
+      reachExport.bold &&
+      reachExport.imageWidth &&
+      reachExport.inlineMath &&
+      reachExport.displayMath &&
+      reachExport.codeHighlight &&
+      reachExport.diagram &&
+      reachExport.diagramCount >= 1 &&
+      reachExport.pdfBytes > 15000,
+    reachExport
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

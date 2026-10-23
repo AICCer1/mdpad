@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.26.0
+
+An end-to-end export check, with a picture.
+
+- **A rich document is exported and inspected**: table with a styled header, bold and inline code,
+  an image carrying `w=50%`, inline and display math, a highlighted code block and a Mermaid
+  diagram as inline SVG. The check reads the written HTML and the PDF size rather than trusting the
+  UI.
+- **`npm run shot-export`** renders an exported page in a window and captures it to
+  `docs/images/10-export-page.png`, so the export typography can be reviewed without opening a PDF.
+  The image is now part of the user guide.
+- Everything passed on the first run; the value here is the guard, not a fix.
+- 250 smoke checks (one new `export-fidelity`), 153 unit tests.
+
 ## 1.25.0
 
 A `/` block menu, the way people expect to insert things now.
