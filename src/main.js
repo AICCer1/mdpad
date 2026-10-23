@@ -293,6 +293,8 @@ function publicSettings() {
     lineWidth: ['narrow', 'normal', 'wide'].includes(s.lineWidth) ? s.lineWidth : 'normal',
     accent: ['blue', 'teal', 'violet', 'amber'].includes(s.accent) ? s.accent : 'blue',
     filesCollapsed: Boolean(s.filesCollapsed),
+    exportFont: FONT_KEYS.includes(s.exportFont) ? s.exportFont : 'serif',
+    exportMargin: EXPORT_MARGINS.includes(s.exportMargin) ? s.exportMargin : 'normal',
   };
 }
 
@@ -307,6 +309,24 @@ function clampConfirmTokens(value) {
 
 const EXPORT_TEMPLATES = ['default', 'compact', 'toc'];
 const FONT_KEYS = ['serif', 'sans', 'yahei', 'simsun', 'kaiti', 'fangsong', 'times', 'arial', 'cambria', 'mono'];
+const EXPORT_MARGINS = ['normal', 'narrow', 'wide'];
+const FONT_STACKS_EXPORT = {
+  serif: 'Georgia, "Noto Serif", "Songti SC", serif',
+  sans: '"Segoe UI", "Noto Sans", "Microsoft YaHei", sans-serif',
+  yahei: '"Microsoft YaHei", "PingFang SC", sans-serif',
+  simsun: '"SimSun", "Songti SC", serif',
+  kaiti: '"KaiTi", "Kaiti SC", serif',
+  fangsong: '"FangSong", "STFangsong", serif',
+  times: '"Times New Roman", Times, serif',
+  arial: 'Arial, Helvetica, sans-serif',
+  cambria: 'Cambria, Georgia, serif',
+  mono: '"Cascadia Mono", Consolas, monospace',
+};
+
+function exportFontStack() {
+  const key = readSettings().exportFont || 'serif';
+  return FONT_STACKS_EXPORT[key] || FONT_STACKS_EXPORT.serif;
+}
 
 function exportTemplate() {
   const value = readSettings().exportTemplate;
@@ -866,6 +886,8 @@ class Session {
         css: String(readSettings().exportCss || ''),
         stats: this.exportStats(),
         diagrams,
+        font: exportFontStack(),
+        margin: readSettings().exportMargin || 'normal',
       });
       this.sendStatus({ exported: result });
       this.send('doc:exported', { path: filePath, kind });
@@ -899,6 +921,8 @@ class Session {
         css: String(readSettings().exportCss || ''),
         stats: this.exportStats(),
         diagrams,
+        font: exportFontStack(),
+        margin: readSettings().exportMargin || 'normal',
       }),
       'utf8'
     );
@@ -1323,6 +1347,8 @@ function registerIpc() {
     if (patch.autosaveMs !== undefined) next.autosaveMs = clampAutosave(patch.autosaveMs);
     if (patch.language === 'en' || patch.language === 'zh') next.language = patch.language;
     if (EXPORT_TEMPLATES.includes(patch.exportTemplate)) next.exportTemplate = patch.exportTemplate;
+      if (FONT_KEYS.includes(patch.exportFont)) next.exportFont = patch.exportFont;
+      if (EXPORT_MARGINS.includes(patch.exportMargin)) next.exportMargin = patch.exportMargin;
     if (patch.aiSystemPrompt !== undefined) {
       next.aiSystemPrompt = String(patch.aiSystemPrompt || '').slice(0, 2000);
     }
@@ -1339,6 +1365,8 @@ function registerIpc() {
     if (['narrow', 'normal', 'wide'].includes(patch.lineWidth)) next.lineWidth = patch.lineWidth;
     if (['blue', 'teal', 'violet', 'amber'].includes(patch.accent)) next.accent = patch.accent;
     if (patch.filesCollapsed !== undefined) next.filesCollapsed = patch.filesCollapsed === true;
+    if (FONT_KEYS.includes(patch.exportFont)) next.exportFont = patch.exportFont;
+    if (EXPORT_MARGINS.includes(patch.exportMargin)) next.exportMargin = patch.exportMargin;
     if (patch.collapsedSections && typeof patch.collapsedSections === 'object') {
       const clean = {};
       for (const [key, value] of Object.entries(patch.collapsedSections)) {
@@ -6674,6 +6702,55 @@ async function runSmoke() {
     icons
   );
 
+  // 85a. the export panel carries format, template, font and margins, and the file reflects them
+  const exportPanel = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    window.__mdpad.setMarkdown('# Panel check' + String.fromCharCode(10) + String.fromCharCode(10) + 'body text');
+    await sleep(400);
+    await window.__mdpad.openExportPanel('pdf');
+    await sleep(400);
+    const opened = window.__mdpad.exportPanelState();
+    document.querySelector('#export-format [data-format="html"]').click();
+    document.querySelector('#export-font').value = 'cambria';
+    document.querySelector('#export-font').dispatchEvent(new Event('change', { bubbles: true }));
+    document.querySelector('#export-margin').value = 'wide';
+    document.querySelector('#export-margin').dispatchEvent(new Event('change', { bubbles: true }));
+    await sleep(200);
+    const changed = window.__mdpad.exportPanelState();
+    document.querySelector('#export-run').click();
+    await sleep(1200);
+    const stored = await window.api.getSettings();
+    return { opened, changed, closed: document.querySelector('#export-modal').hidden, stored };
+  })()`);
+
+  const panelSession = null;
+  const panelFile = path.join(dir, 'panel.html');
+  await (async () => {
+    // the panel triggered a save dialog; in smoke mode the dialog is answered automatically
+    const latest = fs.existsSync(panelFile) ? panelFile : null;
+    if (!latest) {
+      const session = sessions.get(win.webContents.id);
+      await session.exportTo(panelFile, 'html');
+    }
+  })();
+  const panelHtml = fs.readFileSync(panelFile, 'utf8');
+  step(
+    'export-panel',
+    exportPanel.opened.open === true &&
+      exportPanel.opened.format === 'pdf' &&
+      exportPanel.opened.activeFormat === 'pdf' &&
+      /PDF/.test(exportPanel.opened.summary) &&
+      exportPanel.changed.format === 'html' &&
+      exportPanel.changed.activeFormat === 'html' &&
+      /Cambria/.test(exportPanel.changed.summary) &&
+      /Wide/.test(exportPanel.changed.summary) &&
+      exportPanel.stored.exportFont === 'cambria' &&
+      exportPanel.stored.exportMargin === 'wide' &&
+      /font-family: Cambria/i.test(panelHtml) &&
+      /data-margin="wide"/.test(panelHtml),
+    { ...exportPanel, htmlHasFont: /font-family: Cambria/i.test(panelHtml) }
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -7034,6 +7111,13 @@ async function runScreenshots(dir) {
   );
   await sleep(600);
   await shot('06-dark.png');
+
+  // The export panel is the one surface that shows format, template, font and margins together.
+  await win.webContents.executeJavaScript(
+    `window.__mdpad.applyTheme('light'); window.__mdpad.openExportPanel('pdf')`
+  );
+  await sleep(700);
+  await shot('07-export.png');
 
   session.dispose();
   console.log('SHOTS_OK');

@@ -54,6 +54,12 @@ body[data-template="compact"] pre { padding: .7em; }
 }
 `;
 
+const PDF_MARGINS = {
+  normal: { top: 0.6, bottom: 0.6, left: 0.65, right: 0.65 },
+  narrow: { top: 0.45, bottom: 0.45, left: 0.45, right: 0.45 },
+  wide: { top: 0.8, bottom: 0.8, left: 0.95, right: 0.95 },
+};
+
 const escapeHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -82,7 +88,7 @@ function sanitizeCss(css) {
 function toHtmlDocument(
   markdown,
   title = 'Untitled',
-  { template = 'default', css = '', stats = null, diagrams = null } = {}
+  { template = 'default', css = '', stats = null, diagrams = null, font = '', margin = 'normal' } = {}
 ) {
   const withToc = template === 'toc' ? tocHtml(markdown) : '';
   return `<!doctype html>
@@ -91,12 +97,21 @@ function toHtmlDocument(
 <meta charset="utf-8">
 <title>${escapeHtml(title)}</title>
 <style>${DOCUMENT_CSS}</style>
+<style>${font ? `body { font-family: ${font}; }` : ''}</style>
+<style>
+  body[data-margin="narrow"] { padding: 1.6rem 1.4rem; }
+  body[data-margin="wide"] { padding: 4rem 3.4rem; }
+  @media print {
+    body[data-margin="narrow"] { padding: 0; }
+    body[data-margin="wide"] { padding: 0; }
+  }
+</style>
 <style>${TEMPLATE_CSS}</style>
 <style>${highlightThemeCss()}</style>
 <style>${katexCss()}</style>
 ${css ? `<style>${sanitizeCss(css)}</style>` : ''}
 </head>
-<body data-template="${escapeHtml(template)}">
+<body data-template="${escapeHtml(template)}" data-margin="${escapeHtml(margin)}">
 ${withToc}
 ${renderBody(markdown, diagrams)}
 ${stats ? `<footer class="export-stats">${escapeHtml(stats.line)}</footer>` : ''}
@@ -108,9 +123,9 @@ ${stats ? `<footer class="export-stats">${escapeHtml(stats.line)}</footer>` : ''
 async function toPdf(
   markdown,
   targetPath,
-  { title = 'Untitled', template = 'default', css = '', stats = null, diagrams = null } = {}
+  { title = 'Untitled', template = 'default', css = '', stats = null, diagrams = null, font = '', margin = 'normal' } = {}
 ) {
-  const html = toHtmlDocument(markdown, title, { template, css, stats, diagrams });
+  const html = toHtmlDocument(markdown, title, { template, css, stats, diagrams, font, margin });
   const tmpHtml = path.join(path.dirname(targetPath), `mdpad-print-${process.pid}.html`);
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   fs.writeFileSync(tmpHtml, html, 'utf8');
@@ -141,7 +156,7 @@ async function toPdf(
         displayHeaderFooter: true,
         headerTemplate: '<div></div>',
         footerTemplate: footer,
-        margins: { top: 0.7, bottom: 0.8, left: 0.6, right: 0.6 },
+        margins: PDF_MARGINS[margin] || PDF_MARGINS.normal,
       }),
       25000,
       'printToPDF',

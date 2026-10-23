@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.9.0
+
+One export panel.
+
+- **Every export entry point now opens the same panel** (top-bar HTML/PDF buttons, palette, File
+  menu): format (HTML / PDF / Word / EPUB), template, document font, page margins and file name in
+  one place, with a page sketch and a live summary of what will be produced.
+- **The choices are real.** `exportFont` writes a font-family override into the exported document;
+  `exportMargin` sets the body padding and, for PDF, the `printToPDF` margins in inches. Both are
+  validated in the main process, not just in the UI.
+- **Honest controls.** Word switches the font and margin pickers off (it writes its own styles and
+  keeps diagram code), EPUB switches off margins (it reflows); the summary says why instead of
+  silently ignoring a setting.
+- **The top-bar HTML/PDF buttons no longer export immediately** — they open the panel with that
+  format selected, which is what people expected when the file dialog appeared without warning.
+- 224 smoke checks (one new `export-panel`: the format switch, the summary, the persisted settings
+  and the exported HTML containing the chosen font and `data-margin`), 152 unit tests.
+
 ## 1.8.1
 
 One icon language.

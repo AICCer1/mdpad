@@ -135,7 +135,11 @@ Data lives in `%APPDATA%\mdpad`: `backups/`, `draftsRecover/`, `session.json`,
 
 ## Export
 
-HTML, PDF, Word (.docx) and EPUB, from the File menu. Word embeds local images at their
+HTML, PDF, Word (.docx) and EPUB, from the File menu, the palette, or the HTML/PDF buttons in the
+top bar. Any of those opens the **export panel**: choose the format, template, document font,
+page margins and file name, check the page sketch and the summary, then **Export** (or **Preview**
+to open the result in a window first). Choices are remembered for the next export. Word and EPUB
+disable the controls they cannot honour — Word uses its own styles, EPUB reflows. Word embeds local images at their
 aspect ratio; EPUB copies them into the book and declares them in the manifest. Remote
 image URLs stay as alt text in both. **File → Preview Export**
 (Ctrl+Shift+V) opens the HTML result in a child window before you write a file. The preview says

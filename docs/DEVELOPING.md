@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 223 end-to-end checks against a real window
+npm run smoke          # 224 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -129,6 +129,10 @@ opening/closing the settings panel flips it between `flex` and `none`.
   suite runs the client against a local mock server, including that fallback.
 - Programmatic edits (AI insert/replace) must call `closeHistory(tr)` in a first transaction,
   otherwise ProseMirror merges them with the typing before them and one undo wipes both.
+- Export appearance lives in `exportFont` / `exportMargin`: the HTML path gets a font-family
+  override and `body[data-margin]` padding, the PDF path converts the same choice into
+  `printToPDF` margins (inches). DOCX and EPUB ignore them by design and the panel disables the
+  controls for those formats.
 - `applyI18n()` rewrites `textContent`, which wipes an SVG inside a button that also carries
   `data-i18n`; it re-runs `applyStaticIcons()` afterwards.
 - Theme changes add `theme-swap` for two frames: without it every transitioned colour interpolates

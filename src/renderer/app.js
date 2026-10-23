@@ -234,6 +234,98 @@ async function collectExportDiagrams() {
   return map;
 }
 
+// One place for the export choices. The format decides the file, everything else decides how
+// it looks, and the summary on the right says what will come out before anything is written.
+let exportFormat = 'pdf';
+
+function exportFormatLabel(format) {
+  return { html: 'HTML', pdf: 'PDF', docx: 'Word', epub: 'EPUB' }[format] || format.toUpperCase();
+}
+
+function drawExportThumb(template, font, margin) {
+  const svg = document.querySelector('#export-thumb');
+  if (!svg) return;
+  const pad = margin === 'wide' ? 26 : margin === 'narrow' ? 12 : 18;
+  const lines = [0, 1, 2, 3, 4, 5, 6].map((row) => {
+    const width = row === 0 ? 92 : row === 3 ? 64 : 78 - (row % 3) * 8;
+    return `<rect x="${pad}" y="${34 + row * 16}" width="${width}" height="${row === 0 ? 7 : 4}" rx="2" fill="currentColor" opacity="${row === 0 ? 0.55 : 0.22}"/>`;
+  });
+  const toc = template === 'toc' ? `<rect x="${pad}" y="26" width="${160 - pad * 2}" height="18" rx="3" fill="currentColor" opacity="0.08"/>` : '';
+  svg.innerHTML = `
+    <rect x="1" y="1" width="158" height="208" rx="6" fill="var(--bg)" stroke="var(--line)"/>
+    ${toc}
+    ${lines.map((line) => line.replace(/y="(\d+)"/, (m, y) => `y="${Number(y) + (toc ? 20 : 0)}"`)).join('')}
+  `;
+  svg.style.fontFamily = font;
+}
+
+function refreshExportSummary() {
+  const summary = document.querySelector('#export-summary');
+  if (!summary) return;
+  const template = document.querySelector('#export-template').value;
+  const font = document.querySelector('#export-font').value;
+  const margin = document.querySelector('#export-margin').value;
+  const fontLabel = document.querySelector(`#export-font option[value="${font}"]`).textContent;
+  const templateLabel = document.querySelector(`#export-template option[value="${template}"]`).textContent;
+  const marginLabel = document.querySelector(`#export-margin option[value="${margin}"]`).textContent;
+  const lines = [
+    `<b>${exportFormatLabel(exportFormat)}</b> · ${exportFormat === 'pdf' ? 'A4' : 'flowing layout'}`,
+    `${templateLabel}`,
+    `${fontLabel}`,
+    `${marginLabel} margins`,
+  ];
+  if (exportFormat === 'docx') lines.push('Word uses its own styles and keeps diagram code blocks');
+  if (exportFormat === 'epub') lines.push('EPUB reflows, so page margins do not apply');
+  summary.innerHTML = lines.join('<br>');
+  drawExportThumb(template, font, margin);
+}
+
+function setExportFormat(format) {
+  exportFormat = ['html', 'pdf', 'docx', 'epub'].includes(format) ? format : 'pdf';
+  for (const button of document.querySelectorAll('#export-format [data-format]')) {
+    button.classList.toggle('is-active', button.dataset.format === exportFormat);
+  }
+  // Word writes its own styles and EPUB its own page flow: disable controls that would lie.
+  const fontSelect = document.querySelector('#export-font');
+  const marginSelect = document.querySelector('#export-margin');
+  fontSelect.disabled = exportFormat === 'docx';
+  marginSelect.disabled = exportFormat === 'docx' || exportFormat === 'epub';
+  refreshExportSummary();
+}
+
+async function openExportPanel(format = 'pdf') {
+  const settings = await window.api.getSettings();
+  document.querySelector('#export-template').value = settings.exportTemplate || 'default';
+  document.querySelector('#export-font').value = settings.exportFont || 'serif';
+  document.querySelector('#export-margin').value = settings.exportMargin || 'normal';
+  document.querySelector('#export-name').value = settings.exportNameTemplate || '{title}';
+  document.querySelector('#export-status').textContent = '';
+  setExportFormat(format);
+  await refreshExportNameHintFor('#export-name', '#export-name-hint');
+  document.querySelector('#export-modal').hidden = false;
+}
+
+async function refreshExportNameHintFor(inputSelector, hintSelector) {
+  const input = document.querySelector(inputSelector);
+  const hint = document.querySelector(hintSelector);
+  if (!input || !hint) return;
+  const result = await window.api
+    .exportNamePreview(input.value || '{title}')
+    .catch(() => ({ name: '' }));
+  const example = result && result.name ? result.name : '';
+  hint.textContent = example ? 'e.g. ' + example : '';
+  hint.classList.toggle('is-error', Boolean(result && result.error));
+}
+
+async function saveExportPanelSettings() {
+  await window.api.setSettings({
+    exportTemplate: document.querySelector('#export-template').value,
+    exportFont: document.querySelector('#export-font').value,
+    exportMargin: document.querySelector('#export-margin').value,
+    exportNameTemplate: document.querySelector('#export-name').value,
+  });
+}
+
 async function runExport(kind) {
   await publishExportDiagrams();
   if (kind === 'html') return window.api.exportHtml();
@@ -2560,10 +2652,10 @@ function commandList() {
     { id: 'settings', hint: 'Ctrl+,', label: p('palette.settings'), run: openSettings },
     { id: 'shortcuts', hint: 'F1', label: p('palette.shortcuts'), run: openShortcuts },
     { id: 'stats', hint: '', label: p('palette.stats'), run: openStats },
-    { id: 'exportHtml', hint: '', label: p('palette.exportHtml'), run: () => runExport('html') },
-    { id: 'exportPdf', hint: '', label: p('palette.exportPdf'), run: () => runExport('pdf') },
-    { id: 'exportWord', hint: '', label: p('palette.exportWord'), run: () => runExport('docx') },
-    { id: 'exportEpub', hint: '', label: p('palette.exportEpub'), run: () => runExport('epub') },
+    { id: 'exportHtml', hint: '', label: p('palette.exportHtml'), run: () => openExportPanel('html') },
+    { id: 'exportPdf', hint: '', label: p('palette.exportPdf'), run: () => openExportPanel('pdf') },
+    { id: 'exportWord', hint: '', label: p('palette.exportWord'), run: () => openExportPanel('docx') },
+    { id: 'exportEpub', hint: '', label: p('palette.exportEpub'), run: () => openExportPanel('epub') },
     { id: 'previewExport', hint: '', label: p('palette.previewExport'), run: () => runExport('preview') },
     { id: 'themeLight', hint: '', label: p('palette.themeLight'), run: () => setTheme('light') },
     { id: 'themeDark', hint: '', label: p('palette.themeDark'), run: () => setTheme('dark') },
@@ -2800,6 +2892,31 @@ document.querySelector('#files-toggle').addEventListener('click', () => toggleFi
 
 document.querySelector('#open-appearance').addEventListener('click', () => openSettings('appearance'));
 
+document.querySelectorAll('#export-format [data-format]').forEach((button) => {
+  button.addEventListener('click', () => setExportFormat(button.dataset.format));
+});
+document.querySelector('#export-template').addEventListener('change', refreshExportSummary);
+document.querySelector('#export-font').addEventListener('change', refreshExportSummary);
+document.querySelector('#export-margin').addEventListener('change', refreshExportSummary);
+document
+  .querySelector('#export-name')
+  .addEventListener('input', () => refreshExportNameHintFor('#export-name', '#export-name-hint'));
+document.querySelector('#export-cancel').addEventListener('click', () => {
+  document.querySelector('#export-modal').hidden = true;
+});
+document.querySelector('#export-preview-open').addEventListener('click', async () => {
+  await saveExportPanelSettings();
+  await runExport('preview');
+});
+document.querySelector('#export-run').addEventListener('click', async () => {
+  await saveExportPanelSettings();
+  document.querySelector('#export-modal').hidden = true;
+  await runExport(exportFormat);
+});
+document.querySelector('#export-modal').addEventListener('click', (event) => {
+  if (event.target.id === 'export-modal') document.querySelector('#export-modal').hidden = true;
+});
+
 // Settings navigation: jump to a section inside the scrolling body.
 for (const button of document.querySelectorAll('.settings-nav [data-goto]')) {
   button.addEventListener('click', () => {
@@ -3016,10 +3133,10 @@ const actions = {
   open: async () => { await flushChange(); return window.api.open(); },
   save: () => window.api.save(),
   saveAs: () => window.api.saveAs(),
-  exportHtml: () => runExport('html'),
-  exportPdf: () => runExport('pdf'),
-  exportDocx: () => runExport('docx'),
-  exportEpub: () => runExport('epub'),
+  exportHtml: () => openExportPanel('html'),
+  exportPdf: () => openExportPanel('pdf'),
+  exportDocx: () => openExportPanel('docx'),
+  exportEpub: () => openExportPanel('epub'),
   find: openFind,
   exportSettings: async () => {
     const result = await window.api.settingsExport();
@@ -3417,6 +3534,17 @@ window.__mdpad = {
   refreshDraftsBadge: () => refreshDraftsBadge(),
   mermaidAvailable: () => Boolean(window.mermaid),
   exportDiagramCount: async () => publishExportDiagrams(),
+  openExportPanel,
+  exportPanelState: () => ({
+    open: !document.querySelector('#export-modal').hidden,
+    format: exportFormat,
+    activeFormat: document.querySelector('#export-format .is-active')?.dataset.format || '',
+    summary: document.querySelector('#export-summary').textContent,
+    font: document.querySelector('#export-font').value,
+    margin: document.querySelector('#export-margin').value,
+    fontDisabled: document.querySelector('#export-font').disabled,
+    marginDisabled: document.querySelector('#export-margin').disabled,
+  }),
   mermaidState: () =>
     [...document.querySelectorAll('.code-block.is-mermaid')].map((block) => ({
       preview: block.classList.contains('is-preview'),

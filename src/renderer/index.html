@@ -233,6 +233,71 @@
     </div>
   </div>
 
+  <div id="export-modal" class="modal" hidden>
+    <div class="modal-card export-card">
+      <div class="modal-title" data-i18n="export.title">Export</div>
+      <div class="export-grid">
+        <div class="export-fields">
+          <div class="field">
+            <label data-i18n="export.format">Format</label>
+            <div class="segmented" id="export-format" role="group">
+              <button type="button" data-format="html">HTML</button>
+              <button type="button" data-format="pdf">PDF</button>
+              <button type="button" data-format="docx" data-i18n="export.word">Word</button>
+              <button type="button" data-format="epub">EPUB</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="export-template" data-i18n="settings.exportTemplate">Template</label>
+            <select id="export-template">
+              <option value="default" data-i18n="template.default">Default</option>
+              <option value="compact" data-i18n="template.compact">Compact</option>
+              <option value="toc" data-i18n="template.toc">With table of contents</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="export-font" data-i18n="export.font">Document font</label>
+            <select id="export-font">
+              <option value="serif" data-i18n="font.serif">Georgia (book)</option>
+              <option value="sans" data-i18n="font.sans">Segoe UI</option>
+              <option value="yahei" data-i18n="font.yahei">Microsoft YaHei / 微软雅黑</option>
+              <option value="simsun" data-i18n="font.simsun">SimSun / 宋体</option>
+              <option value="kaiti" data-i18n="font.kaiti">KaiTi / 楷体</option>
+              <option value="fangsong" data-i18n="font.fangsong">FangSong / 仿宋</option>
+              <option value="times" data-i18n="font.times">Times New Roman</option>
+              <option value="arial" data-i18n="font.arial">Arial</option>
+              <option value="cambria" data-i18n="font.cambria">Cambria</option>
+              <option value="mono" data-i18n="font.mono">Consolas</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="export-margin" data-i18n="export.margins">Page margins</label>
+            <select id="export-margin">
+              <option value="narrow" data-i18n="export.marginNarrow">Narrow</option>
+              <option value="normal" data-i18n="export.marginNormal">Normal</option>
+              <option value="wide" data-i18n="export.marginWide">Wide</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="export-name" data-i18n="settings.exportName">Export file name</label>
+            <input id="export-name" placeholder="{title}-{date}">
+            <span id="export-name-hint" class="field-hint"></span>
+          </div>
+        </div>
+        <aside class="export-aside">
+          <svg id="export-thumb" class="export-thumb" viewBox="0 0 160 210" aria-hidden="true"></svg>
+          <div id="export-summary" class="export-summary"></div>
+        </aside>
+      </div>
+      <div class="modal-foot">
+        <span id="export-status" class="ai-status"></span>
+        <button id="export-cancel" data-i18n="settings.cancel">Cancel</button>
+        <button id="export-preview-open" data-i18n="export.preview">Preview</button>
+        <button id="export-run" id="export-run" class="primary" data-i18n="export.run">Export</button>
+      </div>
+    </div>
+  </div>
+
   <div id="settings-modal" class="modal" hidden>
     <div class="modal-card settings-card">
       <div class="modal-title" data-i18n="settings.title">Settings</div>

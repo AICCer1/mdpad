@@ -10,7 +10,7 @@ const path = require('node:path');
 const electronPath = require('electron');
 
 const root = path.join(__dirname, '..');
-const TIMEOUT_MS = 300000;
+const TIMEOUT_MS = 360000;
 
 // Allow the same suite to run against a packaged build:
 //   MDPAD_SMOKE_BIN=release/win-unpacked/mdpad.exe node scripts/smoke.js

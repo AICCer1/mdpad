@@ -901,6 +901,32 @@ Object.assign(DICT.zh, {
   'cmd.appearance': '调整字体与版心宽度',
 });
 
+Object.assign(DICT.en, {
+  'export.title': 'Export',
+  'export.format': 'Format',
+  'export.word': 'Word',
+  'export.font': 'Document font',
+  'export.margins': 'Page margins',
+  'export.marginNarrow': 'Narrow',
+  'export.marginNormal': 'Normal',
+  'export.marginWide': 'Wide',
+  'export.preview': 'Preview',
+  'export.run': 'Export',
+});
+
+Object.assign(DICT.zh, {
+  'export.title': '导出',
+  'export.format': '格式',
+  'export.word': 'Word',
+  'export.font': '文档字体',
+  'export.margins': '页边距',
+  'export.marginNarrow': '窄',
+  'export.marginNormal': '标准',
+  'export.marginWide': '宽',
+  'export.preview': '预览',
+  'export.run': '导出',
+});
+
 module.exports = { t, normalizeLang, LANGS, DICT };
 
 Object.assign(DICT.en, {
