@@ -101,6 +101,18 @@ Images are saved next to the document in `assets/`. Size and alignment are store
 the markdown link title (`![alt](src "w=50%;align=center")`), so they survive a round
 trip through any markdown tool.
 
+## Block handle
+
+Move the pointer over a paragraph, heading, list or quote and a small **⣿ handle** appears in the
+left margin. Click it for a menu:
+
+- **Move up / Move down** — reorder the block
+- **Duplicate** — copy the block right below the original
+- **Delete block** — remove it (Ctrl+Z brings it back)
+
+**Ctrl+Shift+↑ / ↓** does the same from the keyboard, and the caret stays where it was inside the
+block as it moves.
+
 ## Quotes and indentation
 
 **Ctrl+Shift+Q** or the toolbar turns the selected block(s) into a quote — select several

@@ -2733,9 +2733,9 @@ async function runSmoke() {
   };
 
   const watchdog = setTimeout(() => {
-    console.error('SMOKE_TIMEOUT after 330s; completed=' + JSON.stringify(out));
+    console.error('SMOKE_TIMEOUT after 540s; completed=' + JSON.stringify(out));
     app.exit(2);
-  }, 330000);
+  }, 540000);
 
   // Deterministic UI language for assertions; the i18n check switches explicitly.
   writeSettings({
@@ -9680,6 +9680,92 @@ async function runSmoke() {
       !/> > quoted line/.test(quoteKeys.afterShiftTab.markdown) &&
       /\n\s{2,}- two/.test(quoteKeys.listMarkdown),
     quoteKeys
+  );
+
+  // 117a. the grip appears next to a block and its menu moves, duplicates and deletes it
+  const blockGripTest = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const nl = String.fromCharCode(10);
+    window.__mdpad.setMarkdown('# Title' + nl + nl + 'alpha block' + nl + nl + 'beta block');
+    await sleep(500);
+    const hovered = window.__mdpad.hoverBlock(1);
+    document.querySelector('#block-grip').click();
+    await sleep(250);
+    const opened = window.__mdpad.blockState();
+    window.__mdpad.blockMenuClick('duplicate');
+    await sleep(350);
+    const duplicated = window.__mdpad.getMarkdown();
+
+    // indices 1 and 2 are the duplicated identical blocks; move the second one down
+    window.__mdpad.hoverBlock(2);
+    document.querySelector('#block-grip').click();
+    await sleep(200);
+    window.__mdpad.blockMenuClick('down');
+    await sleep(350);
+    const movedDown = window.__mdpad.getMarkdown();
+
+    window.__mdpad.hoverBlock(2);
+    document.querySelector('#block-grip').click();
+    await sleep(200);
+    window.__mdpad.blockMenuClick('delete');
+    await sleep(350);
+    const deleted = window.__mdpad.getMarkdown();
+    window.__mdpad.editor.commands.undo();
+    await sleep(300);
+    const undone = window.__mdpad.getMarkdown();
+    return { hovered, opened, duplicated, movedDown, deleted, undone };
+  })()`);
+  step(
+    'block-grip',
+    blockGripTest.hovered.grip === true &&
+      blockGripTest.hovered.index === 1 &&
+      blockGripTest.opened.menu === true &&
+      blockGripTest.opened.items.includes('duplicate') &&
+      blockGripTest.opened.items.includes('delete') &&
+      (blockGripTest.duplicated.match(/alpha block/g) || []).length === 2 &&
+      /alpha block\n\nbeta block\n\nalpha block/.test(blockGripTest.movedDown) &&
+      !/beta block/.test(blockGripTest.deleted) &&
+      /beta block/.test(blockGripTest.undone),
+    blockGripTest
+  );
+
+  // 117b. Ctrl+Shift+Down moves the block and leaves the caret inside it, as one undo step
+  const blockKeyTest = await (async () => {
+    win.focus();
+    win.webContents.focus();
+    await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const nl = String.fromCharCode(10);
+      window.__mdpad.setMarkdown('first block' + nl + nl + 'second block');
+      await sleep(400);
+      window.__mdpad.focusFirst('paragraph');
+      await sleep(200);
+    })()`);
+    win.webContents.sendInputEvent({
+      type: 'keyDown',
+      keyCode: 'Down',
+      modifiers: ['control', 'shift'],
+    });
+    win.webContents.sendInputEvent({
+      type: 'keyUp',
+      keyCode: 'Down',
+      modifiers: ['control', 'shift'],
+    });
+    await sleep(500);
+    const moved = await win.webContents.executeJavaScript(
+      `({ markdown: window.__mdpad.getMarkdown(), caret: window.__mdpad.caretText() })`
+    );
+    await win.webContents.executeJavaScript('window.__mdpad.editor.commands.undo()');
+    await sleep(300);
+    const undone = await win.webContents.executeJavaScript('window.__mdpad.getMarkdown()');
+    return { moved, undone };
+  })();
+  step(
+    'block-move-keys',
+    blockKeyTest.moved.markdown.indexOf('second block') < blockKeyTest.moved.markdown.indexOf('first block') &&
+      blockKeyTest.moved.caret.includes('first block') &&
+      blockKeyTest.undone.indexOf('first block') < blockKeyTest.undone.indexOf('second block'),
+    blockKeyTest
   );
 
   // 30k. the settings filter narrows the visible fields

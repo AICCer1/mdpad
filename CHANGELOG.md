@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.43.0
+
+A block handle, and a bug it uncovered.
+
+- **Hover a block and a handle appears in the gutter** with **Move up / Move down / Duplicate /
+  Delete block**. Ctrl+Shift+↑/↓ keeps working from the keyboard.
+- **The caret stays inside the block that moved**, at the same offset. Doing this revealed that the
+  old `moveBlock` resolved its selection against a separately built document, which ProseMirror
+  rejects ("Selection passed to setSelection must point at the current document"). The selection is
+  now resolved against the transaction's own doc; the keyboard path had never been tested before.
+- **The smoke budget grew with the suite**: app watchdog 330 s → 540 s, runner 360 s → 600 s,
+  install check 420 s → 660 s. The suite now takes about nine minutes on this machine.
+- 279 smoke checks (two new: `block-grip`, `block-move-keys` with real Ctrl+Shift+Down), 155 unit
+  tests.
+
 ## 1.42.0
 
 Quotes nest, and indentation has a keyboard path.

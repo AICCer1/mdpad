@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 277 end-to-end checks against a real window
+npm run smoke          # 279 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -207,6 +207,12 @@ Inserted images are decoded with `createImageBitmap`, downscaled to 2200 px on t
 encoded twice (JPEG 0.85 unless the bitmap has alpha, and PNG); the smaller blob wins and the
 original file is kept when neither beats it. JPEG wins on photos, PNG wins on screenshots of text —
 a fixed format choice would have inflated one of the two.
+
+## Blocks
+
+`replaceBlocks` rebuilds the document and sets the selection with `Selection.near(tr.doc.resolve(pos))`.
+Resolving against a separately built document throws "Selection passed to setSelection must point
+at the current document" — the selection must be resolved against the transaction's own doc.
 
 ## Quotes
 

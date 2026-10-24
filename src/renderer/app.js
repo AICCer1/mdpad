@@ -4,7 +4,7 @@
 // serialization sent to the main process, so saving/backup/draft are unchanged.
 
 import { Editor, Extension, markInputRule } from '@tiptap/core';
-import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { Plugin, PluginKey, Selection } from '@tiptap/pm/state';
 import { wrapIn, lift } from 'prosemirror-commands';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import StarterKit from '@tiptap/starter-kit';
@@ -719,28 +719,185 @@ const editor = new Editor({
 });
 
 // ---- block move ------------------------------------------------------------
+// One block at a time, with the caret kept at the same offset inside the block that moved.
 
-function moveBlock(view, delta) {
+function blockStart(doc, index) {
+  let start = 0;
+  for (let i = 0; i < index && i < doc.childCount; i += 1) start += doc.child(i).nodeSize;
+  return start;
+}
+
+function replaceBlocks(view, children, caretPos) {
   const { state } = view;
   const doc = state.doc;
-  const index = state.selection.$from.index(0);
-  const target = index + delta;
-  if (index < 0 || target < 0 || target >= doc.childCount) return;
-
-  const children = [];
-  doc.forEach((node) => children.push(node));
-  const moved = children[index];
-  children.splice(index, 1);
-  children.splice(target, 0, moved);
-
   const next = doc.type.create(doc.attrs, children, doc.marks);
-  let pos = 0;
-  for (let i = 0; i < target; i += 1) pos += children[i].nodeSize;
   const tr = state.tr.replaceWith(0, doc.content.size, next.content);
-  tr.setSelection(view.state.selection.constructor.near(next.resolve(pos + 1)));
+  // The selection must be resolved against the transaction's own document: resolving it against
+  // the freshly built "next" document fails the identity check in setSelection.
+  const clamped = Math.max(1, Math.min(tr.doc.content.size - 1, caretPos));
+  tr.setSelection(Selection.near(tr.doc.resolve(clamped)));
   view.dispatch(tr);
   view.focus();
 }
+
+function moveBlockAt(view, index, delta) {
+  const { state } = view;
+  const doc = state.doc;
+  const target = index + delta;
+  if (index < 0 || target < 0 || target >= doc.childCount) return false;
+  const children = [];
+  doc.forEach((node) => children.push(node));
+  const start = blockStart(doc, index);
+  const offset = Math.max(0, Math.min(children[index].nodeSize - 1, state.selection.from - start));
+  const moved = children[index];
+  children.splice(index, 1);
+  children.splice(target, 0, moved);
+  const newStart = blockStart(doc, target);
+  replaceBlocks(view, children, newStart + offset);
+  return true;
+}
+
+function moveBlock(view, delta) {
+  return moveBlockAt(view, view.state.selection.$from.index(0), delta);
+}
+
+function duplicateBlockAt(view, index) {
+  const doc = view.state.doc;
+  if (index < 0 || index >= doc.childCount) return false;
+  const children = [];
+  doc.forEach((node) => children.push(node));
+  const copy = children[index].copy(children[index].content);
+  children.splice(index + 1, 0, copy);
+  replaceBlocks(view, children, blockStart(doc, index + 1) + 1);
+  return true;
+}
+
+function deleteBlockAt(view, index) {
+  const doc = view.state.doc;
+  if (index < 0 || index >= doc.childCount) return false;
+  const children = [];
+  doc.forEach((node) => children.push(node));
+  if (children.length <= 1) children.splice(index, 1, doc.type.schema.nodes.paragraph.create());
+  else children.splice(index, 1);
+  replaceBlocks(view, children, blockStart(doc, Math.max(0, index - 1)) + 1);
+  return true;
+}
+
+// ---- block grip -------------------------------------------------------------
+// The handle appears next to the block under the pointer; its menu moves, duplicates or deletes
+// that block. Keyboard users have Ctrl+Shift+Up/Down and the same menu is reachable by clicking.
+
+const blockPane = document.querySelector('.editor-pane');
+const blockGrip = document.createElement('button');
+blockGrip.type = 'button';
+blockGrip.id = 'block-grip';
+blockGrip.className = 'block-grip';
+blockGrip.hidden = true;
+blockGrip.title = 'Block actions';
+blockGrip.innerHTML =
+  '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="none"><circle cx="9" cy="7" r="1.6"/><circle cx="15" cy="7" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="17" r="1.6"/><circle cx="15" cy="17" r="1.6"/></svg>';
+blockPane.appendChild(blockGrip);
+
+let blockGripIndex = -1;
+const blockMenu = document.querySelector('#block-menu');
+
+function blockIndexAtCoords(clientX, clientY) {
+  const coords = editor.view.posAtCoords({ left: clientX, top: clientY });
+  if (!coords) return -1;
+  const $pos = editor.state.doc.resolve(coords.pos);
+  return $pos.index(0);
+}
+
+function positionBlockGrip(index) {
+  const doc = editor.state.doc;
+  if (index < 0 || index >= doc.childCount) {
+    blockGrip.hidden = true;
+    blockGripIndex = -1;
+    return;
+  }
+  const start = blockStart(doc, index);
+  let coords;
+  try {
+    coords = editor.view.coordsAtPos(Math.min(start + 1, doc.content.size - 1));
+  } catch {
+    blockGrip.hidden = true;
+    return;
+  }
+  const paneRect = blockPane.getBoundingClientRect();
+  blockGripIndex = index;
+  blockGrip.hidden = false;
+  blockGrip.style.top = Math.max(4, coords.top - paneRect.top + blockPane.scrollTop) + 'px';
+  blockGrip.style.left = Math.max(2, coords.left - paneRect.left - 26) + 'px';
+}
+
+function hideBlockGrip() {
+  if (!blockMenu || blockMenu.hidden) {
+    blockGrip.hidden = true;
+    blockGripIndex = -1;
+  }
+}
+
+function openBlockMenu(x, y) {
+  if (!blockMenu) return;
+  blockMenu.hidden = false;
+  const rect = blockMenu.getBoundingClientRect();
+  blockMenu.style.left = Math.max(8, Math.min(x, window.innerWidth - rect.width - 8)) + 'px';
+  blockMenu.style.top = Math.max(8, Math.min(y, window.innerHeight - rect.height - 8)) + 'px';
+}
+
+function closeBlockMenu() {
+  if (blockMenu) blockMenu.hidden = true;
+}
+
+editor.view.dom.addEventListener('mousemove', (event) => {
+  if (!blockMenu.hidden) return;
+  const index = blockIndexAtCoords(event.clientX, event.clientY);
+  if (index < 0) return;
+  positionBlockGrip(index);
+});
+
+blockPane.addEventListener('mouseleave', () => {
+  if (blockMenu && !blockMenu.hidden) return;
+  hideBlockGrip();
+});
+
+blockGrip.addEventListener('click', (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  if (blockGripIndex < 0) return;
+  const rect = blockGrip.getBoundingClientRect();
+  openBlockMenu(rect.right + 6, rect.top);
+});
+
+blockGrip.addEventListener('contextmenu', (event) => {
+  event.preventDefault();
+  if (blockGripIndex < 0) return;
+  openBlockMenu(event.clientX, event.clientY);
+});
+
+blockMenu?.addEventListener('click', (event) => {
+  const button = event.target.closest ? event.target.closest('[data-block-action]') : null;
+  if (!button) return;
+  const action = button.dataset.blockAction;
+  const index = blockGripIndex;
+  closeBlockMenu();
+  if (index < 0) return;
+  const view = editor.view;
+  if (action === 'up') moveBlockAt(view, index, -1);
+  else if (action === 'down') moveBlockAt(view, index, 1);
+  else if (action === 'duplicate') duplicateBlockAt(view, index);
+  else if (action === 'delete') deleteBlockAt(view, index);
+  positionBlockGrip(Math.max(0, index));
+});
+
+document.addEventListener('mousedown', (event) => {
+  if (blockMenu && !blockMenu.hidden && !blockMenu.contains(event.target) && event.target !== blockGrip) {
+    closeBlockMenu();
+  }
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closeBlockMenu();
+});
 
 // ---- state plumbing --------------------------------------------------------
 
@@ -5306,6 +5463,26 @@ window.__mdpad = {
     editor.commands.setTextSelection(target);
     return true;
   },
+  blockState: () => ({
+    grip: !blockGrip.hidden,
+    index: blockGripIndex,
+    menu: blockMenu ? !blockMenu.hidden : false,
+    items: blockMenu
+      ? [...blockMenu.querySelectorAll('[data-block-action]')].map((button) => button.dataset.blockAction)
+      : [],
+  }),
+  hoverBlock: (index) => {
+    positionBlockGrip(index);
+    return window.__mdpad.blockState();
+  },
+  blockMenuClick: (action) => {
+    const button = blockMenu && blockMenu.querySelector('[data-block-action="' + action + '"]');
+    if (!button) return false;
+    button.click();
+    return true;
+  },
+  moveBlockAt: (index, delta) => moveBlockAt(editor.view, index, delta),
+  caretText: () => editor.state.selection.$from.parent.textContent,
   quoteDepth: () => {
     const { $from } = editor.state.selection;
     let depth = 0;
