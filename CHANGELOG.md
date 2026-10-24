@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.67.0
+
+A link audit, the twin of the image one.
+
+- **The palette has "Link audit…"**: every link with its kind — **local** (resolved against the
+  document folder, `.md` allowed), **external** (`http`/`mailto`, reported as "not checked") or
+  **anchor** (`#…`) — and a red **missing** state when a local target no longer exists.
+- **Unlink missing** keeps the text and drops only the dead link: a renamed folder costs the link,
+  not the sentence. Each row can be unlinked on its own, and resolvable local links get an **Open**
+  button that reuses the relative-link opener.
+- `links:audit` excludes images with a negative lookbehind on `!`, so the two panels never disagree
+  about what counts as a link.
+- 309 smoke checks (one new: `link-audit` loads one link of each kind, asserts the rows, then
+  asserts that after unlinking the missing one, the label is still in the markdown), 160 unit tests.
+
 ## 1.66.0
 
 Remote images can come home.

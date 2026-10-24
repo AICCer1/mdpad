@@ -109,6 +109,7 @@ contextBridge.exposeInMainWorld('api', {
   exportPreview: () => ipcRenderer.invoke('export:preview'),
   exportInspect: () => ipcRenderer.invoke('export:inspect'),
   imagesAudit: () => ipcRenderer.invoke('images:audit'),
+  linksAudit: () => ipcRenderer.invoke('links:audit'),
   downloadImage: (src) => ipcRenderer.invoke('images:download', { src }),
   exportToPath: (kind, path) => ipcRenderer.invoke('doc:exportToPath', { kind, path }),
   exportThumbnail: (options) => ipcRenderer.invoke('export:thumbnail', options),

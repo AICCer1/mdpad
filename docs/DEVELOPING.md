@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 308 end-to-end checks against a real window
+npm run smoke          # 309 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -417,3 +417,10 @@ response at 20 MB, derives the extension from `content-type` (falling back to th
 `.png`), writes `images/<sha1-12>.<ext>` next to the document and returns the relative path. The
 renderer rewrites every image node with that `src`. The test runs a real local HTTP server and
 asserts the file, the rewritten markdown and the audit result.
+
+## Link audit
+
+`links:audit` classifies inline links (images excluded by a negative lookbehind for `!`) as
+`local` (resolved against the document folder, `.md` allowed), `external` (`exists: null`) or
+`anchor`. Unlinking removes the link mark from every text node carrying that `href`, keeping the
+text; the smoke check asserts both the row counts and that the label survives in the markdown.

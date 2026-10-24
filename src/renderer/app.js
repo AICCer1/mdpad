@@ -2813,6 +2813,101 @@ editor.on('selectionUpdate', () => {
 editor.on('update', updateActiveBlock);
 
 
+// ---- link audit --------------------------------------------------------------
+
+function unlinkHref(href) {
+  const linkType = editor.schema.marks.link;
+  if (!linkType) return 0;
+  const ranges = [];
+  editor.state.doc.descendants((node, pos) => {
+    if (!node.isText) return true;
+    if (node.marks.some((mark) => mark.type === linkType && mark.attrs.href === href)) {
+      ranges.push([pos, pos + node.nodeSize]);
+    }
+    return true;
+  });
+  if (!ranges.length) return 0;
+  let tr = editor.state.tr;
+  for (const [from, to] of ranges) tr = tr.removeMark(from, to, linkType);
+  editor.view.dispatch(tr);
+  return ranges.length;
+}
+
+async function openLinkAudit() {
+  const modal = document.querySelector('#link-audit');
+  const list = document.querySelector('#link-audit-list');
+  const summary = document.querySelector('#link-audit-summary');
+  const audit = await window.api.linksAudit();
+  list.textContent = '';
+  const parts = [`${audit.total} link${audit.total === 1 ? '' : 's'}`];
+  if (audit.missing) parts.push(`${audit.missing} missing`);
+  if (audit.external) parts.push(`${audit.external} external`);
+  if (audit.anchors) parts.push(`${audit.anchors} anchor`);
+  summary.textContent = parts.join(' · ');
+  if (!audit.entries.length) {
+    const empty = document.createElement('div');
+    empty.className = 'drafts-empty';
+    empty.textContent = 'This document has no links.';
+    list.append(empty);
+  }
+  for (const entry of audit.entries) {
+    const row = document.createElement('div');
+    row.className = 'image-audit-row' + (entry.exists === false ? ' is-missing' : '');
+    row.dataset.href = entry.href;
+    const name = document.createElement('span');
+    name.className = 'image-audit-name';
+    name.textContent = entry.label || entry.href;
+    name.title = entry.href;
+    const kind = document.createElement('span');
+    kind.className = 'image-audit-kind';
+    kind.textContent = entry.kind;
+    const status = document.createElement('span');
+    status.className = 'image-audit-status';
+    status.textContent = entry.exists === false ? 'missing' : entry.kind === 'external' ? 'not checked' : 'ok';
+    row.append(name, kind, status);
+    if (entry.kind === 'local' && entry.exists) {
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'image-audit-remove';
+      open.textContent = 'Open';
+      open.addEventListener('click', async () => {
+        const result = await window.api.openRelativeLink(entry.href);
+        if (result && result.opened === false) flash('Could not open ' + entry.href);
+      });
+      row.append(open);
+    }
+    const unlink = document.createElement('button');
+    unlink.type = 'button';
+    unlink.className = 'image-audit-remove';
+    unlink.textContent = 'Unlink';
+    unlink.title = 'Keep the text, drop the link';
+    unlink.addEventListener('click', async () => {
+      unlinkHref(entry.href);
+      await openLinkAudit();
+    });
+    row.append(unlink);
+    list.append(row);
+  }
+  modal.hidden = false;
+}
+
+document.querySelector('#link-audit-close')?.addEventListener('click', () => {
+  document.querySelector('#link-audit').hidden = true;
+});
+
+document.querySelector('#link-audit-remove')?.addEventListener('click', async () => {
+  const audit = await window.api.linksAudit();
+  const missing = audit.entries.filter((entry) => entry.exists === false);
+  if (!missing.length) {
+    flash('No missing links');
+    return;
+  }
+  let count = 0;
+  for (const entry of missing) count += unlinkHref(entry.href);
+  await openLinkAudit();
+  flash(`Unlinked ${missing.length} missing link${missing.length === 1 ? '' : 's'}`);
+});
+
 // ---- image audit -------------------------------------------------------------
 
 function imageNodesBySrc(src) {
@@ -6712,6 +6807,18 @@ window.__mdpad = {
     });
     return out;
   },
+  openLinkAudit: () => openLinkAudit().then(() => window.__mdpad.linkAuditState()),
+  linkAuditState: () => ({
+    open: !document.querySelector('#link-audit').hidden,
+    summary: document.querySelector('#link-audit-summary').textContent,
+    rows: [...document.querySelectorAll('#link-audit-list .image-audit-row')].map((row) => ({
+      name: row.querySelector('.image-audit-name').textContent,
+      kind: row.querySelector('.image-audit-kind').textContent,
+      status: row.querySelector('.image-audit-status').textContent,
+      missing: row.classList.contains('is-missing'),
+    })),
+  }),
+  removeMissingLinks: () => document.querySelector('#link-audit-remove').click(),
   openImageAudit: () => openImageAudit().then(() => window.__mdpad.imageAuditState()),
   imageAuditState: () => ({
     open: !document.querySelector('#image-audit').hidden,

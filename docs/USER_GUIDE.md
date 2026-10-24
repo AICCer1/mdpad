@@ -101,6 +101,14 @@ Images are saved next to the document in `assets/`. Size and alignment are store
 the markdown link title (`![alt](src "w=50%;align=center")`), so they survive a round
 trip through any markdown tool.
 
+## Link audit
+
+The palette has **Link audit…**: it lists every link with its kind — **local** (resolved against
+the document folder, `.md` allowed), **external** (`http`/`mailto`, not checked) or **anchor**
+(`#…`, always fine) — and marks a local target that no longer exists in red. **Unlink missing**
+removes those links in one step while keeping the text, so a renamed folder costs you the link,
+not the sentence.
+
 ## Links
 
 A click on a link never navigates the app window:

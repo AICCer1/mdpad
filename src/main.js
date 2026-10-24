@@ -1756,6 +1756,48 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
   // Everything about the images in this document: where they point, whether they resolve, how big.
   // Remote images are fragile: the network disappears, the host moves the file, the exporter cannot
   // fetch. Downloading once into ./images next to the document makes the document self-contained.
+  // Links between files break quietly when a folder is renamed. List them, say which resolve, and
+  // let the writer unlink the dead ones without losing the text.
+  ipcMain.handle('links:audit', (event) => {
+    const s = sessionFor(event);
+    const text = String((s && s.contents) || '');
+    const baseDir = s && s.file ? path.dirname(s.file) : null;
+    const entries = [];
+    const pattern = /(?<!!)\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      const label = match[1];
+      const href = match[2];
+      const entry = { label, href, kind: 'local', exists: false };
+      if (href.startsWith('#')) {
+        entry.kind = 'anchor';
+        entry.exists = true;
+      } else if (/^(?:https?:|mailto:)/i.test(href)) {
+        entry.kind = 'external';
+        entry.exists = null;
+      } else if (!baseDir) {
+        entry.kind = 'local';
+        entry.exists = false;
+      } else {
+        try {
+          const clean = decodeURI(href.replace(/[#?].*$/, ''));
+          const resolved = path.resolve(baseDir, clean);
+          entry.exists = fs.existsSync(resolved) || fs.existsSync(resolved + '.md');
+        } catch {
+          entry.exists = false;
+        }
+      }
+      entries.push(entry);
+    }
+    return {
+      total: entries.length,
+      missing: entries.filter((entry) => entry.exists === false).length,
+      external: entries.filter((entry) => entry.kind === 'external').length,
+      anchors: entries.filter((entry) => entry.kind === 'anchor').length,
+      entries,
+    };
+  });
+
   ipcMain.handle('images:download', async (event, { src } = {}) => {
     const s = sessionFor(event);
     if (!s || !s.file) return { ok: false, error: 'Save the document first, so the image has a folder.' };
@@ -11500,6 +11542,74 @@ async function runSmoke() {
       imageDownload.again.rows.length === 1 &&
       imageDownload.again.rows[0].status !== 'remote',
     imageDownload
+  );
+
+  // 140. the link audit lists links with their kind and status, and unlinks the missing ones
+  const linkAudit = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    fs.writeFileSync(path.join(dir, 'link-target.md'), '# Target' + nl, 'utf8');
+    const doc = path.join(dir, 'link-audit.md');
+    fs.writeFileSync(
+      doc,
+      [
+        '# Link audit',
+        '',
+        '[good](link-target.md)',
+        '',
+        '[gone](missing-target.md)',
+        '',
+        '[web](https://example.com)',
+        '',
+        '[jump](#link-audit)',
+        '',
+      ].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ok = await jsOf("window.__mdpad.getMarkdown().includes('gone')");
+      if (ok === true) break;
+    }
+    const audit = await jsOf('window.api.linksAudit()');
+    const panel = await jsOf('window.__mdpad.openLinkAudit()');
+    const removed = await jsOf(`(async () => {
+      window.__mdpad.removeMissingLinks();
+      await new Promise((r) => setTimeout(r, 800));
+      return window.__mdpad.linkAuditState();
+    })()`);
+    const markdown = await jsOf('window.__mdpad.getMarkdown()');
+    await jsOf('document.querySelector(\'#link-audit\').hidden = true');
+    return { audit, panel, removed, markdown };
+  })();
+  step(
+    'link-audit',
+    linkAudit.audit &&
+      linkAudit.audit.total === 4 &&
+      linkAudit.audit.missing === 1 &&
+      linkAudit.audit.external === 1 &&
+      linkAudit.audit.anchors === 1 &&
+      linkAudit.audit.entries[0].exists === true &&
+      linkAudit.audit.entries[1].exists === false &&
+      linkAudit.panel &&
+      linkAudit.panel.rows.length === 4 &&
+      linkAudit.panel.rows.filter((row) => row.missing).length === 1 &&
+      linkAudit.panel.rows.find((row) => row.missing).status === 'missing' &&
+      linkAudit.panel.rows.find((row) => row.kind === 'external').status === 'not checked' &&
+      linkAudit.removed &&
+      linkAudit.removed.rows.length === 3 &&
+      linkAudit.removed.rows.every((row) => !row.missing) &&
+      typeof linkAudit.markdown === 'string' &&
+      linkAudit.markdown.includes('gone') &&
+      !linkAudit.markdown.includes('missing-target.md'),
+    {
+      audit: linkAudit.audit,
+      panel: linkAudit.panel,
+      removedCount: linkAudit.removed && linkAudit.removed.rows ? linkAudit.removed.rows.length : linkAudit.removed,
+      markdown: typeof linkAudit.markdown === 'string' ? linkAudit.markdown.slice(0, 300) : linkAudit.markdown,
+    }
   );
 
   // 30k. the settings filter narrows the visible fields
