@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.54.0
+
+Export templates, seen and checked.
+
+- **All three templates are rendered to screenshots** (`npm run shot-export` now produces
+  `10-export-page.png`, `11-export-toc.png`, `12-export-compact.png`) and the two new ones are in
+  the user guide, so the typography can be reviewed without exporting anything.
+- **The table of contents is localised**: `tocHtml` takes a `tocTitle`, and the HTML export passes
+  the UI language, so a Chinese interface writes 目录 instead of Contents.
+- **TOC links are verifiable**: the smoke test exports with the `toc` template and asserts four
+  links, each resolving to a heading id, the depth order `1,2,3,2`, and the title.
+- TOC links gained a hover/focus underline. `tocHtml` reuses `outline()`, which already deduplicates
+  repeated headings (`notes`, `notes-1`), so anchors never collide.
+- 296 smoke checks (one new: `toc-template`), 155 unit tests.
+
 ## 1.53.0
 
 Windows follow each other.

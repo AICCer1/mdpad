@@ -1170,3 +1170,6 @@ Object.assign(DICT.zh, {
   'table.alignCenter': '居中',
   'table.alignRight': '右对齐',
 });
+
+Object.assign(DICT.en, { 'export.contents': 'Contents' });
+Object.assign(DICT.zh, { 'export.contents': '目录' });

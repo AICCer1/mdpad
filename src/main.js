@@ -1082,6 +1082,7 @@ class Session {
         font: exportFontStack(),
         margin: readSettings().exportMargin || 'normal',
         baseDir: this.file ? path.dirname(this.file) : null,
+        tocTitle: t('export.contents', currentLang()),
       }),
       'utf8'
     );
@@ -10569,6 +10570,53 @@ async function runSmoke() {
       multiWindow.firstWindow.lang === 'zh-CN' &&
       typeof multiWindow.stillAlive === 'string',
     multiWindow
+  );
+
+  // 128. the TOC template links every heading and the title follows the UI language
+  const tocCheck = await (async () => {
+    const nl = String.fromCharCode(10);
+    const md = [
+      '# Book',
+      '',
+      '## First part',
+      '',
+      'text',
+      '',
+      '### Detail',
+      '',
+      'text',
+      '',
+      '## Second part',
+    ].join(nl);
+    const tocFile = path.join(dir, 'toc-source.md');
+    fs.writeFileSync(tocFile, md, 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(tocFile);
+    await sleep(600);
+    session.contents = md;
+    // the export uses the saved template setting; switch it to toc for this check
+    await win.webContents.executeJavaScript("window.api.setSettings({ exportTemplate: 'toc' })");
+    await sleep(300);
+    const htmlPath = path.join(dir, 'toc.html');
+    await session.exportTo(htmlPath, 'html');
+    const html = fs.readFileSync(htmlPath, 'utf8');
+    await win.webContents.executeJavaScript("window.api.setSettings({ exportTemplate: 'default' })");
+    const hrefs = [...html.matchAll(/<a href="#([^"]+)"/g)].map((m) => m[1]);
+    const ids = [...html.matchAll(/<h[1-6] id="([^"]+)"/g)].map((m) => m[1]);
+    return {
+      hrefs,
+      ids,
+      title: (/<div class="toc-title">([^<]*)<\/div>/.exec(html) || [])[1] || '',
+      depths: [...html.matchAll(/<li class="toc-depth-(\d)"/g)].map((m) => m[1]),
+    };
+  })();
+  step(
+    'toc-template',
+    tocCheck.hrefs.length === 4 &&
+      tocCheck.hrefs.every((id) => tocCheck.ids.includes(id)) &&
+      tocCheck.title === 'Contents' &&
+      tocCheck.depths.join(',') === '1,2,3,2',
+    tocCheck
   );
 
   // 30k. the settings filter narrows the visible fields

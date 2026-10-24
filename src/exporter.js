@@ -46,6 +46,7 @@ const TEMPLATE_CSS = `
 .toc-depth-3 { padding-left: 2rem; }
 .toc-depth-4, .toc-depth-5, .toc-depth-6 { padding-left: 3rem; }
 .toc a { color: #0b67c2; text-decoration: none; }
+.toc a:hover, .toc a:focus-visible { text-decoration: underline; }
 body[data-template="compact"] { padding: 1.6rem 1.2rem; font-size: 15px; line-height: 1.55; }
 body[data-template="compact"] h1, body[data-template="compact"] h2,
 body[data-template="compact"] h3 { margin: 1.2em 0 .4em; }
@@ -67,7 +68,7 @@ const escapeHtml = (s) =>
 const renderBody = (markdown, diagrams = null) => renderHtml(markdown, { diagrams });
 
 // Table of contents for the export templates; heading ids come from the renderer.
-function tocHtml(markdown) {
+function tocHtml(markdown, title = 'Contents') {
   const items = outline(markdown);
   if (!items.length) return '';
   const links = items
@@ -76,7 +77,7 @@ function tocHtml(markdown) {
         `<li class="toc-depth-${item.depth}"><a href="#${item.id}">${escapeHtml(item.text)}</a></li>`
     )
     .join('\n');
-  return `<nav class="toc"><div class="toc-title">Contents</div><ul>\n${links}\n</ul></nav>`;
+  return `<nav class="toc"><div class="toc-title">${escapeHtml(title)}</div><ul>\n${links}\n</ul></nav>`;
 }
 
 function sanitizeCss(css) {
@@ -89,9 +90,9 @@ function sanitizeCss(css) {
 function toHtmlDocument(
   markdown,
   title = 'Untitled',
-  { template = 'default', css = '', stats = null, diagrams = null, font = '', margin = 'normal', baseDir = null } = {}
+  { template = 'default', css = '', stats = null, diagrams = null, font = '', margin = 'normal', baseDir = null, tocTitle = 'Contents' } = {}
 ) {
-  const withToc = template === 'toc' ? tocHtml(markdown) : '';
+  const withToc = template === 'toc' ? tocHtml(markdown, tocTitle) : '';
   const html = `<!doctype html>
 <html lang="en">
 <head>

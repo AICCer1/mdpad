@@ -327,6 +327,18 @@ dialog: **Overwrite** replaces the disk version with yours, and closing it keeps
 editor (still unsaved) so you can copy it or save under another name. Autosave stays dirty and
 raises the "changed on disk" banner rather than overwriting.
 
+## Export templates
+
+| Template | Look |
+| --- | --- |
+| **default** | regular margins and line height |
+| **compact** | tighter spacing, more text per page |
+| **with contents** | adds a linked table of contents page, with the title in your UI language |
+
+![Table of contents template](images/11-export-toc.png)
+
+![Compact template](images/12-export-compact.png)
+
 ## What each format keeps
 
 | | HTML | PDF | Word | EPUB |
