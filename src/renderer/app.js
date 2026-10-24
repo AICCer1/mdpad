@@ -2815,6 +2815,28 @@ editor.on('update', updateActiveBlock);
 
 // ---- link audit --------------------------------------------------------------
 
+// Replace a link target everywhere it appears, keeping the text and its other marks.
+function relinkHref(from, to) {
+  const linkType = editor.schema.marks.link;
+  if (!linkType) return 0;
+  const ranges = [];
+  editor.state.doc.descendants((node, pos) => {
+    if (!node.isText) return true;
+    if (node.marks.some((mark) => mark.type === linkType && mark.attrs.href === from)) {
+      ranges.push([pos, pos + node.nodeSize]);
+    }
+    return true;
+  });
+  if (!ranges.length) return 0;
+  let tr = editor.state.tr;
+  for (const [start, end] of ranges) {
+    tr = tr.removeMark(start, end, linkType);
+    tr = tr.addMark(start, end, linkType.create({ href: to }));
+  }
+  editor.view.dispatch(tr);
+  return ranges.length;
+}
+
 function unlinkHref(href) {
   const linkType = editor.schema.marks.link;
   if (!linkType) return 0;
@@ -2875,6 +2897,27 @@ async function openLinkAudit() {
         if (result && result.opened === false) flash('Could not open ' + entry.href);
       });
       row.append(open);
+    }
+    if (entry.kind === 'local') {
+      const fix = document.createElement('button');
+      fix.type = 'button';
+      fix.className = 'image-audit-fix';
+      fix.textContent = 'Fix…';
+      fix.title = 'Point this link at another file';
+      fix.addEventListener('click', async () => {
+        const next = await askName({
+          title: 'Link target',
+          value: entry.href,
+          hint: 'Path relative to this document (or an absolute path).',
+          confirmLabel: 'Update',
+        });
+        if (!next || next === entry.href) return;
+        relinkHref(entry.href, next);
+        await openLinkAudit();
+        const audit = await window.api.linksAudit();
+        if (audit.missing) flash('Still ' + audit.missing + ' missing link(s)');
+      });
+      row.append(fix);
     }
     const unlink = document.createElement('button');
     unlink.type = 'button';
@@ -6819,6 +6862,28 @@ window.__mdpad = {
     })),
   }),
   removeMissingLinks: () => document.querySelector('#link-audit-remove').click(),
+  clickFixLink: (href) => {
+    const row = [...document.querySelectorAll('#link-audit-list .image-audit-row')].find(
+      (item) => item.dataset.href === href
+    );
+    if (!row) return false;
+    const fix = row.querySelector('.image-audit-fix');
+    if (!fix) return false;
+    fix.click();
+    return true;
+  },
+  nameState: () => ({
+    open: !document.querySelector('#name-modal').hidden,
+    title: document.querySelector('#name-title').textContent,
+    value: document.querySelector('#name-input').value,
+  }),
+  fillName: (value) => {
+    const input = document.querySelector('#name-input');
+    input.value = value;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    return input.value;
+  },
+  confirmName: () => document.querySelector('#name-ok').click(),
   openImageAudit: () => openImageAudit().then(() => window.__mdpad.imageAuditState()),
   imageAuditState: () => ({
     open: !document.querySelector('#image-audit').hidden,

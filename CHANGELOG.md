@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.68.0
+
+A broken link can be repaired, not just deleted.
+
+- **Local links get a "Fix…" button** in the link audit: it opens the current path in the name dialog,
+  and the new one is written into **every** matching link — text and other marks survive. Renaming a
+  folder now costs one dialog instead of the link.
+- **`relinkHref`** replaces the mark in a single transaction (remove + add with the new `href`); after
+  the fix the panel refreshes and, if links are still missing, says how many.
+- 310 smoke checks (one new: `link-fix` opens the panel, clicks Fix…, asserts the dialog pre-filled
+  the old path, types the new one, confirms, and asserts both the panel and the markdown), 160 unit
+  tests.
+- The README gained a garbled sentence from a multi-step text edit; rewritten by hand rather than by
+  another patch.
+
 ## 1.67.0
 
 A link audit, the twin of the image one.

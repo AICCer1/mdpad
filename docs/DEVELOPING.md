@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 309 end-to-end checks against a real window
+npm run smoke          # 310 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -424,3 +424,10 @@ asserts the file, the rewritten markdown and the audit result.
 `local` (resolved against the document folder, `.md` allowed), `external` (`exists: null`) or
 `anchor`. Unlinking removes the link mark from every text node carrying that `href`, keeping the
 text; the smoke check asserts both the row counts and that the label survives in the markdown.
+
+## Fixing a link
+
+`relinkHref(from, to)` finds every text node carrying a link mark with `href === from`, removes the
+mark and adds a new one with `to` in the same transaction, so the text and its other marks survive.
+The row action goes through the existing `askName` dialog; `link-fix` drives that dialog for real
+and asserts the markdown afterwards.

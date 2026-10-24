@@ -2355,3 +2355,5 @@ html.table-dragging-column, html.table-dragging-column * { cursor: col-resize !i
 .image-audit-remove { flex: 0 0 auto; font-size: 11px; padding: 2px 8px; }
 
 .image-audit-download { flex: 0 0 auto; font-size: 11px; padding: 2px 8px; }
+
+.image-audit-fix { flex: 0 0 auto; font-size: 11px; padding: 2px 8px; }

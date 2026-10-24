@@ -11612,6 +11612,60 @@ async function runSmoke() {
     }
   );
 
+  // 141. a broken link can be repointed at the right file instead of unlinked
+  const linkFix = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    fs.writeFileSync(path.join(dir, 'fix-target.md'), '# Fixed' + nl, 'utf8');
+    const doc = path.join(dir, 'link-fix.md');
+    fs.writeFileSync(
+      doc,
+      ['# Fix a link', '', '[gone](wrong-name.md)', '', 'trailing text', ''].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('wrong-name')");
+      if (ready === true) break;
+    }
+    const panel = await jsOf('window.__mdpad.openLinkAudit()');
+    const clicked = await jsOf("window.__mdpad.clickFixLink('wrong-name.md')");
+    await sleep(300);
+    const prompted = await jsOf('window.__mdpad.nameState()');
+    const filled = await jsOf("window.__mdpad.fillName('fix-target.md')");
+    await jsOf('window.__mdpad.confirmName()');
+    await sleep(700);
+    const after = await jsOf('window.__mdpad.linkAuditState()');
+    const markdown = await jsOf('window.__mdpad.getMarkdown()');
+    await jsOf('document.querySelector(\'#link-audit\').hidden = true');
+    return { panel, clicked, prompted, filled, after, markdown };
+  })();
+  step(
+    'link-fix',
+    linkFix.panel &&
+      linkFix.panel.rows.length === 1 &&
+      linkFix.panel.rows[0].missing === true &&
+      linkFix.clicked === true &&
+      linkFix.prompted &&
+      linkFix.prompted.open === true &&
+      linkFix.prompted.value === 'wrong-name.md' &&
+      linkFix.filled === 'fix-target.md' &&
+      linkFix.after &&
+      linkFix.after.rows.length === 1 &&
+      linkFix.after.rows[0].missing === false &&
+      typeof linkFix.markdown === 'string' &&
+      linkFix.markdown.includes('(fix-target.md)') &&
+      !linkFix.markdown.includes('wrong-name.md'),
+    {
+      panel: linkFix.panel,
+      prompted: linkFix.prompted,
+      after: linkFix.after,
+      markdown: typeof linkFix.markdown === 'string' ? linkFix.markdown.slice(0, 200) : linkFix.markdown,
+    }
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -107,6 +107,8 @@ The palette has **Link audit…**: it lists every link with its kind — **local
 the document folder, `.md` allowed), **external** (`http`/`mailto`, not checked) or **anchor**
 (`#…`, always fine) — and marks a local target that no longer exists in red. **Unlink missing**
 removes those links in one step while keeping the text, so a renamed folder costs you the link,
+not the sentence. A **local** link also has **Fix…**: it opens the current path in a small dialog, and
+the new one is written into every matching link — the repair is cheaper than the unlink.
 not the sentence.
 
 ## Links

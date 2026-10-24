@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         309 end-to-end checks (dev or packaged)
+npm run smoke         310 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -104,7 +104,8 @@ row; merged cells make "the same column" ambiguous, so the action refuses instea
 ### Link audit
 
 The palette has **Link audit…**: every link with its kind (local, external, anchor) and whether
-the target resolves. Missing links can be **unlinked in one step** — the text stays, only the dead
+the target resolves. **Fix…** repoints a link at the right file, **Unlink missing** drops dead ones
+while keeping the text, and only the dead link goes.
 link goes.
 
 ## Links between files
