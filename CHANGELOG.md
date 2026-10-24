@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.57.0
+
+The document explains itself.
+
+- **The editing area is a named textbox**: `role="textbox"`, `aria-multiline="true"`, and a
+  localised name ("Document editor" / 文档编辑区) that follows the UI language.
+- **The outline marks where the caret is**: `aria-current="location"` moves with the caret, and
+  foldable headings keep `aria-expanded` in sync, so the structure is usable without seeing it.
+- **300 smoke checks** — a round number worth noting: `a11y-document` moves the caret into a real
+  heading, asserts exactly one current row, folds the section and asserts `aria-expanded="false"`.
+- Two more patch attempts missed their anchor and were caught only because the *rendered* state was
+  asserted (the hook alone would have passed). The test hook `focusHeading` exists because the first
+  version used a markdown-string index as a ProseMirror position and landed in the wrong section.
+- 155 unit tests.
+
 ## 1.56.0
 
 The keyboard stays where it should.

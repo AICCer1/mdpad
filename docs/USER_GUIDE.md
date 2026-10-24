@@ -617,6 +617,12 @@ level adapts to the theme (32% light, 38% sepia, 45% dark) so faded text stays r
 The ▤ button in the AI panel (or "Open AI usage log" in the palette) jumps straight to the
 usage section of Settings, expanding it if it was folded.
 
+## The outline knows where you are
+
+Screen readers hear the editing area as "Document editor" and, while you move through the
+document, the outline marks the heading of the current section (`aria-current`). Folding a
+section announces its state (`aria-expanded`), so the structure is usable without seeing it.
+
 ## Dialogs keep the keyboard
 
 While a dialog is open, **Tab** and **Shift+Tab** cycle within it and never reach the editor

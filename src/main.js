@@ -10806,6 +10806,49 @@ async function runSmoke() {
     a11yToolbar
   );
 
+  // 131. the editor announces itself and the outline announces the current section
+  const a11yDocument = await (async () => {
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'a11y-outline.md');
+    fs.writeFileSync(
+      doc,
+      ['# One', '', 'text', '', '## Two', '', 'text', '', '### Three', '', 'text'].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    await sleep(700);
+    const editorInfo = await win.webContents.executeJavaScript('window.__mdpad.a11yEditor()');
+    // put the caret in the second section and let the outline follow
+    await win.webContents.executeJavaScript(
+      `window.__mdpad.focusHeading('Two')`
+    );
+    await sleep(600);
+    const outline = await win.webContents.executeJavaScript('window.__mdpad.a11yOutline()');
+    // fold the first heading and check the twisty tells assistive tech
+    await win.webContents.executeJavaScript(
+      `document.querySelector('#outline-list .outline-row .outline-twisty').click()`
+    );
+    await sleep(400);
+    const folded = await win.webContents.executeJavaScript('window.__mdpad.a11yOutline()');
+    await win.webContents.executeJavaScript(
+      `document.querySelector('#outline-list .outline-row .outline-twisty').click()`
+    );
+    await sleep(300);
+    return { editorInfo, outline, folded };
+  })();
+  step(
+    'a11y-document',
+    a11yDocument.editorInfo.role === 'textbox' &&
+      a11yDocument.editorInfo.multiline === 'true' &&
+      a11yDocument.editorInfo.label === 'Document editor' &&
+      a11yDocument.outline.count === 3 &&
+      a11yDocument.outline.current.length === 1 &&
+      a11yDocument.outline.current[0] === 'Two' &&
+      a11yDocument.folded.expanded[0] === 'false',
+    a11yDocument
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

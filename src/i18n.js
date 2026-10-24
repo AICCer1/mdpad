@@ -1173,3 +1173,6 @@ Object.assign(DICT.zh, {
 
 Object.assign(DICT.en, { 'export.contents': 'Contents' });
 Object.assign(DICT.zh, { 'export.contents': '目录' });
+
+Object.assign(DICT.en, { 'editor.label': 'Document editor' });
+Object.assign(DICT.zh, { 'editor.label': '文档编辑区' });

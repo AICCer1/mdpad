@@ -46,6 +46,8 @@ function applyI18n(language) {
     }
   }
 
+  labelEditor();
+
   // i18n rewrites textContent; buttons carrying an icon need it back.
   applyStaticIcons();
 }
@@ -1553,6 +1555,15 @@ document.addEventListener('mousedown', (event) => {
 });
 window.addEventListener('blur', () => closeSlashMenu({ suppress: true }));
 
+// The editable area is a multiline textbox; name it so it is not announced as just "edit".
+function labelEditor() {
+  const dom = editor && editor.view ? editor.view.dom : null;
+  if (!dom) return;
+  if (!dom.getAttribute('role')) dom.setAttribute('role', 'textbox');
+  dom.setAttribute('aria-multiline', 'true');
+  dom.setAttribute('aria-label', t('editor.label', lang));
+}
+
 function syncToolbar() {
   const markState = {
     bold: editor.isActive('bold'),
@@ -2087,7 +2098,13 @@ function markCurrentOutline(at = editor.state.selection.from) {
     else break;
   }
   const nodes = [...outlineList.querySelectorAll('.outline-item')];
-  nodes.forEach((node, i) => node.classList.toggle('is-current', i === index));
+  nodes.forEach((node, i) => {
+    const isCurrent = i === index;
+    node.classList.toggle('is-current', isCurrent);
+    // Screen readers otherwise never learn which section the caret is in.
+    if (isCurrent) node.setAttribute('aria-current', 'location');
+    else node.removeAttribute('aria-current');
+  });
   const current = nodes[index];
   if (current && typeof current.scrollIntoView === 'function') {
     const box = outlineList.getBoundingClientRect();
@@ -5984,6 +6001,39 @@ window.__mdpad = {
     })(),
     activeId: document.activeElement ? document.activeElement.id || document.activeElement.tagName : '',
   }),
+  a11yEditor: () => {
+    const dom = editor.view.dom;
+    return {
+      role: dom.getAttribute('role'),
+      multiline: dom.getAttribute('aria-multiline'),
+      label: dom.getAttribute('aria-label'),
+      tag: dom.tagName,
+    };
+  },
+  focusHeading: (text) => {
+    let target = null;
+    editor.state.doc.descendants((node, pos) => {
+      if (target !== null) return false;
+      if (node.type.name === 'heading' && node.textContent.trim() === text) {
+        target = pos + 1;
+        return false;
+      }
+      return true;
+    });
+    if (target === null) return false;
+    editor.commands.focus(target);
+    return true;
+  },
+  a11yOutline: () => {
+    const rows = [...document.querySelectorAll('#outline-list .outline-item')];
+    const current = rows.filter((node) => node.getAttribute('aria-current') === 'location');
+    const twisties = [...document.querySelectorAll('#outline-list .outline-twisty')];
+    return {
+      count: rows.length,
+      current: current.map((node) => node.textContent),
+      expanded: twisties.map((node) => node.getAttribute('aria-expanded')),
+    };
+  },
   navJump: (pos) => {
     recordJump();
     return navTo(pos);

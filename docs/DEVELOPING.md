@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 299 end-to-end checks against a real window
+npm run smoke          # 300 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -348,3 +348,11 @@ format summary and refreshes on every open.
 `trapModalFocus` is a capturing Tab handler that keeps focus inside the topmost open modal, and a
 MutationObserver moves focus in when a modal becomes visible. The smoke test presses Tab 18 times
 and asserts focus never leaves the dialog.
+
+## Document semantics
+
+`labelEditor()` gives the ProseMirror content a `textbox` role, `aria-multiline` and a localised
+name (re-applied by `applyI18n`). `markCurrentOutline` sets `aria-current="location"` on the
+active heading and clears it elsewhere; twisties already carried `aria-expanded`. One smoke check
+(`a11y-document`) asserts the editor attributes, the current section after a real caret move, and
+that folding flips `aria-expanded` to `false`.
