@@ -327,6 +327,12 @@ dialog: **Overwrite** replaces the disk version with yours, and closing it keeps
 editor (still unsaved) so you can copy it or save under another name. Autosave stays dirty and
 raises the "changed on disk" banner rather than overwriting.
 
+## Before exporting
+
+The export panel summarises the document: words and headings, then images, tables, diagrams,
+formulas and task items. If an image or a local link points at a file that is not there, it says
+so in red before you pick a format — fixing it is easier than noticing it in the PDF.
+
 ## Export templates
 
 | Template | Look |

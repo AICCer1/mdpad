@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 296 end-to-end checks against a real window
+npm run smoke          # 297 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -277,12 +277,6 @@ stay literal.
 `outline()` so heading ids match the rendered document (duplicate titles get `-1` suffixes);
 the title is passed in as `tocTitle` so a Chinese UI exports `目录`.
 
-## Export templates
-
-`npm run shot-export` renders all three templates to `docs/images/10..12`. `tocHtml` reuses
-`outline()` so heading ids match the rendered document (duplicate titles get `-1` suffixes);
-the title is passed in as `tocTitle` so a Chinese UI exports the localised word for Contents.
-
 ## Multiple windows
 
 `broadcastSettings()` sends `settings:applied` to **all** windows after a settings write (the
@@ -342,8 +336,8 @@ the update *check* path is implemented and tested against a local feed.
 See [RELEASING.md](RELEASING.md) for the signing and update-feed steps that `npm run ship`
 cannot do on its own.
 
-## Export templates
+## Export inspection
 
-`npm run shot-export` renders all three templates to `docs/images/10..12`. `tocHtml` reuses
-`outline()` so heading ids match the rendered document (duplicate titles get `-1` suffixes); the
-title is passed in as `tocTitle` so a Chinese UI exports its own word for Contents.
+`export:inspect` counts images/links/tables/diagrams/math/tasks in the current buffer and resolves
+relative image and link targets against the document folder; the panel renders it under the
+format summary and refreshes on every open.

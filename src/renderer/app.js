@@ -288,6 +288,39 @@ function refreshExportThumb() {
   }, 260);
 }
 
+let exportInspectToken = 0;
+
+async function refreshExportInspect() {
+  const summary = document.querySelector('#export-summary');
+  if (!summary) return;
+  const token = ++exportInspectToken;
+  const info = await window.api.exportInspect().catch(() => null);
+  if (token !== exportInspectToken || !info) return;
+  const parts = [];
+  parts.push(`${info.words} words · ${info.headings} headings`);
+  const blocks = [];
+  if (info.images) blocks.push(`${info.images} image${info.images === 1 ? '' : 's'}`);
+  if (info.tables) blocks.push(`${info.tables} table row${info.tables === 1 ? '' : 's'}`);
+  if (info.diagrams) blocks.push(`${info.diagrams} diagram${info.diagrams === 1 ? '' : 's'}`);
+  if (info.math) blocks.push(`${info.math} formula${info.math === 1 ? '' : 's'}`);
+  if (info.tasks) blocks.push(`${info.tasks} task${info.tasks === 1 ? '' : 's'}`);
+  if (blocks.length) parts.push(blocks.join(' · '));
+  const warnings = [];
+  if (info.unresolvedImages) warnings.push(`${info.unresolvedImages} image(s) not found`);
+  if (info.unresolvedLinks) warnings.push(`${info.unresolvedLinks} link(s) not found`);
+  const node = document.createElement('div');
+  node.className = 'export-inspect';
+  node.id = 'export-inspect';
+  node.innerHTML =
+    '<div class="export-inspect-line">' + parts.join('<br>') + '</div>' +
+    (warnings.length
+      ? '<div class="export-inspect-warn">' + warnings.join(' · ') + '</div>'
+      : '');
+  const existing = document.querySelector('#export-inspect');
+  if (existing) existing.replaceWith(node);
+  else summary.appendChild(node);
+}
+
 function refreshExportSummary() {
   const summary = document.querySelector('#export-summary');
   if (!summary) return;
@@ -306,6 +339,7 @@ function refreshExportSummary() {
   if (exportFormat === 'docx') lines.push('Word uses its own styles and keeps diagram code blocks');
   if (exportFormat === 'epub') lines.push('EPUB reflows, so page margins do not apply');
   summary.innerHTML = lines.join('<br>');
+  refreshExportInspect();
   drawExportThumb(template, font, margin);
 }
 
@@ -5843,6 +5877,8 @@ window.__mdpad = {
     return true;
   },
   focusState: () => ({ caret: editor.state.selection.$from.parent.textContent.slice(0, 40) }),
+  exportInspect: () => window.api.exportInspect(),
+  exportInspectText: () => (document.querySelector('#export-inspect') || {}).textContent || '',
   navJump: (pos) => {
     recordJump();
     return navTo(pos);

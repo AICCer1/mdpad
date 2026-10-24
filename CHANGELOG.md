@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.55.0
+
+Look before you export.
+
+- **The export panel now inspects the document**: words and headings, images, table rows, diagrams,
+  formulas, task items — and a red warning when an image or local link points at a file that is not
+  there. Fixing it in the editor beats discovering it in the PDF.
+- `export:inspect` resolves relative image and link targets against the document folder, so the
+  warning matches what the HTML export will actually flag.
+- **The first version counted correctly but the panel showed nothing**: the call to
+  `refreshExportInspect()` was appended with the wrong indentation and silently missed, and the test
+  asserted the rendered text, not just the IPC numbers.
+- The docs check caught three duplicate `## Export templates` sections accumulated by earlier scripted
+  appends; the headings are deduplicated now.
+- 297 smoke checks (one new: `export-inspect`), 155 unit tests.
+
 ## 1.54.0
 
 Export templates, seen and checked.

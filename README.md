@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         296 end-to-end checks (dev or packaged)
+npm run smoke         297 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -128,6 +128,12 @@ Typing markdown converts as you go: `# `, `- `, `1. `, `> ` and fences are block
 `**bold**`, `*italic*`, `~~strike~~`, ```code``` become marks on the closing delimiter.
 Pasting **plain text that is clearly markdown** (a fence, a table rule, a heading with a blank line,
 two or more list items) parses it; prose and a lone `#tag` stay literal.
+
+## Before you export
+
+The export panel counts what is about to be written — words, headings, images, tables,
+diagrams, formulas, tasks — and warns about images or links whose target is missing, so a
+broken document is visible before the file is produced.
 
 ## Three export templates
 

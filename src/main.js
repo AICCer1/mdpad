@@ -1752,6 +1752,58 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
     return { restored: true, contents };
   });
 
+  // What will actually land in the export: counts the user can check before choosing a format.
+  ipcMain.handle('export:inspect', (event) => {
+    const s = sessionFor(event);
+    const text = String((s && s.contents) || '');
+    const baseDir = s && s.file ? path.dirname(s.file) : null;
+    const count = (re) => (text.match(re) || []).length;
+
+    const images = [];
+    const imagePattern = /!\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+    let match;
+    while ((match = imagePattern.exec(text)) !== null) images.push(match[1]);
+    const unresolvedImages = images.filter((src) => {
+      if (/^data:/i.test(src) || /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(src)) return false;
+      if (!baseDir) return true;
+      try {
+        return !fs.existsSync(path.resolve(baseDir, decodeURI(src.replace(/[#?].*$/, ''))));
+      } catch {
+        return true;
+      }
+    });
+
+    const links = [];
+    const linkPattern = /(?<!!)\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+    while ((match = linkPattern.exec(text)) !== null) links.push(match[1]);
+    const localLinks = links.filter((href) => !/^(?:[a-z][a-z0-9+.-]*:|#|\/\/)/i.test(href));
+    const unresolvedLinks = localLinks.filter((href) => {
+      if (!baseDir) return true;
+      try {
+        const clean = decodeURI(href.replace(/[#?].*$/, ''));
+        return !fs.existsSync(path.resolve(baseDir, clean)) && !fs.existsSync(path.resolve(baseDir, clean + '.md'));
+      } catch {
+        return true;
+      }
+    });
+
+    return {
+      words: (text.match(/\S+/g) || []).length,
+      chars: text.length,
+      images: images.length,
+      unresolvedImages: unresolvedImages.length,
+      externalImages: images.filter((src) => /^(?:data:|[a-z]+:)/i.test(src)).length,
+      links: links.length,
+      localLinks: localLinks.length,
+      unresolvedLinks: unresolvedLinks.length,
+      tables: (text.match(/^\s*\|.*\|\s*$/gm) || []).length,
+      math: count(/\$\$/g) / 2 + count(/(?<!\$)\$[^$\n]+\$(?!\$)/g),
+      diagrams: count(/^\s*(?:```|~~~)\s*mermaid\b/gim),
+      tasks: count(/^\s*[-*+]\s*\[(?: |x|X)\]/gm),
+      headings: (text.match(/^#{1,6}\s+\S/gm) || []).length,
+    };
+  });
+
   ipcMain.handle('export:namePreview', (event, { template = '{title}' } = {}) => {
     const s = sessionFor(event);
     const base = s && s.file ? path.basename(s.file, path.extname(s.file)) : 'Untitled';
@@ -10617,6 +10669,73 @@ async function runSmoke() {
       tocCheck.title === 'Contents' &&
       tocCheck.depths.join(',') === '1,2,3,2',
     tocCheck
+  );
+
+  // 129. the export panel inspects the document before exporting: counts and unresolved targets
+  const exportInspect = await (async () => {
+    const nl = String.fromCharCode(10);
+    const fence = String.fromCharCode(96, 96, 96);
+    const good = path.join(dir, 'inspect-image.png');
+    fs.writeFileSync(good, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64'));
+    const target = path.join(dir, 'inspect-target.md');
+    fs.writeFileSync(target, '# target' + nl, 'utf8');
+    const doc = path.join(dir, 'inspect-doc.md');
+    fs.writeFileSync(
+      doc,
+      [
+        '# Inspect',
+        '',
+        '![present](inspect-image.png)',
+        '',
+        '![gone](inspect-missing.png)',
+        '',
+        '[good](inspect-target.md) and [missing](inspect-nothing.md)',
+        '',
+        '| A | B |',
+        '| --- | --- |',
+        '| 1 | 2 |',
+        '',
+        '$$',
+        'a + b = c',
+        '$$',
+        '',
+        fence + 'mermaid',
+        'graph LR;',
+        '  a-->b;',
+        fence,
+        '',
+        '- [ ] open task',
+      ].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    await sleep(700);
+    session.contents = fs.readFileSync(doc, 'utf8');
+    const info = await win.webContents.executeJavaScript('window.__mdpad.exportInspect()');
+    const ui = await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      window.__mdpad.openExportPanel('pdf');
+      await sleep(900);
+      return window.__mdpad.exportInspectText();
+    })()`);
+    await win.webContents.executeJavaScript(`document.querySelector('#export-modal').hidden = true`);
+    return { info, ui };
+  })();
+  step(
+    'export-inspect',
+    exportInspect.info.headings === 1 &&
+      exportInspect.info.images === 2 &&
+      exportInspect.info.unresolvedImages === 1 &&
+      exportInspect.info.links === 2 &&
+      exportInspect.info.unresolvedLinks === 1 &&
+      exportInspect.info.tables >= 3 &&
+      exportInspect.info.diagrams === 1 &&
+      exportInspect.info.math >= 1 &&
+      exportInspect.info.tasks === 1 &&
+      /images/.test(exportInspect.ui) &&
+      /not found/.test(exportInspect.ui),
+    exportInspect
   );
 
   // 30k. the settings filter narrows the visible fields
