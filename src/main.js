@@ -8147,10 +8147,15 @@ async function runSmoke() {
       return false;
     };
     const check = async (id, opener) => {
+      // A save from the previous probe can still be settling and close the dialog again; give it
+      // a moment, and reopen once if the first attempt lost that race.
+      await sleep(700);
       await opener();
-      // Opening a dialog can clear modals asynchronously (settings loads its values first);
-      // poll instead of assuming a fixed delay.
-      const wasOpen = await waitOpen(id);
+      let wasOpen = await waitOpen(id, 1500);
+      if (!wasOpen) {
+        await opener();
+        wasOpen = await waitOpen(id, 1500);
+      }
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       await sleep(300);
       results.push({ id, wasOpen, nowHidden: document.querySelector('#' + id).hidden });

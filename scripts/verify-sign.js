@@ -4,7 +4,8 @@
 // artifact is unsigned, which is what `npm run ship` does when signing was requested.
 //
 //   node scripts/verify-sign.js                     report only, never fails
-//   node scripts/verify-sign.js --require           fail on unsigned artifacts
+//   node scripts/verify-sign.js --require           fail on artifacts without a signature
+//   node scripts/verify-sign.js --require-trusted   also fail when the signer is not trusted
 //   node scripts/verify-sign.js --require a.exe b.exe
 
 const { spawnSync } = require('node:child_process');
@@ -14,6 +15,7 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const args = process.argv.slice(2);
 const required = args.includes('--require');
+const requireTrusted = args.includes('--require-trusted');
 const explicit = args.filter((arg) => !arg.startsWith('--'));
 
 function targets() {
@@ -52,14 +54,23 @@ if (!files.length) {
 }
 
 let unsigned = 0;
+let untrusted = 0;
 for (const file of files) {
   const sig = signature(file);
   const relative = path.relative(root, file);
-  const ok = sig.status === 'Valid';
-  if (!ok) unsigned += 1;
-  console.log(`${ok ? 'signed  ' : 'UNSIGNED'}  ${relative}  ${sig.status}${sig.thumbprint ? '  ' + sig.thumbprint : ''}`);
-  if (sig.subject) console.log(`          ${sig.subject}`);
+  const hasSignature = sig.status !== 'NotSigned' && sig.status !== 'ERROR' && Boolean(sig.thumbprint);
+  const trusted = sig.status === 'Valid';
+  if (!hasSignature) unsigned += 1;
+  else if (!trusted) untrusted += 1;
+  const label = trusted ? 'signed, trusted ' : hasSignature ? 'signed, untrusted' : 'UNSIGNED         ';
+  console.log(`${label}  ${relative}  ${sig.status}${sig.thumbprint ? '  ' + sig.thumbprint : ''}`);
+  if (sig.subject) console.log(`                  ${sig.subject}`);
 }
 
-console.log(`\nsign: ${files.length} file(s), ${unsigned} unsigned`);
+console.log(`\nsign: ${files.length} file(s), ${unsigned} unsigned, ${untrusted} signed but not trusted`);
+if (unsigned) {
+  console.log('note: a self-signed certificate produces a valid signature that Windows reports as');
+  console.log('      untrusted until the certificate is installed as a trusted root.');
+}
+if (requireTrusted && untrusted) process.exit(1);
 if (required && unsigned) process.exit(1);

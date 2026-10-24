@@ -45,6 +45,14 @@ npm run ship          release-check -> installers -> install-check -> SHA256SUMS
 Current artifacts: `release/mdpad Setup <version>.exe`, `release/mdpad <version>.exe`,
 `release/latest.yml`, `release/RELEASE_NOTES.md`.
 
+## Signing and updates
+
+The build pipeline can sign: set `CSC_LINK` and `CSC_KEY_PASSWORD` (or run
+`npm run cert` for a self-signed development certificate) and `npm run ship` signs the app,
+installer and uninstaller, then *fails the build* if an artifact lost its signature. The
+difference between "signed" and "trusted by Windows" is reported separately — a self-signed
+signature is real but SmartScreen still warns. See [docs/RELEASING.md](docs/RELEASING.md).
+
 ## Known limitations
 
 - **The installer is unsigned** — SmartScreen warns, and update download/install is

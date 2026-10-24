@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.28.0
+
+The build pipeline can sign, and it proves it did.
+
+- **`npm run ship` signs** the app exe, portable exe, installer and uninstaller when
+  `CSC_LINK` / `CSC_KEY_PASSWORD` are present, then runs `scripts/verify-sign.js --require` and
+  stops the release if any artifact is unsigned. Without a certificate it says so instead of
+  pretending.
+- **`npm run cert`** creates a self-signed development certificate (PFX + thumbprint in
+  `build/certs/`, git-ignored) so the signing path can be exercised without buying a certificate.
+  `node scripts/make-dev-cert.js --remove` cleans it out of the user store.
+- **`npm run sign-check`** reports each executable as `signed, trusted`, `signed, untrusted` or
+  `UNSIGNED`. A self-signed signature is genuine but not trusted — Windows reports `UnknownError`
+  and SmartScreen still warns — so `--require` (any signature) and `--require-trusted` (a CA the
+  machine trusts) are separate gates.
+- **`node scripts/publish.js`** now owns the GitHub release step: commit, push, tag, create the
+  release and upload the five assets, idempotently, with credentials from `~/.git-credentials`.
+- [docs/RELEASING.md](docs/RELEASING.md) rewritten around the two remaining human steps: a trusted
+  certificate and an HTTPS feed.
+
 ## 1.27.0
 
 Follow the system theme, and Esc closes every dialog.

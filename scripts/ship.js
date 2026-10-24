@@ -27,10 +27,22 @@ function step(label, command, args) {
 }
 
 const checksOnly = process.argv.includes('--checksums-only');
+// Signing is opt-in: pass a certificate through CSC_LINK / CSC_KEY_PASSWORD (electron-builder's
+// own variables) and the pipeline starts requiring a valid signature instead of only building.
+const signingRequested = Boolean(
+  process.env.CSC_LINK || process.env.WIN_CSC_LINK || process.env.MDPAD_REQUIRE_SIGN === '1'
+);
 
 if (!checksOnly) {
   step('release check', npm, ['run', 'release-check']);
   step('build installers', npm, ['run', 'dist']);
+  if (signingRequested) {
+    step('verify signature', process.execPath, ['scripts/verify-sign.js', '--require']);
+  } else {
+    console.log(
+      '\n=== sign ===\nskipped: no certificate (set CSC_LINK and CSC_KEY_PASSWORD, or MDPAD_REQUIRE_SIGN=1)'
+    );
+  }
   step('install / uninstall check', npm, ['run', 'install-check']);
 }
 

@@ -9,4 +9,5 @@ dev-app-update.yml
 .DS_Store
 Thumbs.db
 *.pfx
+build/certs/
 .env

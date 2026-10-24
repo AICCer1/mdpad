@@ -1,46 +1,77 @@
 # Releasing mdpad
 
-The artefacts in `release/` are unsigned. Two things are therefore still on the release
-manager: a code-signing certificate, and a real update feed. Everything else is automated.
+The pipeline is automated end to end. Two things still need a human: a code-signing certificate
+that Windows trusts, and an HTTPS endpoint for the update feed.
 
 ## What `npm run ship` does
 
 1. renderer build (esbuild) and unit tests
 2. package the app into `release/win-unpacked`
-3. packaged smoke (180+ checks), crash recovery, real quit/relaunch restore
+3. packaged smoke (250+ checks), crash recovery, real quit/relaunch restore
 4. NSIS installer, portable exe, `latest.yml`, release notes from `CHANGELOG.md`
-5. silent install → smoke the installed app → uninstall → verify user data survived
-6. write `SHA256SUMS.txt`
+5. **signature check** when a certificate is configured (see below)
+6. silent install → smoke the installed app → uninstall → verify user data survived
+7. write `SHA256SUMS.txt`
 
 If any step fails the pipeline stops; nothing is published.
 
-## Adding a certificate
+## Signing
 
-1. Obtain a code-signing certificate (OV or EV) and export it as a `.pfx`.
-2. Export the secret in the shell that runs the release (never commit it):
+### With a real certificate
+
+1. Obtain an OV or EV code-signing certificate and export it as a `.pfx`.
+2. Put the secret in the shell that runs the release (never commit it):
 
    ```powershell
    $env:CSC_LINK = 'C:\path\to\mdpad.pfx'
    $env:CSC_KEY_PASSWORD = '...'
    ```
 
-3. Re-run `npm run ship`. electron-builder signs the installer and the portable exe when
-   `CSC_LINK` is present; `latest.yml` then carries the signature.
-4. Verify:
+3. Run `npm run ship`. electron-builder signs the app exe, the portable exe, the installer and the
+   uninstaller; because `CSC_LINK` is set, the pipeline runs
+   `node scripts/verify-sign.js --require` and **fails the build** if any artifact lost its
+   signature.
+4. Check what Windows thinks:
 
    ```powershell
-   Get-AuthenticodeSignature 'release\mdpad Setup <version>.exe' | Format-List
+   npm run sign-check                       # report
+   node scripts/verify-sign.js --require-trusted   # fail unless Status = Valid
    ```
 
-   `Status` must be `Valid`, and `SignerCertificate.Subject` must name you.
+   `Get-AuthenticodeSignature` must report `Valid` and the subject must name you.
 
-Without this step Windows SmartScreen warns on first run ("Unknown publisher"), which is a
+### Trying the signing path without a CA certificate
+
+For local verification of the mechanism (not for distribution):
+
+```powershell
+npm run cert          # creates build/certs/mdpad-dev.pfx and prints the env block
+$env:CSC_LINK = 'E:\code\mdpad\build\certs\mdpad-dev.pfx'
+$env:CSC_KEY_PASSWORD = '<printed>'
+npm run ship
+```
+
+`npm run cert` uses `New-SelfSignedCertificate` in `Cert:\CurrentUser\My`, exports a PFX and
+records the thumbprint in `build/certs/dev-cert.json` (git-ignored). Remove it with
+`node scripts/make-dev-cert.js --remove`.
+
+A self-signed signature is real but **not trusted**: `Get-AuthenticodeSignature` reports
+`UnknownError`, and SmartScreen still says "Unknown publisher". That is the difference the
+certificate purchase buys, and the reason `verify-sign.js` separates "signed" from "trusted":
+
+| Output | Meaning | `--require` | `--require-trusted` |
+| --- | --- | --- | --- |
+| `signed, trusted` | a CA the machine trusts signed it | pass | pass |
+| `signed, untrusted` | signature present, signer unknown (self-signed) | pass | fail |
+| `UNSIGNED` | no signature at all | fail | fail |
+
+Without a signature, Windows SmartScreen warns on first run ("Unknown publisher"), which is a
 trust problem no amount of in-app polish fixes.
 
-## Switching on auto-update
+## Update feed
 
-`electron-updater` is already wired to a generic feed and the *check* path is tested against a
-local feed. To make updates installable:
+`electron-updater` is wired to a generic feed and the check path is tested against a local server.
+To make updates installable:
 
 1. Host the contents of `release/` (`latest.yml`, `*.exe`, `*.blockmap`) on an HTTPS endpoint.
 2. Point `build.publish` at it in `package.json`:
@@ -49,10 +80,9 @@ local feed. To make updates installable:
    "publish": [{ "provider": "generic", "url": "https://updates.example.com/mdpad/" }]
    ```
 
-3. Ship a signed build whose version is higher than the installed one.
-4. Verify from an installed older build: Help → Check for updates should report the new
-   version, download it and offer to restart. An unsigned download is refused by the updater,
-   which is why step 1 of this document comes first.
+3. Ship a **signed** build with a higher version than the installed one.
+4. From an installed older build, Help → Check for updates reports the version, downloads it and
+   offers to restart. electron-updater refuses unsigned downloads, so signing comes first.
 
 ## Publishing to GitHub Releases
 
@@ -61,19 +91,20 @@ rejects files over 100 MB, and keeping 110 MB binaries in history would bloat ev
 artefacts are attached to a release instead:
 
 ```powershell
-git tag -a v1.1.7 -m "mdpad 1.1.7"
-git push origin main --tags
-# then create the release and upload
-#   mdpad Setup <version>.exe, mdpad <version>.exe, *.blockmap, latest.yml, SHA256SUMS.txt
+node scripts/publish.js
 ```
 
-**Gotcha:** GitHub rewrites spaces in asset names to dots (`mdpad Setup 1.1.7.exe` becomes
-`mdpad.Setup.1.1.7.exe`). `latest.yml` still names the original file, so pointing
-`electron-updater` at the GitHub release URL would 404. Two ways out:
+The script commits any pending change, pushes `main`, creates and pushes the tag, creates the
+GitHub release with the notes from `release/RELEASE_NOTES.md` and uploads
+`mdpad Setup <version>.exe`, `mdpad <version>.exe`, the blockmap, `latest.yml` and
+`SHA256SUMS.txt`. Credentials come from `~/.git-credentials`, the same account `git push` uses. It
+is idempotent: an existing release is reported instead of duplicated.
 
-- host `release/` yourself behind a generic feed (names preserved), or
-- rename artefacts before packaging, e.g. `"artifactName": "mdpad-${version}-setup.${ext}"`,
-  and regenerate `latest.yml` so the names match.
+**Gotcha:** GitHub rewrites spaces in asset names (`mdpad Setup 1.1.7.exe` becomes
+`mdpad.Setup.1.1.7.exe`). `latest.yml` still names the original file, so pointing
+`electron-updater` at the GitHub release URL would 404. Either host `release/` yourself behind a
+generic feed (names preserved) or set `"artifactName": "mdpad-${version}-setup.${ext}"` and
+regenerate `latest.yml` so names match.
 
 ## Release checklist
 
@@ -81,7 +112,9 @@ git push origin main --tags
 - [ ] `package.json` version matches that section
 - [ ] unit tests green (`node --test`)
 - [ ] `npm run ship` completed without a FAILED line
-- [ ] installer signed and `Get-AuthenticodeSignature` reports `Valid`
+- [ ] `node scripts/verify-sign.js --require-trusted` passes for a public release
 - [ ] `release/SHA256SUMS.txt` regenerated after the last artefact change
+- [ ] old version artefacts deleted from `release/` before regenerating checksums
 - [ ] `docs/` screenshots refreshed if the UI changed (`npm run shots`)
 - [ ] README "known limitations" still true
+- [ ] `node scripts/publish.js` uploaded the new release

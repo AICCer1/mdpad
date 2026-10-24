@@ -1,6 +1,6 @@
 {
   "name": "mdpad",
-  "version": "1.27.0",
+  "version": "1.28.0",
   "private": true,
   "description": "A small Electron markdown editor: WYSIWYG editing, crash-safe saving, tabs, file tree and AI writing.",
   "main": "src/main.js",
@@ -23,7 +23,9 @@
     "ship": "node scripts/ship.js",
     "shots": "node scripts/screenshots.js",
     "restart-check": "node scripts/restart-check.js",
-    "shot-export": "electron scripts/shot-export.js"
+    "shot-export": "electron scripts/shot-export.js",
+    "cert": "node scripts/make-dev-cert.js --print",
+    "sign-check": "node scripts/verify-sign.js"
   },
   "dependencies": {
     "docx": "^9.13.0",
