@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         307 end-to-end checks (dev or packaged)
+npm run smoke         308 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -76,6 +76,12 @@ is flagged (`data-link-missing`, wavy underline, "File not found" tooltip), anch
 heading ids, and absolute URLs become real hyperlinks in Word.
 
 ### Image audit
+
+Remote images can be **downloaded next to the document** (into `images/`, named by content hash)
+and their links rewritten to the local copy — one row at a time or all at once.
+
+Remote images can be **downloaded next to the document** (into `images/`, named by content hash)
+and their links rewritten to the local copy — one row at a time or all at once.
 
 A panel lists every image with its kind (local, remote, embedded) and size, marks the ones whose
 file is gone in red, and can remove them in one action — the document equivalent of checking that

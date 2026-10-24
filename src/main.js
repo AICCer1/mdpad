@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, dialog, Menu, shell, safeStorage, screen, clipboard, nativeTheme, powerMonitor } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, shell, safeStorage, screen, clipboard, nativeTheme, powerMonitor, net } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
@@ -1754,6 +1754,40 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
 
   // What will actually land in the export: counts the user can check before choosing a format.
   // Everything about the images in this document: where they point, whether they resolve, how big.
+  // Remote images are fragile: the network disappears, the host moves the file, the exporter cannot
+  // fetch. Downloading once into ./images next to the document makes the document self-contained.
+  ipcMain.handle('images:download', async (event, { src } = {}) => {
+    const s = sessionFor(event);
+    if (!s || !s.file) return { ok: false, error: 'Save the document first, so the image has a folder.' };
+    if (!/^https?:\/\//i.test(String(src || ''))) return { ok: false, error: 'Not a remote image' };
+    let response;
+    try {
+      response = await net.fetch(src, { redirect: 'follow' });
+    } catch (err) {
+      return { ok: false, error: 'Download failed: ' + err.message };
+    }
+    if (!response.ok) return { ok: false, error: 'HTTP ' + response.status };
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (!buffer.length) return { ok: false, error: 'The server returned an empty file' };
+    if (buffer.length > 20 * 1024 * 1024) return { ok: false, error: 'Image is larger than 20 MB' };
+    const type = (response.headers.get('content-type') || '').toLowerCase();
+    const extFromType = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/gif': '.gif', 'image/webp': '.webp', 'image/svg+xml': '.svg' };
+    let ext = extFromType[type.split(';')[0]] || path.extname(new URL(src).pathname).toLowerCase();
+    if (!/^\.(png|jpe?g|gif|webp|svg)$/.test(ext)) ext = '.png';
+    const hash = crypto.createHash('sha1').update(buffer).digest('hex').slice(0, 12);
+    const dir = path.join(path.dirname(s.file), 'images');
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      const target = path.join(dir, hash + ext);
+      if (!fs.existsSync(target)) fs.writeFileSync(target, buffer);
+      const relative = path.relative(path.dirname(s.file), target).split(path.sep).join('/');
+      logLine('images', 'downloaded ' + src + ' -> ' + relative + ' (' + buffer.length + ' bytes)');
+      return { ok: true, path: target, relative, bytes: buffer.length };
+    } catch (err) {
+      return { ok: false, error: 'Could not save the image: ' + err.message };
+    }
+  });
+
   ipcMain.handle('images:audit', (event) => {
     const s = sessionFor(event);
     const text = String((s && s.contents) || '');
@@ -11401,6 +11435,71 @@ async function runSmoke() {
       removedCount: imageAudit.removed && imageAudit.removed.rows ? imageAudit.removed.rows.length : imageAudit.removed,
       remaining: imageAudit.remaining,
     }
+  );
+
+  // 139. a remote image can be downloaded next to the document and the link rewritten
+  const imageDownload = await (async () => {
+    const http = require('node:http');
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const pixel = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64'
+    );
+    const server = http.createServer((req, res) => {
+      if (req.url.startsWith('/pic.png')) {
+        res.writeHead(200, { 'content-type': 'image/png', 'content-length': String(pixel.length) });
+        res.end(pixel);
+      } else {
+        res.writeHead(404);
+        res.end('nope');
+      }
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const port = server.address().port;
+    const remote = 'http://127.0.0.1:' + port + '/pic.png';
+    const doc = path.join(dir, 'remote-image.md');
+    fs.writeFileSync(doc, ['# Remote image', '', '![remote](' + remote + ')', ''].join(String.fromCharCode(10)), 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const srcs = await jsOf('window.__mdpad.imageSrcs()');
+      if (Array.isArray(srcs) && srcs.length === 1) break;
+    }
+    const panel = await jsOf('window.__mdpad.openImageAudit()');
+    const clicked = await jsOf(`(async () => {
+      const button = document.querySelector('.image-audit-download');
+      if (!button) return false;
+      button.click();
+      await new Promise((r) => setTimeout(r, 2500));
+      return true;
+    })()`);
+    const srcs = await jsOf('window.__mdpad.imageSrcs()');
+    const audit = await jsOf('window.api.imagesAudit()');
+    const downloadedDir = path.join(dir, 'images');
+    const files = fs.existsSync(downloadedDir) ? fs.readdirSync(downloadedDir) : [];
+    const again = await jsOf('window.__mdpad.openImageAudit()');
+    await jsOf('document.querySelector(\'#image-audit\').hidden = true');
+    await new Promise((resolve) => server.close(resolve));
+    return { panel, clicked, srcs, audit, files, again, dir: downloadedDir };
+  })();
+  step(
+    'image-download',
+    imageDownload.panel &&
+      imageDownload.panel.rows.length === 1 &&
+      imageDownload.panel.rows[0].kind === 'remote' &&
+      imageDownload.clicked === true &&
+      Array.isArray(imageDownload.srcs) &&
+      imageDownload.srcs.length === 1 &&
+      /^images\/[0-9a-f]+\.png$/.test(imageDownload.srcs[0]) &&
+      imageDownload.files.length === 1 &&
+      imageDownload.files[0].endsWith('.png') &&
+      imageDownload.audit.remote === 0 &&
+      imageDownload.audit.entries[0].kind === 'local' &&
+      imageDownload.audit.entries[0].exists === true &&
+      imageDownload.again.rows.length === 1 &&
+      imageDownload.again.rows[0].status !== 'remote',
+    imageDownload
   );
 
   // 30k. the settings filter narrows the visible fields

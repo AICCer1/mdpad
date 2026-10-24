@@ -163,6 +163,14 @@ The command palette has **Image audit…**: it lists every image in the document
 (local, remote, embedded), marks a local file that no longer exists in red, and offers **Remove
 missing** to drop those images in one step. Each row also has its own remove button.
 
+## Remote images become local
+
+In the image audit, a **remote** image has a **Download** button: the file is saved into an
+`images/` folder next to the document, named by a content hash, and the link is rewritten to the
+relative path. **Download remote** does it for every remote image at once. This makes the
+document work offline and in exports (and saves the image from disappearing when the host moves
+it). Failures (HTTP error, offline, over 20 MB) leave the link untouched and say why.
+
 ## Images
 
 **Images move by dragging**: press on the image and drag — a line marks where it will land, and

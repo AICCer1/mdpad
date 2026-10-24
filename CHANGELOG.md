@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.66.0
+
+Remote images can come home.
+
+- **The image audit downloads remote images**: each remote row has a **Download** button, and
+  **Download remote** does them all. The file is saved to `images/` next to the document, named by a
+  content hash, and every link to it is rewritten to the relative path — the document then works
+  offline and in exports.
+- **Failures leave the link untouched and say why**: HTTP status, oversized response (cap 20 MB),
+  unsaved document, or a network error. The extension comes from `content-type`, then the URL, then
+  `.png`.
+- Downloads use Electron's `net.fetch` in the main process, where the renderer's CSP does not apply.
+- **The test fetches from a real local HTTP server** (not a mock): it asserts one file in `images/`
+  with a `.png` name, the rewritten `images/<hash>.png` link, and an audit that now reports zero
+  remote images.
+- One self-inflicted syntax error: a regex written through a shell-escaped patch ended up as
+  `/^images\\/.../` and broke `node --check`; fixed by building the line with `String.fromCharCode(92)`.
+- 308 smoke checks, 160 unit tests.
+
 ## 1.65.0
 
 An image audit, before you ship the document.

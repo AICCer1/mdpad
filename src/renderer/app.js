@@ -2824,6 +2824,28 @@ function imageNodesBySrc(src) {
   return found;
 }
 
+function rewriteImageSrc(from, to) {
+  const targets = imageNodesBySrc(from);
+  if (!targets.length) return 0;
+  let tr = editor.state.tr;
+  for (const target of targets) {
+    tr = tr.setNodeMarkup(target.pos, undefined, { ...target.node.attrs, src: to });
+  }
+  editor.view.dispatch(tr);
+  return targets.length;
+}
+
+async function downloadRemoteImage(src) {
+  const result = await window.api.downloadImage(src);
+  if (!result || !result.ok) {
+    flash(result && result.error ? result.error : 'Download failed');
+    return false;
+  }
+  rewriteImageSrc(src, result.relative);
+  flash('Saved ' + result.relative);
+  return true;
+}
+
 function removeImagesWithSrc(src) {
   const targets = imageNodesBySrc(src);
   if (!targets.length) return 0;
@@ -2869,6 +2891,25 @@ async function openImageAudit() {
     else if (entry.kind === 'local' && entry.size != null) status.textContent = Math.max(1, Math.round(entry.size / 1024)) + ' KB';
     else if (entry.kind === 'embedded' && entry.size != null) status.textContent = Math.max(1, Math.round(entry.size / 1024)) + ' KB';
     else status.textContent = 'remote';
+    if (entry.kind === 'remote') {
+      const download = document.createElement('button');
+      download.type = 'button';
+      download.className = 'image-audit-download';
+      download.textContent = 'Download';
+      download.title = 'Save this image next to the document and link to the local copy';
+      download.addEventListener('click', async (event) => {
+        event.stopPropagation();
+        download.disabled = true;
+        download.textContent = '…';
+        const ok = await downloadRemoteImage(entry.src);
+        if (ok) await openImageAudit();
+        else {
+          download.disabled = false;
+          download.textContent = 'Download';
+        }
+      });
+      row.append(download);
+    }
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'image-audit-remove';
@@ -2886,6 +2927,25 @@ async function openImageAudit() {
 
 document.querySelector('#image-audit-close')?.addEventListener('click', () => {
   document.querySelector('#image-audit').hidden = true;
+});
+
+document.querySelector('#image-audit-download-all')?.addEventListener('click', async () => {
+  const audit = await window.api.imagesAudit();
+  const remote = audit.entries.filter((entry) => entry.kind === 'remote');
+  if (!remote.length) {
+    flash('No remote images');
+    return;
+  }
+  let saved = 0;
+  for (const entry of remote) {
+    const result = await window.api.downloadImage(entry.src);
+    if (result && result.ok) {
+      rewriteImageSrc(entry.src, result.relative);
+      saved += 1;
+    }
+  }
+  await openImageAudit();
+  flash(`Downloaded ${saved} of ${remote.length} image${remote.length === 1 ? '' : 's'}`);
 });
 
 document.querySelector('#image-audit-remove')?.addEventListener('click', async () => {
@@ -6642,6 +6702,15 @@ window.__mdpad = {
       max: Math.round(Math.max(...times) * 100) / 100,
       chars: editor.getText().length,
     };
+  },
+  downloadRemoteImage: (src) => downloadRemoteImage(src),
+  imageSrcs: () => {
+    const out = [];
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === 'image') out.push(node.attrs.src);
+      return true;
+    });
+    return out;
   },
   openImageAudit: () => openImageAudit().then(() => window.__mdpad.imageAuditState()),
   imageAuditState: () => ({

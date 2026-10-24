@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 307 end-to-end checks against a real window
+npm run smoke          # 308 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -409,3 +409,11 @@ real `DragEvent`s with a `DataTransfer` and asserts the new order.
 document folder, `exists` true/false), `remote` (`exists: null`) or `embedded` (`data:` URI, with an
 approximate decoded size). The panel removes images by `src` through `removeImagesWithSrc`, which
 walks the document and deletes matching image nodes in one transaction.
+
+## Downloading remote images
+
+`images:download` fetches with Electron's `net.fetch` (the renderer CSP does not apply), caps the
+response at 20 MB, derives the extension from `content-type` (falling back to the URL, then
+`.png`), writes `images/<sha1-12>.<ext>` next to the document and returns the relative path. The
+renderer rewrites every image node with that `src`. The test runs a real local HTTP server and
+asserts the file, the rewritten markdown and the audit result.
