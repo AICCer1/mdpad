@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 305 end-to-end checks against a real window
+npm run smoke          # 306 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -395,3 +395,10 @@ cell's left edge, or a column drag within 9 px of its top edge. The drop index c
 under the pointer (`elementFromPoint` → `closest("td, th")` → `posAtDOM` → `$pos.index`), not from
 geometry. `table-drag` performs both drags with real mouse events and asserts the resulting
 markdown.
+
+## Image dragging
+
+`imageBlockPos` finds the image node whose `nodeDOM(pos)` is the dragged `<img>` — `posAtDOM` on an
+atom node returns the wrong position. The drop target is `posAtCoords`, the move deletes and
+reinserts the node in one transaction (adjusting for the removed size). `image-drag` dispatches
+real `DragEvent`s with a `DataTransfer` and asserts the new order.

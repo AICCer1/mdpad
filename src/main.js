@@ -11232,6 +11232,64 @@ async function runSmoke() {
     }
   );
 
+  // 137. an image can be dragged to a new position in one undoable step
+  const imageDragTest = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'image-drag.md');
+    const pixel = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    fs.writeFileSync(
+      doc,
+      ['# Image drag', '', '![one](' + pixel + ')', '', 'text one', '', '![two](' + pixel + ')', '', 'text two', ''].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const count = await jsOf('window.__mdpad.imagePositions().length');
+      if (count === 2) break;
+      if (count && count.__error) return { error: 'load', count };
+    }
+    const before = await jsOf('window.__mdpad.imagePositions()');
+    const dragged = await jsOf(`(() => {
+      const imgs = [...document.querySelectorAll('.tiptap img')];
+      if (imgs.length < 2) return { error: 'not enough images', count: imgs.length };
+      const first = imgs[0];
+      const lastBlock = [...document.querySelectorAll('.tiptap p')].pop();
+      const targetRect = lastBlock.getBoundingClientRect();
+      const data = new DataTransfer();
+      const fire = (el, type, clientX, clientY) =>
+        el.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: data, clientX, clientY }));
+      fire(first, 'dragstart', 0, 0);
+      const stateMid = window.__mdpad.imageDragState();
+      fire(lastBlock, 'dragover', targetRect.left + targetRect.width / 2, targetRect.bottom - 2);
+      const stateOver = window.__mdpad.imageDragState();
+      fire(lastBlock, 'drop', targetRect.left + targetRect.width / 2, targetRect.bottom - 2);
+      return { stateMid, stateOver, after: window.__mdpad.imagePositions() };
+    })()`);
+    await sleep(400);
+    const after = await jsOf('window.__mdpad.imagePositions()');
+    const markdown = await jsOf('window.__mdpad.getMarkdown()');
+    return { before, dragged, after, markdown: typeof markdown === 'string' ? markdown.slice(0, 400) : markdown };
+  })();
+  step(
+    'image-drag',
+    Array.isArray(imageDragTest.before) &&
+      imageDragTest.before.length === 2 &&
+      imageDragTest.dragged &&
+      imageDragTest.dragged.stateMid &&
+      imageDragTest.dragged.stateMid.pos !== null &&
+      imageDragTest.dragged.stateOver &&
+      imageDragTest.dragged.stateOver.target !== null &&
+      Array.isArray(imageDragTest.after) &&
+      imageDragTest.after[0].alt === 'two' &&
+      imageDragTest.after[1].alt === 'one' &&
+      typeof imageDragTest.markdown === 'string' &&
+      imageDragTest.markdown.indexOf('![two]') < imageDragTest.markdown.indexOf('![one]'),
+    imageDragTest
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -547,6 +547,7 @@ const MermaidCodeBlock = CodeBlockLowlight.extend({
 });
 
 const SizedImage = Image.extend({
+  draggable: true,
   markdownName: 'image',
   renderHTML({ HTMLAttributes }) {
     const style = imageStyleFromTitle(HTMLAttributes.title);
@@ -1294,6 +1295,102 @@ function rowIndexAt(y) {
 function closeTableMenu() {
   const menu = document.querySelector('#table-menu');
   if (menu) menu.hidden = true;
+}
+
+// ---- image drag -------------------------------------------------------------
+// Images move by dragging them: the drop position comes from the document coordinates under the
+// pointer, so the image lands between blocks rather than at a pixel offset.
+const imageDrag = { pos: null, target: null, indicator: null };
+
+function imageDropIndicator() {
+  if (imageDrag.indicator) return imageDrag.indicator;
+  const line = document.createElement('div');
+  line.className = 'image-drop-line';
+  line.hidden = true;
+  document.body.appendChild(line);
+  imageDrag.indicator = line;
+  return line;
+}
+
+function imageBlockPos(img) {
+  // posAtDOM on an atom node is unreliable; match the node whose rendered DOM is this <img>.
+  let found = null;
+  editor.state.doc.descendants((node, pos) => {
+    if (found !== null) return false;
+    if (node.type.name === 'image' && editor.view.nodeDOM(pos) === img) {
+      found = pos;
+      return false;
+    }
+    return true;
+  });
+  return found;
+}
+
+editor.view.dom.addEventListener('dragstart', (event) => {
+  const img = event.target.closest ? event.target.closest('img') : null;
+  if (!img || !editor.view.dom.contains(img)) return;
+  const pos = imageBlockPos(img);
+  if (pos === null) return;
+  imageDrag.pos = pos;
+  imageDrag.target = pos;
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', 'mdpad-image');
+});
+
+editor.view.dom.addEventListener('dragover', (event) => {
+  if (imageDrag.pos === null) return;
+  const coords = editor.view.posAtCoords({ left: event.clientX, top: event.clientY });
+  if (!coords) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  const line = imageDropIndicator();
+  const domAt = editor.view.domAtPos(coords.pos);
+  const element = domAt.node.nodeType === 1 ? domAt.node : domAt.node.parentElement;
+  const block = element && element.closest ? element.closest('.tiptap > *') : null;
+  const rect = (block || editor.view.dom).getBoundingClientRect();
+  imageDrag.target = coords.pos;
+  line.hidden = false;
+  line.style.left = rect.left + 'px';
+  line.style.top = rect.top + 'px';
+  line.style.width = rect.width + 'px';
+  line.style.height = '2px';
+});
+
+editor.view.dom.addEventListener('drop', (event) => {
+  if (imageDrag.pos === null) return;
+  event.preventDefault();
+  const from = imageDrag.pos;
+  const target = imageDrag.target === null ? from : imageDrag.target;
+  imageDrag.pos = null;
+  imageDrag.target = null;
+  imageDropIndicator().hidden = true;
+  moveImageTo(from, target);
+});
+
+editor.view.dom.addEventListener('dragend', () => {
+  imageDrag.pos = null;
+  imageDrag.target = null;
+  imageDropIndicator().hidden = true;
+  document.documentElement.classList.remove('image-dragging');
+});
+
+window.addEventListener('dragover', (event) => {
+  if (imageDrag.pos === null) return;
+  if (!editor.view.dom.contains(event.target)) imageDropIndicator().hidden = true;
+});
+
+// Move an image block to another document position in one undoable step.
+function moveImageTo(from, target) {
+  const { state } = editor;
+  const node = state.doc.nodeAt(from);
+  if (!node || node.type.name !== 'image') return false;
+  const nodeSize = node.nodeSize;
+  if (target >= from && target <= from + nodeSize) return false;
+  const adjusted = target > from ? target - nodeSize : target;
+  const tr = state.tr.delete(from, from + nodeSize);
+  tr.insert(Math.max(0, Math.min(adjusted, tr.doc.content.size)), node);
+  editor.view.dispatch(tr.scrollIntoView());
+  return true;
 }
 
 // ---- table drag reordering ---------------------------------------------------
@@ -6432,6 +6529,16 @@ window.__mdpad = {
     };
   },
   tableMove: (direction) => moveTableColumn(direction),
+  imageDragState: () => ({ pos: imageDrag.pos, target: imageDrag.target }),
+  imageMove: (from, to) => moveImageTo(from, to),
+  imagePositions: () => {
+    const out = [];
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'image') out.push({ pos, alt: node.attrs.alt || '' });
+      return true;
+    });
+    return out;
+  },
   tableDragState: () => ({ active: tableDragState.active, axis: tableDragState.axis, from: tableDragState.from, target: tableDragState.target }),
   tableMoveRow: (direction) => moveTableRow(direction),
   measureTyping: (count = 20) => {

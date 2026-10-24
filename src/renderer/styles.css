@@ -2330,3 +2330,14 @@ textarea:focus-visible,
 }
 html.table-dragging-row, html.table-dragging-row * { cursor: row-resize !important; }
 html.table-dragging-column, html.table-dragging-column * { cursor: col-resize !important; }
+
+/* ---- image dragging ---- */
+.image-drop-line {
+  position: fixed;
+  z-index: 60;
+  background: var(--accent);
+  border-radius: 2px;
+  pointer-events: none;
+}
+.tiptap img[draggable="true"] { cursor: grab; }
+.tiptap img[draggable="true"]:active { cursor: grabbing; }

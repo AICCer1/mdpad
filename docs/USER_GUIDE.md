@@ -157,6 +157,12 @@ left margin. Click it for a menu:
 **Ctrl+Shift+↑ / ↓** does the same from the keyboard, and the caret stays where it was inside the
 block as it moves.
 
+## Images
+
+**Images move by dragging**: press on the image and drag — a line marks where it will land, and
+release drops it there. The move is a single undo step, and the image keeps its width and
+alignment. Resizing works from the corner handle; the toolbar sets width and alignment.
+
 ## Tables
 
 **Drag to reorder**: grab the **left edge** of a cell to drag its row, or the **top edge** to
@@ -371,21 +377,6 @@ so in red before you pick a format — fixing it is easier than noticing it in t
 
 EPUB splits chapters at `#` headings and keeps the heading as the chapter title on the page.
 Word has no diagram renderer, so a Mermaid block arrives as its source in a code block.
-
-## Images
-
-Drag, drop, paste or insert an image and it is **optimised before it is written**: the long edge is
-capped at 2200 px, and the file is re-encoded as whichever of JPEG or PNG is smaller (photos usually
-become JPEG, screenshots of text usually stay PNG). The toast shows the before/after size — a 9 MB
-photo typically lands around 100–300 KB.
-
-Older documents can still contain pasted images as data URLs. **File → Extract embedded
-images…** moves them into `assets/`, replaces the references, and keeps a backup of the previous
-version. It only runs on a saved document with no unsaved changes — save first if the command seems
-to do nothing.
-
-The file goes to an `assets/` folder next to the document, so the markdown stays readable and the
-document folder stays portable. Images smaller than 1.2 MB and 2200 px are left untouched.
 
 ## Crash safety
 

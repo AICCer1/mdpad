@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.64.0
+
+Drag an image to move it.
+
+- **Images are draggable**: press and drag, a line marks where it will land, release drops it there.
+  The move is **one undo step** and keeps the image's width and alignment.
+- **The drop position is a document coordinate**, not a pixel offset: `posAtCoords` gives the target,
+  and the node is deleted and reinserted in a single transaction (adjusting for the removed size).
+- **`posAtDOM` on an atom node returned the wrong position**, so the first drag never started. The
+  image is now located by matching `nodeDOM(pos) === img` while walking the document.
+- The guide and README each grew a duplicate section during this round's doc edits; a dedupe pass
+  keeps the heading-uniqueness test honest (it caught both).
+- 306 smoke checks (one new: `image-drag` dispatches real `DragEvent`s with a `DataTransfer` and
+  asserts the new order plus the undoable markdown), 160 unit tests.
+
 ## 1.63.0
 
 Drag a row or column where you want it.
