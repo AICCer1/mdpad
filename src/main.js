@@ -8973,6 +8973,80 @@ async function runSmoke() {
     perfDoc
   );
 
+  // 110a. a big screenshot is downscaled and re-encoded before it is written
+  const imageOptimize = await win.webContents.executeJavaScript(`(async () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 3200;
+    canvas.height = 2100;
+    const ctx = canvas.getContext('2d');
+    const g = ctx.createLinearGradient(0, 0, 3200, 2100);
+    g.addColorStop(0, '#2b5876');
+    g.addColorStop(0.5, '#4e4376');
+    g.addColorStop(1, '#e9d362');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 3200, 2100);
+    for (let i = 0; i < 260; i += 1) {
+      const rg = ctx.createRadialGradient((i * 97) % 3200, (i * 61) % 2100, 4, (i * 97) % 3200, (i * 61) % 2100, 220);
+      rg.addColorStop(0, 'hsla(' + ((i * 29) % 360) + ', 70%, 62%, 0.55)');
+      rg.addColorStop(1, 'hsla(' + ((i * 29) % 360) + ', 70%, 40%, 0)');
+      ctx.fillStyle = rg;
+      ctx.fillRect(0, 0, 3200, 2100);
+    }
+    const dataUrl = canvas.toDataURL('image/png');
+    return window.__mdpad.optimizeImageForTest(dataUrl, 'screenshot.png');
+  })()`);
+  step(
+    'image-optimize',
+    imageOptimize.changed === true &&
+      imageOptimize.bytes < imageOptimize.originalBytes &&
+      imageOptimize.bytes < imageOptimize.originalBytes / 2 &&
+      imageOptimize.width <= 2200 &&
+      imageOptimize.height <= 2200 &&
+      /^image\//.test(imageOptimize.type),
+    imageOptimize
+  );
+
+  // 110b. dropping that image really writes the smaller file next to the document
+  const imageDrop = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const canvas = document.createElement('canvas');
+    canvas.width = 2600;
+    canvas.height = 1800;
+    const ctx = canvas.getContext('2d');
+    const g = ctx.createLinearGradient(0, 0, 2600, 1800);
+    g.addColorStop(0, '#2b5876');
+    g.addColorStop(0.5, '#4e4376');
+    g.addColorStop(1, '#e9d362');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 2600, 1800);
+    for (let i = 0; i < 260; i += 1) {
+      const rg = ctx.createRadialGradient((i * 97) % 2600, (i * 61) % 1800, 4, (i * 97) % 2600, (i * 61) % 1800, 220);
+      rg.addColorStop(0, 'hsla(' + ((i * 29) % 360) + ', 70%, 62%, 0.55)');
+      rg.addColorStop(1, 'hsla(' + ((i * 29) % 360) + ', 70%, 40%, 0)');
+      ctx.fillStyle = rg;
+      ctx.fillRect(0, 0, 2600, 1800);
+    }
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(new File([blob], 'drop.png', { type: 'image/png' }));
+    document.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer }));
+    await sleep(2500);
+    return {
+      markdown: window.__mdpad.getMarkdown(),
+      originalBytes: blob.size,
+    };
+  })()`);
+  const droppedMatch = /assets\/([a-f0-9]+\.(jpg|png))/.exec(imageDrop.markdown);
+  const droppedSize = droppedMatch ? fs.statSync(path.join(path.dirname(docPath), 'assets', droppedMatch[1])).size : 0;
+  step(
+    'image-drop-compressed',
+    Boolean(droppedMatch) &&
+      ['jpg', 'png'].includes(droppedMatch[2]) &&
+      droppedSize > 0 &&
+      droppedSize < Math.min(1200000, imageDrop.originalBytes),
+    { matched: Boolean(droppedMatch), droppedSize, originalBytes: imageDrop.originalBytes }
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

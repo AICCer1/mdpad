@@ -1617,13 +1617,101 @@ linkInput.addEventListener('keydown', (event) => {
 
 // ---- images ----------------------------------------------------------------
 
+// Screenshots and phone photos arrive far larger than a document needs. Shrink them before they
+// are written: a 3 MB PNG becomes a few hundred KB, which keeps the markdown, the exports and any
+// sync folder reasonable.
+const IMAGE_MAX_DIM = 2200;
+const IMAGE_MAX_BYTES = 1_200_000;
+
+function formatBytes(bytes) {
+  if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
+  return Math.max(1, Math.round(bytes / 1024)) + ' KB';
+}
+
+async function imageHasAlpha(bitmap) {
+  const size = 24;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(bitmap, 0, 0, size, size);
+  try {
+    const data = ctx.getImageData(0, 0, size, size).data;
+    for (let i = 3; i < data.length; i += 4) {
+      if (data[i] < 250) return true;
+    }
+  } catch {
+    /* a tainted canvas cannot be sampled; assume no transparency */
+  }
+  return false;
+}
+
+async function optimizeImage(file) {
+  const originalBytes = file.size;
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch (err) {
+    return { file, originalBytes, bytes: originalBytes, changed: false, error: String(err && err.message ? err.message : err) };
+  }
+  const oversized =
+    Math.max(bitmap.width, bitmap.height) > IMAGE_MAX_DIM || originalBytes > IMAGE_MAX_BYTES;
+  if (!oversized) {
+    const natural = { width: bitmap.width, height: bitmap.height };
+    bitmap.close?.();
+    return { file, originalBytes, bytes: originalBytes, changed: false, ...natural };
+  }
+  const scale = Math.min(1, IMAGE_MAX_DIM / Math.max(bitmap.width, bitmap.height));
+  const width = Math.max(1, Math.round(bitmap.width * scale));
+  const height = Math.max(1, Math.round(bitmap.height * scale));
+  const alpha = await imageHasAlpha(bitmap);
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close?.();
+  // Encode both and keep the smaller one: JPEG wins on photos, PNG wins on screenshots of text.
+  const encode = (type, quality) =>
+    new Promise((resolve) => canvas.toBlob(resolve, type, quality));
+  const candidates = [];
+  if (!alpha) candidates.push(await encode('image/jpeg', 0.85));
+  candidates.push(await encode('image/png'));
+  const best = candidates.filter(Boolean).sort((a, b) => a.size - b.size)[0];
+  if (!best || best.size >= originalBytes) {
+    return {
+      file,
+      originalBytes,
+      bytes: originalBytes,
+      changed: false,
+      debug: { width, height, alpha, best: best ? best.size : null, type: best ? best.type : null },
+    };
+  }
+  const ext = best.type === 'image/png' ? '.png' : '.jpg';
+  const name = (file.name || 'image').replace(/.[a-z0-9]+$/i, '') + ext;
+  return {
+    file: new File([best], name, { type: best.type }),
+    originalBytes,
+    bytes: best.size,
+    changed: true,
+    width,
+    height,
+  };
+}
+
 async function insertImageFile(file) {
+  const optimized = await optimizeImage(file);
+  if (optimized.changed) {
+    showToast('Image ' + formatBytes(optimized.originalBytes) + ' → ' + formatBytes(optimized.bytes), 4000);
+  }
+  const source = optimized.file;
   const dataUrl = await new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(source);
   });
-  const saved = await window.api.saveImage({ dataUrl, ext: file.type.split('/')[1] });
+  const saved = await window.api.saveImage({ dataUrl, ext: source.type.split('/')[1] });
   editor.chain().focus().setImage({ src: saved.fileUrl }).run();
 }
 
@@ -4920,6 +5008,26 @@ window.__mdpad = {
   }),
   relativeAge: (iso) => relativeAge(iso, lang),
   saveState: () => (saveStateEl ? saveStateEl.textContent : ''),
+  optimizeImageForTest: async (dataUrl, name) => {
+    // Decode the data URL by hand: fetching a data: URL is blocked by the page's connect-src.
+    const [meta, base64] = String(dataUrl).split(',');
+    const mime = (/data:([^;]+)/.exec(meta) || [null, 'image/png'])[1];
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    const file = new File([bytes], name || 'test.png', { type: mime });
+    const result = await optimizeImage(file);
+    return {
+      changed: result.changed,
+      originalBytes: result.originalBytes,
+      bytes: result.bytes,
+      type: result.file.type,
+      width: result.width || null,
+      height: result.height || null,
+      error: result.error || null,
+      debug: result.debug || null,
+    };
+  },
   refreshOutlineForPerf: () => renderOutline(),
   findForPerf: (query) => {
     // Drive the real search path (input + collectMatches) so the number reflects what the find

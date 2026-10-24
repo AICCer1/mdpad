@@ -216,6 +216,16 @@ dialog: **Overwrite** replaces the disk version with yours, and closing it keeps
 editor (still unsaved) so you can copy it or save under another name. Autosave stays dirty and
 raises the "changed on disk" banner rather than overwriting.
 
+## Images
+
+Drag, drop, paste or insert an image and it is **optimised before it is written**: the long edge is
+capped at 2200 px, and the file is re-encoded as whichever of JPEG or PNG is smaller (photos usually
+become JPEG, screenshots of text usually stay PNG). The toast shows the before/after size — a 9 MB
+photo typically lands around 100–300 KB.
+
+The file goes to an `assets/` folder next to the document, so the markdown stays readable and the
+document folder stays portable. Images smaller than 1.2 MB and 2200 px are left untouched.
+
 ## Crash safety
 
 Typing is written to a recovery draft on the **first change of a burst** (not after a delay), and

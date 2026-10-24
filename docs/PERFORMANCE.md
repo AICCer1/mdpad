@@ -47,8 +47,9 @@ keystroke** (one frame at 60 Hz).
 - **Paint and compositing.** The smoke and report windows are hidden, where Chromium throttles
   rendering, so scroll smoothness cannot be measured there. Scroll offsets are handled by the
   compositor; what is measured is main-thread work.
-- **Very large images.** Image bytes are stored as data URLs; a document with 50 MB of embedded
-  photos will be limited by memory, not by this pipeline.
+- **Very large images.** Images are written as files under `assets/` and downscaled to 2200 px on
+  insert, but a document that already contains many large embedded data URLs is limited by memory,
+  not by this pipeline.
 - **Cold start.** `npm run smoke` asserts `startup-time` separately (around 300 ms to first paint
   on this machine).
 

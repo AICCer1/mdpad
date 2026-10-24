@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.36.0
+
+Images stop bloating documents.
+
+- **Every inserted image is optimised before it is written**: the long edge is capped at 2200 px and
+  the file is re-encoded as whichever of JPEG (0.85) or PNG is smaller. JPEG wins on photos, PNG
+  wins on screenshots of text; a fixed format would have inflated one of the two. Images already
+  under 1.2 MB and 2200 px are left untouched.
+- A real measurement from the test suite: an 8.86 MB photo becomes **111 KB** (2200×1444 JPEG). The
+  toast reports the saving.
+- **Two false starts worth recording:** the first version always converted to JPEG, which made a
+  154 KB screenshot of text *larger* (324 KB); the second assumed the original was always smaller
+  after resizing, which was false for flat images. The current version encodes both candidates,
+  compares them with the original and keeps the original when neither wins.
+- 265 smoke checks (two new: `image-optimize` for the conversion numbers, `image-drop-compressed`
+  for a real drop event that writes the smaller file into `assets/`), 155 unit tests.
+
 ## 1.35.0
 
 Long-document performance, measured and improved.
