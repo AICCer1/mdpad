@@ -9328,6 +9328,109 @@ async function runSmoke() {
     exportMatrix
   );
 
+  // 113a. typing markdown syntax converts blocks and inline marks through real key events
+  const inputRules = await (async () => {
+    const results = {};
+    const type = async (text) => {
+      for (const ch of text) {
+        win.webContents.sendInputEvent({ type: 'char', keyCode: ch });
+        await sleep(40);
+      }
+      await sleep(250);
+    };
+    const shape = async () => {
+      const list = await win.webContents.executeJavaScript('window.__mdpad.docShape()');
+      return list;
+    };
+    win.focus();
+    win.webContents.focus();
+    await win.webContents.executeJavaScript('window.__mdpad.clearDoc()');
+    await win.webContents.executeJavaScript("window.__mdpad.editor.commands.focus('end')");
+    await type('## ');
+    results.heading = (await shape())[0];
+
+    await win.webContents.executeJavaScript('window.__mdpad.clearDoc()');
+    await win.webContents.executeJavaScript("window.__mdpad.editor.commands.focus('end')");
+    await type('- ');
+    results.bullet = (await shape())[0];
+
+    await win.webContents.executeJavaScript('window.__mdpad.clearDoc()');
+    await win.webContents.executeJavaScript("window.__mdpad.editor.commands.focus('end')");
+    await type('1. ');
+    results.ordered = (await shape())[0];
+
+    await win.webContents.executeJavaScript('window.__mdpad.clearDoc()');
+    await win.webContents.executeJavaScript("window.__mdpad.editor.commands.focus('end')");
+    await type('> ');
+    results.quote = (await shape())[0];
+
+    await win.webContents.executeJavaScript('window.__mdpad.clearDoc()');
+    await win.webContents.executeJavaScript("window.__mdpad.editor.commands.focus('end')");
+    await type('**bold**');
+    results.bold = (await shape())[0];
+
+    await win.webContents.executeJavaScript('window.__mdpad.clearDoc()');
+    await win.webContents.executeJavaScript("window.__mdpad.editor.commands.focus('end')");
+    await type('`code`');
+    results.code = (await shape())[0];
+
+    return results;
+  })();
+  step(
+    'input-rules',
+    inputRules.heading &&
+      inputRules.heading.type === 'heading' &&
+      inputRules.heading.level === 2 &&
+      inputRules.bullet.type === 'bulletList' &&
+      inputRules.ordered.type === 'orderedList' &&
+      inputRules.quote.type === 'blockquote' &&
+      inputRules.bold.type === 'paragraph' &&
+      inputRules.bold.text === 'bold' &&
+      inputRules.bold.marks.includes('bold') &&
+      inputRules.code.text === 'code' &&
+      inputRules.code.marks.includes('code'),
+    inputRules
+  );
+
+  // 113b. pasting plain markdown parses it; the guard leaves prose and a lone #tag alone
+  const pasteMatrix = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const paste = async (text) => {
+      window.__mdpad.clearDoc();
+      window.__mdpad.editor.commands.focus('end');
+      const data = new DataTransfer();
+      data.setData('text/plain', text);
+      document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+      await sleep(400);
+      return window.__mdpad.docShape();
+    };
+    const nl = String.fromCharCode(10);
+    const markdown = await paste('## Pasted heading' + nl + nl + '- one' + nl + '- two');
+    return {
+      markdown,
+      guards: {
+        prose: window.__mdpad.looksLikeMarkdown('just some ordinary words to paste'),
+        tag: window.__mdpad.looksLikeMarkdown('#not-a-heading'),
+        fence: window.__mdpad.looksLikeMarkdown(String.fromCharCode(96, 96, 96) + 'js' + nl + 'const x = 1;' + nl + String.fromCharCode(96, 96, 96)),
+        table: window.__mdpad.looksLikeMarkdown('| a | b |' + nl + '| --- | --- |'),
+        list: window.__mdpad.looksLikeMarkdown('- one' + nl + '- two'),
+      },
+    };
+  })()`);
+  step(
+    'paste-markdown',
+    pasteMatrix.markdown.some(
+      (node) => node.type === 'heading' && node.level === 2 && node.text === 'Pasted heading'
+    ) &&
+      pasteMatrix.markdown.some((node) => node.type === 'bulletList') &&
+      pasteMatrix.guards.prose === false &&
+      pasteMatrix.guards.tag === false &&
+      pasteMatrix.guards.fence === true &&
+      pasteMatrix.guards.table === true &&
+      pasteMatrix.guards.list === true,
+    pasteMatrix
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

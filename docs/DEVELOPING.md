@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 268 end-to-end checks against a real window
+npm run smoke          # 270 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -207,6 +207,13 @@ Inserted images are decoded with `createImageBitmap`, downscaled to 2200 px on t
 encoded twice (JPEG 0.85 unless the bitmap has alpha, and PNG); the smaller blob wins and the
 original file is kept when neither beats it. JPEG wins on photos, PNG wins on screenshots of text —
 a fixed format choice would have inflated one of the two.
+
+## Input rules and paste
+
+`inlineMarkdownInputRules` uses `markInputRule` for bold, italic, strike and code. The italic
+pattern carries a negative lookbehind so it does not swallow the closing `**` of bold. The paste
+guard (`looksLikeMarkdown`) parses a pasted block only on a strong signal, so prose and `#tag`
+stay literal.
 
 ## Export consistency
 

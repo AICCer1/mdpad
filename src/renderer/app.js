@@ -3,7 +3,7 @@
 // WYSIWYG renderer: Tiptap (ProseMirror) holds the document; markdown is the
 // serialization sent to the main process, so saving/backup/draft are unchanged.
 
-import { Editor, Extension } from '@tiptap/core';
+import { Editor, Extension, markInputRule } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import StarterKit from '@tiptap/starter-kit';
@@ -583,6 +583,21 @@ const AiTarget = Extension.create({
   },
 });
 
+// Typing **bold** (or *italic*, ~~strike~~, `code`) converts on the closing delimiter, the way
+// people who write markdown expect. The node-level rules (#, -, 1., >, fences) come from StarterKit.
+const inlineMarkdownInputRules = Extension.create({
+  name: 'inlineMarkdownInputRules',
+  addInputRules() {
+    const marks = this.editor.schema.marks;
+    const rules = [];
+    if (marks.bold) rules.push(markInputRule({ find: /(?:\*\*)([^*]+)(?:\*\*)$/, type: marks.bold }));
+    if (marks.italic) rules.push(markInputRule({ find: /(?<!\*)\*([^*\s][^*]*)\*$/, type: marks.italic }));
+    if (marks.strike) rules.push(markInputRule({ find: /(?:~~)([^~]+)(?:~~)$/, type: marks.strike }));
+    if (marks.code) rules.push(markInputRule({ find: /(?:`)([^`]+)(?:`)$/, type: marks.code }));
+    return rules;
+  },
+});
+
 const editor = new Editor({
   element: host,
   extensions: [
@@ -626,6 +641,7 @@ const editor = new Editor({
     TaskList,
     TaskItem.configure({ nested: true }),
     Mathematics,
+    inlineMarkdownInputRules,
   ],
   content: '',
   autofocus: false,
@@ -1727,6 +1743,28 @@ document.addEventListener('paste', async (event) => {
   if (!file) return;
   event.preventDefault();
   await insertImageFile(file);
+});
+
+// A pasted block that is clearly markdown (fences, a heading with a blank line, a table rule or
+// several list items) is parsed, not inserted as literal text. A single "#tag" stays text.
+function looksLikeMarkdown(text) {
+  if (!text || text.length < 8) return false;
+  const value = String(text);
+  if (/^(?:\s*)(?:\`\`\`|~~~)/m.test(value)) return true;
+  if (/\|/.test(value) && /^\s*\|?\s*:?-{3,}/m.test(value)) return true;
+  if (/^#{1,6}\s+\S/m.test(value) && /^#{1,6}\s+\S[^\n]*\n\s*\n/m.test(value)) return true;
+  const listItems = value.match(/^\s*(?:[-*+]|\d+\.)\s+\S/gm) || [];
+  return listItems.length >= 2;
+}
+
+document.addEventListener('paste', (event) => {
+  const html = event.clipboardData?.getData('text/html');
+  if (html) return;
+  const text = event.clipboardData?.getData('text/plain');
+  if (!looksLikeMarkdown(text)) return;
+  event.preventDefault();
+  editor.chain().focus().insertContent(text, { contentType: 'markdown' }).run();
+  flash('Pasted as Markdown');
 });
 
 // Tell the user when pasted HTML carried structure the editor cannot model.
@@ -5027,6 +5065,18 @@ window.__mdpad = {
   }),
   relativeAge: (iso) => relativeAge(iso, lang),
   saveState: () => (saveStateEl ? saveStateEl.textContent : ''),
+  looksLikeMarkdown: (text) => looksLikeMarkdown(text),
+  docShape: () =>
+    editor.state.doc.content.content.map((node) => ({
+      type: node.type.name,
+      level: node.attrs && node.attrs.level ? node.attrs.level : null,
+      text: node.textContent.slice(0, 40),
+      marks: node.firstChild && node.firstChild.marks ? node.firstChild.marks.map((mark) => mark.type.name) : [],
+    })),
+  clearDoc: () => {
+    editor.commands.clearContent(true);
+    return true;
+  },
   optimizeImageForTest: async (dataUrl, name) => {
     // Decode the data URL by hand: fetching a data: URL is blocked by the page's connect-src.
     const [meta, base64] = String(dataUrl).split(',');

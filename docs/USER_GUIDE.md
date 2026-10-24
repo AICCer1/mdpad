@@ -101,6 +101,19 @@ Images are saved next to the document in `assets/`. Size and alignment are store
 the markdown link title (`![alt](src "w=50%;align=center")`), so they survive a round
 trip through any markdown tool.
 
+## Typing markdown
+
+The editor converts as you type:
+
+- `# `, `## ` … headings; `- `, `1. `, `> ` lists and quotes; ``` fences code blocks
+- `**bold**`, `*italic*`, `~~strike~~` and ```code``` become marks when you type the closing
+  delimiter
+
+Pasting **plain text** that is unmistakably markdown — a fenced block, a table rule, a heading
+followed by a blank line, or two or more list items — is parsed into real blocks. Ordinary prose and
+a lone `#tag` are pasted untouched, so hashes in text never become headings by accident. Pasting
+HTML (from a browser or Word) keeps its structure and warns when something had to be simplified.
+
 ## Files, tabs and windows
 
 - **Ctrl+O** opens a file, **Ctrl+K** opens a folder (the tree shows it).

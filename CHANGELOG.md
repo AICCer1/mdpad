@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.39.0
+
+Typing and pasting markdown, verified through the real input path.
+
+- **Inline markdown input rules**: typing `**bold**`, `*italic*`, `~~strike~~` or `` `code` ``
+  converts on the closing delimiter. Blocks (`# `, `- `, `1. `, `> `) already came from StarterKit.
+- **Smart paste**: plain text that is unmistakably markdown (a fence, a table rule, a heading with a
+  blank line, two or more list items) is parsed into blocks. Prose and a lone `#tag` stay literal,
+  so a hash in text never becomes a heading by accident.
+- **The italic rule needed a negative lookbehind** — without it, `**bold**` matched the italic
+  pattern too and produced italics. The input test caught it by asserting the mark name, not just
+  "some mark".
+- **Typing is tested with real key events** (`sendInputEvent`), not synthetic DOM events, so the
+  input-rule pipeline is exercised the way a keyboard exercises it.
+- 270 smoke checks (two new: `input-rules`, `paste-markdown` with its guard cases), 155 unit tests.
+
 ## 1.38.0
 
 One document, four formats, checked block by block.
