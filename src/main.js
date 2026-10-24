@@ -1993,10 +1993,18 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
       } catch (err) {
         logLine('drafts', err.message);
       }
+    } else if (draft.file) {
+      // The original file is gone: restore into a fresh untitled tab. Sending the draft to the
+      // active tab would overwrite whatever the user has open right now.
+      s.stashActive();
+      const id = s.newTabId();
+      s.tabs.set(id, { id, file: null, contents: '', savedContents: '' });
+      s.activateTab(id);
+      s.sendStatus({ file: null, dirty: true });
     }
     // doc:loaded carries the on-disk version; send the draft after it so it wins.
-    s.send('doc:loadDraft', { contents: draft.contents });
-    return { restored: true, contents: draft.contents, file: draft.file };
+    s.send('doc:loadDraft', { contents: draft.contents, name: draft.name, missingOriginal: Boolean(draft.file && !fs.existsSync(draft.file)) });
+    return { restored: true, contents: draft.contents, file: draft.file, newTab: Boolean(draft.file && !fs.existsSync(draft.file)) };
   });
 
   ipcMain.handle('drafts:open', async () => {
@@ -10406,6 +10414,102 @@ async function runSmoke() {
       backupFailure.recovered.backup === true &&
       backupFailure.backupCount >= 1,
     backupFailure
+  );
+
+  // 126a. a draft whose original file is gone restores into a new tab, leaving the open document alone
+  const draftMissing = await (async () => {
+    const nl = String.fromCharCode(10);
+    const ghost = path.join(dir, 'ghost-original.md');
+    const keeper = path.join(dir, 'keeper.md');
+    fs.writeFileSync(keeper, '# keeper' + nl + nl + 'KEEP ME', 'utf8');
+    storage.writeDraft(ghost, '# recovered draft' + nl + nl + 'DRAFT CONTENT', draftsDir());
+    const draft = storage.readDraft(ghost, draftsDir());
+    const draftEntry = (listDrafts(draftsDir()) || []).find((entry) => entry.file === ghost);
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(keeper);
+    await sleep(700);
+    const before = await win.webContents.executeJavaScript('window.api.listTabs()');
+    const restored = await win.webContents.executeJavaScript(
+      `window.api.restoreDraft(${JSON.stringify(draftEntry ? draftEntry.path : '')})`
+    );
+    await sleep(700);
+    const after = await win.webContents.executeJavaScript('window.api.listTabs()');
+    const markdown = await win.webContents.executeJavaScript('window.__mdpad.getMarkdown()');
+    const active = after.find((tab) => tab.active);
+    // switch back: the keeper tab must still hold its own text
+    const keeperTab = after.find((tab) => tab.file === keeper);
+    await win.webContents.executeJavaScript(`window.api.activateTab(${JSON.stringify(keeperTab.id)})`);
+    await sleep(500);
+    const keeperText = await win.webContents.executeJavaScript('window.__mdpad.getMarkdown()');
+    storage.clearDraft(ghost, draftsDir());
+    return {
+      hasDraft: Boolean(draft),
+      restored,
+      beforeCount: before.length,
+      afterCount: after.length,
+      activeFile: active && active.file,
+      markdown,
+      keeperText,
+    };
+  })();
+  step(
+    'draft-restore-missing-file',
+    draftMissing.hasDraft &&
+      draftMissing.restored.restored === true &&
+      draftMissing.restored.newTab === true &&
+      draftMissing.afterCount === draftMissing.beforeCount + 1 &&
+      draftMissing.activeFile === null &&
+      /DRAFT CONTENT/.test(draftMissing.markdown) &&
+      /KEEP ME/.test(draftMissing.keeperText),
+    draftMissing
+  );
+
+  // 126b. restoring a backup and saving rotates the replaced version into a fresh backup
+  const backupRestore = await (async () => {
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'restore-backup.md');
+    fs.writeFileSync(doc, '# v1' + nl, 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    await sleep(600);
+    await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      window.__mdpad.applyMarkdown('# v2');
+      await sleep(400);
+      await window.api.save({ force: true });
+      await sleep(400);
+    })()`);
+    const listBefore = await win.webContents.executeJavaScript('window.api.backupsList()');
+    const target = listBefore[0];
+    const restored = await win.webContents.executeJavaScript(
+      `window.api.restoreBackup(${JSON.stringify(target.path)})`
+    );
+    await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      window.__mdpad.applyMarkdown(${JSON.stringify('# v1')});
+      await sleep(400);
+      await window.api.save({ force: true });
+      await sleep(500);
+    })()`);
+    const onDisk = fs.readFileSync(doc, 'utf8');
+    const listAfter = await win.webContents.executeJavaScript('window.api.backupsList()');
+    const newest = listAfter[0] ? fs.readFileSync(listAfter[0].path, 'utf8') : '';
+    return {
+      restored: Boolean(restored && restored.restored && /v1/.test(restored.contents)),
+      beforeCount: listBefore.length,
+      afterCount: listAfter.length,
+      onDisk: /# v1/.test(onDisk) && !/# v2/.test(onDisk),
+      newestBackup: /# v2/.test(newest),
+    };
+  })();
+  step(
+    'backup-restore-roundtrip',
+    backupRestore.restored &&
+      backupRestore.beforeCount >= 1 &&
+      backupRestore.afterCount >= backupRestore.beforeCount &&
+      backupRestore.onDisk &&
+      backupRestore.newestBackup,
+    backupRestore
   );
 
   // 30k. the settings filter narrows the visible fields

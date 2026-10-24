@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.52.0
+
+Recovery paths are verified, and one of them was wrong.
+
+- **A draft whose original file was deleted used to restore into whatever tab was active**, quietly
+  replacing the open document's text. It now opens a **new untitled tab** (`missingOriginal`) and
+  leaves the current document alone; saving the tab asks for a path.
+- **Backup round trip is asserted end to end**: save v2 over v1, restore the v1 backup from the
+  popover, save — the disk holds v1 again and the v2 text has become the newest backup, so a restore
+  is itself reversible.
+- The round-trip test first used `setMarkdown` directly and failed: the editor showed the restored
+  text but main still had v2, so saving wrote v2. The restore popover calls `setMarkdown` *and*
+  `scheduleChange`; the test now goes through `applyMarkdown`, the same path.
+- 294 smoke checks (two new: `draft-restore-missing-file`, `backup-restore-roundtrip`), 155 unit
+  tests.
+
 ## 1.51.0
 
 A broken backups folder no longer blocks saving.

@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 292 end-to-end checks against a real window
+npm run smoke          # 294 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -271,7 +271,12 @@ pattern carries a negative lookbehind so it does not swallow the closing `**` of
 guard (`looksLikeMarkdown`) parses a pasted block only on a strong signal, so prose and `#tag`
 stay literal.
 
-## Failure paths
+## Recovery paths
+
+`drafts:restore` opens a new untitled tab when the draft points at a file that no longer exists
+(`missingOriginal`) — sending it to the active tab would overwrite the user's current document.
+The backup round-trip test restores, saves and asserts the replaced version became the newest
+backup.
 
 `storage.saveDocument` treats the backup as optional: a failing rotation returns
 `backupError` and the atomic write still runs. `listBackups` returns `[]` for a non-directory

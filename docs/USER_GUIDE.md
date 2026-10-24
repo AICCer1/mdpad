@@ -380,6 +380,16 @@ that into the report — it saves a round trip. **Open log folder** shows the fu
 
 Nothing is uploaded: diagnostics only fill the clipboard.
 
+## Restoring after a problem
+
+**Backups**: click the backup count in the status bar, pick a version — it loads into the editor
+as unsaved changes. Saving writes it back and the version you replaced becomes the newest backup,
+so a restore is itself reversible.
+
+**Drafts**: File → Recovery drafts. If the original file still exists it is opened and the draft
+text is applied on top. If the file was deleted, the draft opens in a **new untitled tab**, and
+the document you had open is left untouched. Saving that tab asks for a path.
+
 ## When something goes wrong
 
 - **An export cannot be written** (target folder gone, permission denied, disk full): a banner

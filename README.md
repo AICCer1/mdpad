@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         292 end-to-end checks (dev or packaged)
+npm run smoke         294 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -168,6 +168,12 @@ Opening a file that another window already shows focuses that window instead of 
 editor. If a file changes on disk (another window, another app, a sync client), a save refuses to
 clobber it: the dialog offers **Overwrite**, and autosave stays dirty instead of pretending to
 save. Saving is never silent about losing someone else's work.
+
+## Recovery paths are verified
+
+Restoring a backup and saving again is asserted end to end (the replaced version becomes the
+next backup), and a recovery draft whose original file was deleted restores into a **new tab**
+instead of overwriting whatever is open.
 
 ## When something goes wrong
 
