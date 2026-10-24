@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.46.0
+
+Recent files became a real panel.
+
+- **File → Show all recent files…** (and a palette entry) lists documents newest first with folder
+  and age; rows can be opened, removed, and the list cleared without touching the files.
+- **Missing files stay visible with a red badge.** The old `recentFiles()` silently filtered them
+  out of the menu, so a deleted document just vanished. The panel reads the raw list, marks the row
+  missing, and `recent:open` returns `{opened:false, reason:'missing'}` instead of throwing.
+- The test for the list had to clear entries through `recent:clear`; `setSettings({recent: []})` is
+  (correctly) not a writable setting.
+- 285 smoke checks (two new: `recent-panel`, `recent-missing`), 155 unit tests.
+
 ## 1.45.0
 
 You can go back now.

@@ -101,6 +101,16 @@ Images are saved next to the document in `assets/`. Size and alignment are store
 the markdown link title (`![alt](src "w=50%;align=center")`), so they survive a round
 trip through any markdown tool.
 
+## Recent files
+
+**File → Show all recent files…** (or type "recent" in the palette) opens the list: newest
+first, each row with its folder and age. Click a row to open it, **×** to remove it, **Clear
+list** to empty the list without touching the files.
+
+If a file was moved or deleted outside the app, its row stays with a red **missing** badge —
+clicking it explains the file is gone and offers to remove the entry. Nothing disappears from the
+list until you say so.
+
 ## Moving through a document
 
 **Alt+Left** returns to where you were before the last jump, **Alt+Right** goes forward again. Jumps

@@ -2308,6 +2308,94 @@ editor.on('selectionUpdate', () => {
 editor.on('update', updateActiveBlock);
 
 
+// ---- recent files -----------------------------------------------------------
+
+async function openRecentPanel() {
+  const modal = document.querySelector('#recent-modal');
+  const list = document.querySelector('#recent-list');
+  const entries = await window.api.recentEntries();
+  list.textContent = '';
+  if (!entries.length) {
+    const empty = document.createElement('div');
+    empty.className = 'drafts-empty';
+    empty.textContent = t('recent.empty', lang);
+    list.append(empty);
+  }
+  for (const entry of entries) {
+    const row = document.createElement('div');
+    row.className = 'recent-row' + (entry.exists ? '' : ' is-missing');
+    row.dataset.path = entry.path;
+
+    const body = document.createElement('button');
+    body.type = 'button';
+    body.className = 'recent-body';
+    const name = document.createElement('span');
+    name.className = 'recent-name';
+    name.textContent = entry.name;
+    const dir = document.createElement('span');
+    dir.className = 'recent-dir';
+    dir.textContent = entry.dir;
+    dir.title = entry.path;
+    body.append(name, dir);
+    if (!entry.exists) {
+      const badge = document.createElement('span');
+      badge.className = 'recent-badge';
+      badge.textContent = t('recent.missing', lang);
+      body.append(badge);
+    } else if (entry.mtime) {
+      const age = document.createElement('span');
+      age.className = 'recent-age';
+      age.textContent = relativeAge(entry.mtime, lang);
+      body.append(age);
+    }
+    body.addEventListener('click', async () => {
+      if (!entry.exists) {
+        showToast(t('recent.gone', lang), 6000, [
+          { label: t('recent.remove', lang), run: async () => {
+            await window.api.recentRemove(entry.path);
+            await openRecentPanel();
+          } },
+        ]);
+        return;
+      }
+      const result = await window.api.recentOpen(entry.path);
+      if (result && result.opened === false) {
+        showToast(t('recent.gone', lang));
+        return;
+      }
+      modal.hidden = true;
+    });
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'recent-remove';
+    remove.title = t('recent.remove', lang);
+    remove.setAttribute('aria-label', t('recent.remove', lang) + ': ' + entry.name);
+    remove.innerHTML =
+      '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+    remove.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      await window.api.recentRemove(entry.path);
+      await openRecentPanel();
+    });
+
+    row.append(body, remove);
+    list.append(row);
+  }
+  modal.hidden = false;
+}
+
+document.querySelector('#recent-close')?.addEventListener('click', () => {
+  document.querySelector('#recent-modal').hidden = true;
+});
+
+document.querySelector('#recent-clear')?.addEventListener('click', async () => {
+  const confirmed = await askConfirm(t('recent.clear', lang), t('recent.clearConfirm', lang), t('recent.clear', lang));
+  if (!confirmed) return;
+  await window.api.recentClear();
+  await openRecentPanel();
+});
+
 // ---- find & replace --------------------------------------------------------
 
 const MAX_FIND_MATCHES = 2000;
@@ -5617,6 +5705,24 @@ window.__mdpad = {
   },
   moveBlockAt: (index, delta) => moveBlockAt(editor.view, index, delta),
   caretText: () => editor.state.selection.$from.parent.textContent,
+  openRecentPanel: () => openRecentPanel().then(() => window.__mdpad.recentState()),
+  recentState: () => ({
+    open: !document.querySelector('#recent-modal').hidden,
+    rows: [...document.querySelectorAll('#recent-list .recent-row')].map((row) => ({
+      name: row.querySelector('.recent-name').textContent,
+      missing: row.classList.contains('is-missing'),
+    })),
+    empty: Boolean(document.querySelector('#recent-list .drafts-empty')),
+  }),
+  recentRemoveAt: async (name) => {
+    const row = [...document.querySelectorAll('#recent-list .recent-row')].find(
+      (item) => item.querySelector('.recent-name').textContent === name
+    );
+    if (!row) return false;
+    row.querySelector('.recent-remove').click();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    return window.__mdpad.recentState();
+  },
   navJump: (pos) => {
     recordJump();
     return navTo(pos);

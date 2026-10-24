@@ -1083,6 +1083,32 @@ Object.assign(DICT.zh, {
   'dialog.extracted': '已移动 {count} 张图片到 assets/',
 });
 
+Object.assign(DICT.en, {
+  'recent.title': 'Recent files',
+  'recent.empty': 'No recent files yet. Open one and it will show up here.',
+  'recent.missing': 'missing',
+  'recent.open': 'Open',
+  'recent.remove': 'Remove from list',
+  'recent.clear': 'Clear list',
+  'recent.clearConfirm': 'Remove every entry from the recent list? The files stay on disk.',
+  'recent.gone': 'That file no longer exists',
+  'menu.recentAll': 'Show all recent files…',
+  'palette.recent': 'Recent files…',
+});
+
+Object.assign(DICT.zh, {
+  'recent.title': '最近文件',
+  'recent.empty': '还没有最近文件。打开一个文件后会出现在这里。',
+  'recent.missing': '已丢失',
+  'recent.open': '打开',
+  'recent.remove': '从列表移除',
+  'recent.clear': '清空列表',
+  'recent.clearConfirm': '清空最近文件列表？磁盘上的文件不会被删除。',
+  'recent.gone': '该文件已不存在',
+  'menu.recentAll': '显示全部最近文件…',
+  'palette.recent': '最近文件…',
+});
+
 module.exports = { t, normalizeLang, LANGS, DICT };
 
 Object.assign(DICT.en, {

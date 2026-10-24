@@ -2260,3 +2260,50 @@ textarea:focus-visible,
 .outline-twisty.is-folded { transform: rotate(-90deg); }
 .outline-twisty.is-empty { visibility: hidden; }
 .outline-row .outline-item { flex: 1 1 auto; min-width: 0; }
+
+/* ---- recent files ---- */
+.recent-card { width: 560px; }
+.recent-list { max-height: 46vh; overflow-y: auto; margin: 10px 0 4px; display: flex; flex-direction: column; gap: 4px; }
+.recent-row { display: flex; align-items: center; gap: 6px; }
+.recent-body {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--chrome-line, var(--line));
+  border-radius: var(--r-sm, 6px);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.recent-body:hover { border-color: var(--accent); }
+.recent-name { flex: 0 0 auto; font-size: 12.5px; font-weight: 550; }
+.recent-dir { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--muted); }
+.recent-age { flex: 0 0 auto; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.recent-badge {
+  flex: 0 0 auto;
+  font-size: 10.5px;
+  color: #c0392b;
+  border: 1px solid color-mix(in srgb, #c0392b 40%, transparent);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.recent-row.is-missing .recent-name { color: var(--muted); text-decoration: line-through; }
+.recent-remove {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm, 5px);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.recent-remove:hover { color: #c0392b; border-color: color-mix(in srgb, #c0392b 40%, var(--line)); }

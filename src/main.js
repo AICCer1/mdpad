@@ -1774,6 +1774,61 @@ function registerIpc() {
     return { ...result, size };
   });
 
+  // The panel shows what is actually stored, including files that no longer exist, so a missing
+  // entry can be explained instead of silently vanishing.
+  function recentEntries() {
+    const list = readSettings().recent;
+    if (!Array.isArray(list)) return [];
+    return list
+      .filter((entry) => typeof entry === 'string')
+      .slice(0, 20)
+      .map((entry) => {
+        let exists = false;
+        let mtime = null;
+        try {
+          const stat = fs.statSync(entry);
+          exists = stat.isFile();
+          mtime = stat.mtimeMs;
+        } catch {
+          exists = false;
+        }
+        return {
+          path: entry,
+          name: path.basename(entry),
+          dir: path.dirname(entry),
+          exists,
+          mtime,
+        };
+      });
+  }
+
+  ipcMain.handle('recent:entries', () => recentEntries());
+
+  ipcMain.handle('recent:remove', (_e, { path: target } = {}) => {
+    const list = (readSettings().recent || []).filter((entry) => entry !== target);
+    writeSettings({ recent: list });
+    buildMenu();
+    return { removed: true, entries: recentEntries() };
+  });
+
+  ipcMain.handle('recent:clear', () => {
+    writeSettings({ recent: [] });
+    buildMenu();
+    return { cleared: true };
+  });
+
+  ipcMain.handle('recent:open', async (event, { path: target } = {}) => {
+    const s = sessionFor(event);
+    let exists = false;
+    try {
+      exists = fs.statSync(target).isFile();
+    } catch {
+      exists = false;
+    }
+    if (!exists) return { opened: false, reason: 'missing' };
+    return s.loadDocument(target);
+  });
+
   ipcMain.handle('recent:list', () => recentFiles());
 
   ipcMain.handle('clipboard:write', (_e, { text } = {}) => {
@@ -2408,6 +2463,8 @@ function buildMenu() {
         },
         { label: tt('menu.openFolder'), accelerator: 'CmdOrCtrl+K', click: () => sendMenuAction('openFolder') },
         { type: 'separator' },
+        { type: 'separator' },
+        { label: tt('menu.recentAll'), click: () => sendMenuAction('recent') },
         { label: tt('menu.save'), accelerator: 'CmdOrCtrl+S', click: () => sendMenuAction('save') },
         { label: tt('menu.saveAs'), accelerator: 'CmdOrCtrl+Shift+S', click: () => sendMenuAction('saveAs') },
         { type: 'separator' },
@@ -9910,6 +9967,68 @@ async function runSmoke() {
       navTruncate.afterFind.back >= 1 &&
       afterFindBack.caret === 'Beta',
     { afterNewJump: navTruncate.afterNewJump, afterFind: navTruncate.afterFind, afterFindBack }
+  );
+
+  // 120a. the recent panel lists newest first, removes entries and clears the list
+  const recentTest = await (async () => {
+    const first = path.join(dir, 'recent-one.md');
+    const second = path.join(dir, 'recent-two.md');
+    fs.writeFileSync(first, '# one' + String.fromCharCode(10), 'utf8');
+    fs.writeFileSync(second, '# two' + String.fromCharCode(10), 'utf8');
+    await win.webContents.executeJavaScript(
+      `window.api.recentClear().then(() => window.api.openPath(${JSON.stringify(first)}))`
+    );
+    await sleep(500);
+    await win.webContents.executeJavaScript(`window.api.openPath(${JSON.stringify(second)})`);
+    await sleep(600);
+    const opened = await win.webContents.executeJavaScript('window.__mdpad.openRecentPanel()');
+    const removed = await win.webContents.executeJavaScript(
+      `window.__mdpad.recentRemoveAt(${JSON.stringify('recent-one.md')})`
+    );
+    await win.webContents.executeJavaScript('window.api.recentClear()');
+    const cleared = await win.webContents.executeJavaScript('window.api.recentEntries()');
+    await win.webContents.executeJavaScript(
+      `document.querySelector('#recent-modal').hidden = true`
+    );
+    return { opened, removed, cleared, first: path.basename(first), second: path.basename(second) };
+  })();
+  step(
+    'recent-panel',
+    recentTest.opened.open === true &&
+      recentTest.opened.rows.length === 2 &&
+      recentTest.opened.rows[0].name === recentTest.second &&
+      recentTest.opened.rows[1].name === recentTest.first &&
+      recentTest.removed.rows.length === 1 &&
+      recentTest.removed.rows[0].name === recentTest.second &&
+      recentTest.cleared.length === 0,
+    recentTest
+  );
+
+  // 120b. a file deleted behind the app's back is shown as missing and opening it says why
+  const recentMissing = await (async () => {
+    const ghost = path.join(dir, 'recent-ghost.md');
+    fs.writeFileSync(ghost, '# ghost' + String.fromCharCode(10), 'utf8');
+    await win.webContents.executeJavaScript(`window.api.openPath(${JSON.stringify(ghost)})`);
+    await sleep(500);
+    fs.unlinkSync(ghost);
+    const state = await win.webContents.executeJavaScript('window.__mdpad.openRecentPanel()');
+    const missing = state.rows.find((row) => row.name === 'recent-ghost.md');
+    const openResult = await win.webContents.executeJavaScript(
+      `window.api.recentOpen(${JSON.stringify(ghost)})`
+    );
+    await win.webContents.executeJavaScript(
+      `document.querySelector('#recent-modal').hidden = true`
+    );
+    await win.webContents.executeJavaScript('window.api.recentClear()');
+    return { missing, openResult };
+  })();
+  step(
+    'recent-missing',
+    recentMissing.missing &&
+      recentMissing.missing.missing === true &&
+      recentMissing.openResult.opened === false &&
+      recentMissing.openResult.reason === 'missing',
+    recentMissing
   );
 
   // 30k. the settings filter narrows the visible fields
