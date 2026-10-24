@@ -101,6 +101,17 @@ Images are saved next to the document in `assets/`. Size and alignment are store
 the markdown link title (`![alt](src "w=50%;align=center")`), so they survive a round
 trip through any markdown tool.
 
+## Links
+
+A click on a link never navigates the app window:
+
+- **`[text](other.md)`** — a relative path opens that file in a tab. The path resolves against the
+  current document; `.md` is added when you leave the extension out. If the file is missing, a
+  toast names it, and an unsaved document explains that relative links need a saved file.
+- **`[text](#some-heading)`** — scrolls to the heading whose text matches the anchor.
+- **`https://…`** — a plain click only places the caret; **Ctrl+click** (or middle click) opens the
+  URL in your browser.
+
 ## Recent files
 
 **File → Show all recent files…** (or type "recent" in the palette) opens the list: newest

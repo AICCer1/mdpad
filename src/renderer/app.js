@@ -2135,13 +2135,67 @@ function openMathAtClick(event) {
   return true;
 }
 
+function headingSlug(text) {
+  return String(text)
+    .toLowerCase()
+    .trim()
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+// [text](#heading) scrolls inside the document; it never leaves the app.
+function scrollToAnchor(raw) {
+  const needle = decodeURIComponent(String(raw || '')).toLowerCase().replace(/^#/, '');
+  let found = null;
+  editor.state.doc.descendants((node, pos) => {
+    if (found !== null) return false;
+    if (node.type.name !== 'heading') return true;
+    const slug = headingSlug(node.textContent);
+    if (slug === needle || node.textContent.trim().toLowerCase() === needle) {
+      found = pos + 1;
+      return false;
+    }
+    return true;
+  });
+  if (found === null) {
+    flash('No heading matches #' + needle);
+    return false;
+  }
+  editor.commands.focus(found);
+  const dom = editor.view.nodeDOM(found - 1);
+  if (dom && dom.scrollIntoView) dom.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  return true;
+}
+
 function handleLinkClick(event) {
   const anchor = event.target.closest ? event.target.closest('a[href]') : null;
   if (!anchor) return false;
-  // Never let the click navigate the app window; a plain click should just place the caret.
+  // Never let the click navigate the app window.
   event.preventDefault();
-  if (!shouldOpenExternal(event)) return true;
-  window.api.openExternal(anchor.getAttribute('href')).catch(() => {});
+  const href = (anchor.getAttribute('href') || '').trim();
+  if (!href) return true;
+
+  if (href.startsWith('#')) {
+    scrollToAnchor(href);
+    return true;
+  }
+
+  const external = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(href);
+  if (external) {
+    if (shouldOpenExternal(event)) window.api.openExternal(href).catch(() => {});
+    return true;
+  }
+
+  // A relative link belongs to the document's folder: open it in a tab.
+  window.api
+    .openRelativeLink(href)
+    .then((result) => {
+      if (result && result.opened === false) {
+        if (result.reason === 'missing') flash('Link target not found: ' + (result.name || href));
+        else if (result.reason === 'unsaved') flash('Save this document first, then its relative links work');
+      }
+    })
+    .catch(() => {});
   return true;
 }
 
@@ -5723,6 +5777,14 @@ window.__mdpad = {
     await new Promise((resolve) => setTimeout(resolve, 300));
     return window.__mdpad.recentState();
   },
+  clickLink: (href) => {
+    const anchors = [...document.querySelectorAll('.tiptap a[href]')];
+    const target = anchors.find((a) => a.getAttribute('href') === href);
+    if (!target) return false;
+    target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    return true;
+  },
+  focusState: () => ({ caret: editor.state.selection.$from.parent.textContent.slice(0, 40) }),
   navJump: (pos) => {
     recordJump();
     return navTo(pos);

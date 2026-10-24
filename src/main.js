@@ -1541,6 +1541,30 @@ function registerIpc() {
     return result;
   });
 
+  // Markdown links between files in the same folder are the normal way to write a note library or
+  // a book, so a relative link opens the target instead of being handed to the OS browser.
+  ipcMain.handle('doc:openRelative', async (event, { href } = {}) => {
+    const s = sessionFor(event);
+    if (!s.file) return { opened: false, reason: 'unsaved' };
+    const raw = String(href || '').trim();
+    if (!raw) return { opened: false, reason: 'empty' };
+    const clean = decodeURI(raw.replace(/[#?].*$/, '').replace(/^file:\/\/\//i, ''));
+    if (!clean) return { opened: false, reason: 'empty' };
+    let target = path.isAbsolute(clean) ? clean : path.resolve(path.dirname(s.file), clean);
+    if (!fs.existsSync(target) && fs.existsSync(target + '.md')) target = target + '.md';
+    let exists = false;
+    try {
+      exists = fs.statSync(target).isFile();
+    } catch {
+      exists = false;
+    }
+    if (!exists) {
+      return { opened: false, reason: 'missing', path: target, name: path.basename(clean) };
+    }
+    const result = await s.loadDocument(target);
+    return { opened: true, ...result };
+  });
+
   ipcMain.handle('doc:save', async (event, payload = {}) => {
     const s = sessionFor(event);
     if (!s.file) return s.saveAs();
@@ -10029,6 +10053,68 @@ async function runSmoke() {
       recentMissing.openResult.opened === false &&
       recentMissing.openResult.reason === 'missing',
     recentMissing
+  );
+
+  // 121a. a relative markdown link opens the target file in a tab
+  const localLink = await (async () => {
+    const target = path.join(dir, 'linked-two.md');
+    const source = path.join(dir, 'linked-one.md');
+    fs.writeFileSync(target, '# Linked two' + String.fromCharCode(10), 'utf8');
+    fs.writeFileSync(source, '# Linked one' + String.fromCharCode(10) + String.fromCharCode(10) + '[go to two](linked-two.md)', 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(source);
+    await sleep(700);
+    const before = await win.webContents.executeJavaScript('window.api.listTabs()');
+    const clicked = await win.webContents.executeJavaScript(
+      `window.__mdpad.clickLink('linked-two.md')`
+    );
+    await sleep(900);
+    const after = await win.webContents.executeJavaScript('window.api.listTabs()');
+    const active = after.find((tab) => tab.active);
+    return {
+      clicked,
+      beforeCount: before.length,
+      afterCount: after.length,
+      active: active && active.file,
+      markdown: await win.webContents.executeJavaScript('window.__mdpad.getMarkdown()'),
+    };
+  })();
+  step(
+    'local-link-open',
+    localLink.clicked === true &&
+      localLink.afterCount === localLink.beforeCount + 1 &&
+      localLink.active === path.join(dir, 'linked-two.md') &&
+      /Linked two/.test(localLink.markdown),
+    localLink
+  );
+
+  // 121b. a missing target explains itself, an anchor scrolls inside the document
+  const linkEdgeCases = await (async () => {
+    const missing = await win.webContents.executeJavaScript(
+      `window.api.openRelativeLink('does-not-exist.md')`
+    );
+    const anchorSource = path.join(dir, 'anchors.md');
+    fs.writeFileSync(
+      anchorSource,
+      ['# Anchors', '', '[jump](#second-heading)', '', '## First heading', '', 'text', '', '## Second Heading', '', 'more'].join(String.fromCharCode(10)),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(anchorSource);
+    await sleep(700);
+    const clicked = await win.webContents.executeJavaScript(`window.__mdpad.clickLink('#second-heading')`);
+    await sleep(500);
+    const focus = await win.webContents.executeJavaScript('window.__mdpad.focusState()');
+    return { missing, clicked, focus };
+  })();
+  step(
+    'link-edge-cases',
+    linkEdgeCases.missing.opened === false &&
+      linkEdgeCases.missing.reason === 'missing' &&
+      linkEdgeCases.missing.name === 'does-not-exist.md' &&
+      linkEdgeCases.clicked === true &&
+      linkEdgeCases.focus.caret === 'Second Heading',
+    linkEdgeCases
   );
 
   // 30k. the settings filter narrows the visible fields

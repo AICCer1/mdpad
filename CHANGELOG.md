@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.47.0
+
+Links between files finally do something.
+
+- **`[text](other.md)` opens the target in a tab**, resolved against the current document, with `.md`
+  guessed when the extension is missing. A missing target names the file in a toast; an unsaved
+  document explains that relative links need a path first.
+- **`[text](#heading)` scrolls inside the document**, matching heading text after slugifying it.
+- **Real URLs are untouched**: a plain click only places the caret, Ctrl+click (or middle click)
+  sends the URL to the system browser.
+- Before this, a relative link was handed to `shell.openExternal`, which silently did nothing, and an
+  anchor did nothing at all.
+- 287 smoke checks (two new: `local-link-open`, `link-edge-cases` for a missing target and an
+  anchor jump), 155 unit tests.
+
 ## 1.46.0
 
 Recent files became a real panel.
