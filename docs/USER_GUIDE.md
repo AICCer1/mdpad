@@ -101,6 +101,26 @@ Images are saved next to the document in `assets/`. Size and alignment are store
 the markdown link title (`![alt](src "w=50%;align=center")`), so they survive a round
 trip through any markdown tool.
 
+## Find and replace
+
+**Ctrl+F** searches, **Ctrl+H** opens the same bar in the **Replace with** field, **Enter** jumps to
+the next match, **Shift+Enter** to the previous one, **Esc** closes.
+
+Three toggles sit between the count and the arrows:
+
+| Toggle | Shortcut | Effect |
+| --- | --- | --- |
+| **Aa** | Alt+C | match case |
+| **ab** | Alt+W | whole word only |
+| **.* ** | Alt+R | treat the query as a regular expression |
+
+In regex mode **Replace** and **All** expand `## Typing markdown` (the match) and `$1…$9` (groups), so
+`(\w+) (\w+)` → `$2 $1` swaps two words. A broken pattern shows **!** in the counter instead of
+silently finding nothing.
+
+**All** replaces every match in one step: a single **undo** puts everything back, without undoing the
+typing you did before it.
+
 ## Typing markdown
 
 The editor converts as you type:

@@ -296,6 +296,14 @@ function publicSettings() {
     exportFont: FONT_KEYS.includes(s.exportFont) ? s.exportFont : 'serif',
     exportMargin: EXPORT_MARGINS.includes(s.exportMargin) ? s.exportMargin : 'normal',
     spellcheck: s.spellcheck !== false,
+    findOptions:
+      s.findOptions && typeof s.findOptions === 'object'
+        ? {
+            caseSensitive: s.findOptions.caseSensitive === true,
+            wholeWord: s.findOptions.wholeWord === true,
+            regex: s.findOptions.regex === true,
+          }
+        : { caseSensitive: false, wholeWord: false, regex: false },
     zoomLevel: clampZoom(s.zoomLevel),
   };
 }
@@ -1709,6 +1717,13 @@ function registerIpc() {
     if (['blue', 'teal', 'violet', 'amber'].includes(patch.accent)) next.accent = patch.accent;
     if (patch.filesCollapsed !== undefined) next.filesCollapsed = patch.filesCollapsed === true;
     if (patch.spellcheck !== undefined) next.spellcheck = patch.spellcheck === true;
+    if (patch.findOptions && typeof patch.findOptions === 'object') {
+      next.findOptions = {
+        caseSensitive: patch.findOptions.caseSensitive === true,
+        wholeWord: patch.findOptions.wholeWord === true,
+        regex: patch.findOptions.regex === true,
+      };
+    }
     if (patch.zoomLevel !== undefined) next.zoomLevel = clampZoom(patch.zoomLevel);
     if (FONT_KEYS.includes(patch.exportFont)) next.exportFont = patch.exportFont;
     if (EXPORT_MARGINS.includes(patch.exportMargin)) next.exportMargin = patch.exportMargin;
@@ -9429,6 +9444,93 @@ async function runSmoke() {
       pasteMatrix.guards.table === true &&
       pasteMatrix.guards.list === true,
     pasteMatrix
+  );
+
+  // 114a. case, whole-word and regex options change what matches
+  const findOptionsTest = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    window.__mdpad.setMarkdown('Alpha alpha ALPHA alphabet\\n\\nSecond paragraph with Alpha.');
+    await sleep(400);
+    const plain = window.__mdpad.runFind('Alpha');
+    window.__mdpad.setFindOptions({ caseSensitive: true });
+    const cased = window.__mdpad.runFind('Alpha');
+    window.__mdpad.setFindOptions({ wholeWord: true });
+    const casedWord = window.__mdpad.runFind('Alpha');
+    window.__mdpad.setFindOptions({ caseSensitive: false, wholeWord: true });
+    const insensitiveWord = window.__mdpad.runFind('alpha');
+    window.__mdpad.setFindOptions({ wholeWord: false, regex: true });
+    const regex = window.__mdpad.runFind('ALPHA');
+    const regexInsensitive = window.__mdpad.runFind('Al[a-z]+');
+    const bad = window.__mdpad.runFind('([');
+    window.__mdpad.setFindOptions({ regex: false, caseSensitive: false, wholeWord: false });
+    return {
+      plain: plain.count,
+      cased: cased.count,
+      casedWord: casedWord.count,
+      insensitiveWord: insensitiveWord.count,
+      regex: regex.count,
+      regexInsensitive: regexInsensitive.count,
+      badError: bad.error,
+      badCount: bad.count,
+    };
+  })()`);
+  step(
+    'find-options',
+    findOptionsTest.plain === 5 &&
+      findOptionsTest.cased === 2 &&
+      findOptionsTest.casedWord === 2 &&
+      findOptionsTest.insensitiveWord === 4 &&
+      findOptionsTest.regex === 5 &&
+      findOptionsTest.regexInsensitive === 5 &&
+      findOptionsTest.badError === 'bad regex' &&
+      findOptionsTest.badCount === 0,
+    findOptionsTest
+  );
+
+  // 114b. regex replacement expands $1, and the whole batch is one undo step
+  const replaceTest = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const nl = String.fromCharCode(10);
+    window.__mdpad.setMarkdown('one two' + nl + nl + 'three four');
+    await sleep(400);
+    window.__mdpad.setFindOptions({ regex: true });
+    const before = window.__mdpad.runFind('(\\\\w+) (\\\\w+)');
+    const beforeReplace = window.__mdpad.getMarkdown();
+    const swapped = window.__mdpad.replaceAllNow('$2 $1');
+    window.__mdpad.editor.commands.undo();
+    await sleep(250);
+    const undo1 = window.__mdpad.getMarkdown();
+    window.__mdpad.editor.commands.undo();
+    await sleep(250);
+    const undo2 = window.__mdpad.getMarkdown();
+    window.__mdpad.setFindOptions({ regex: false });
+    return { before: before.count, beforeReplace, swapped, undo1, undo2 };
+  })()`);
+  step(
+    'find-replace-groups',
+    replaceTest.before === 2 &&
+      /two one/.test(replaceTest.swapped) &&
+      /four three/.test(replaceTest.swapped) &&
+      (replaceTest.undo1.trim() === String(replaceTest.beforeReplace || '').trim() ||
+        replaceTest.undo2.trim() === String(replaceTest.beforeReplace || '').trim()),
+    replaceTest
+  );
+
+  // 114c. options persist and the bar exposes the three toggles
+  const findUi = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    window.api.setSettings({ findOptions: { caseSensitive: true, wholeWord: false, regex: false } });
+    await sleep(300);
+    const stored = await window.api.getSettings();
+    const buttons = ['#find-case', '#find-word', '#find-regex'].map((id) => Boolean(document.querySelector(id)));
+    return { stored: stored.findOptions, buttons };
+  })()`);
+  step(
+    'find-options-ui',
+    findUi.stored &&
+      findUi.stored.caseSensitive === true &&
+      findUi.buttons.every(Boolean),
+    findUi
   );
 
   // 30k. the settings filter narrows the visible fields

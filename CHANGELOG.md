@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.40.0
+
+Find and replace grew the options every other editor has.
+
+- **Match case (Aa), whole word (ab) and regular expressions (.*)** in the find bar, with Alt+C /
+  Alt+W / Alt+R and the choices remembered between sessions. An invalid pattern shows **!** instead
+  of quietly reporting zero matches.
+- **Regex replacement expands `$&` and `$1…$9`**, so `(\w+) (\w+)` → `$2 $1` swaps words.
+- **Replace All is one undo step, isolated from the typing before it.** Without `closeHistory`,
+  ProseMirror merged the replacement into the previous typing batch, and one undo removed both —
+  the test proved it by capturing the first and second undo states.
+- **Ctrl+H** opens the bar in the replace field.
+- 273 smoke checks (three new: `find-options` for the counters with each toggle, `find-replace-groups`
+  for capture expansion plus the single undo, `find-options-ui` for persistence), 155 unit tests.
+
 ## 1.39.0
 
 Typing and pasting markdown, verified through the real input path.

@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 270 end-to-end checks against a real window
+npm run smoke          # 273 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -207,6 +207,13 @@ Inserted images are decoded with `createImageBitmap`, downscaled to 2200 px on t
 encoded twice (JPEG 0.85 unless the bitmap has alpha, and PNG); the smaller blob wins and the
 original file is kept when neither beats it. JPEG wins on photos, PNG wins on screenshots of text —
 a fixed format choice would have inflated one of the two.
+
+## Find and replace
+
+`collectMatches` applies the case / whole-word / regex options in one pass over text nodes and caps
+results at 2000. Replace-all runs in reverse order so earlier positions stay valid, inside a single
+transaction; `isolateHistoryStep` (`closeHistory`) makes that transaction its own undo step, otherwise
+ProseMirror merges it into the typing batch and one undo removes both.
 
 ## Input rules and paste
 

@@ -1981,25 +1981,79 @@ let matches = [];
 let matchIndex = -1;
 let findTruncated = false;
 let lastFindMs = 0;
+// Case, whole-word and regex change what "the same text" means; defaults match the plain search.
+let findOptions = { caseSensitive: false, wholeWord: false, regex: false };
+let findPattern = null;
+let findError = '';
+
+const WORD_CHAR = /[\p{L}\p{N}_]/u;
+
+function buildFindPattern() {
+  findError = '';
+  findPattern = null;
+  if (!findOptions.regex) return;
+  try {
+    findPattern = new RegExp(findInput.value, findOptions.caseSensitive ? 'g' : 'gi');
+  } catch (err) {
+    findError = 'bad regex';
+    findPattern = null;
+  }
+}
 
 function collectMatches() {
   const started = performance.now();
-  const needle = findInput.value.toLowerCase();
+  const query = findInput.value;
   matches = [];
   findTruncated = false;
-  if (!needle) return;
+  findError = '';
+  if (!query) {
+    findPattern = null;
+    return;
+  }
+  buildFindPattern();
+  if (findOptions.regex && findError) {
+    lastFindMs = performance.now() - started;
+    return;
+  }
+  const needle = findOptions.caseSensitive ? query : query.toLowerCase();
   editor.state.doc.descendants((node, pos) => {
     if (matches.length >= MAX_FIND_MATCHES) return false;
     if (!node.isText) return true;
-    const text = node.text.toLowerCase();
-    let at = text.indexOf(needle);
-    while (at !== -1) {
-      matches.push({ from: pos + at, to: pos + at + needle.length });
-      if (matches.length >= MAX_FIND_MATCHES) {
-        findTruncated = true;
-        break;
+    const text = node.text;
+
+    if (findPattern) {
+      findPattern.lastIndex = 0;
+      let hit;
+      while ((hit = findPattern.exec(text)) !== null) {
+        if (!hit[0].length) {
+          findPattern.lastIndex += 1;
+          continue;
+        }
+        matches.push({ from: pos + hit.index, to: pos + hit.index + hit[0].length, text: hit[0] });
+        if (matches.length >= MAX_FIND_MATCHES) {
+          findTruncated = true;
+          break;
+        }
       }
-      at = text.indexOf(needle, at + needle.length);
+      return matches.length < MAX_FIND_MATCHES;
+    }
+
+    const haystack = findOptions.caseSensitive ? text : text.toLowerCase();
+    let at = haystack.indexOf(needle);
+    while (at !== -1) {
+      const after = at + needle.length;
+      const wholeWordOk =
+        !findOptions.wholeWord ||
+        ((at === 0 || !WORD_CHAR.test(text[at - 1])) &&
+          (after >= text.length || !WORD_CHAR.test(text[after])));
+      if (wholeWordOk) {
+        matches.push({ from: pos + at, to: pos + after, text: text.slice(at, after) });
+        if (matches.length >= MAX_FIND_MATCHES) {
+          findTruncated = true;
+          break;
+        }
+      }
+      at = haystack.indexOf(needle, at + 1);
     }
     return matches.length < MAX_FIND_MATCHES;
   });
@@ -2007,9 +2061,12 @@ function collectMatches() {
 }
 
 function focusMatch() {
-  findCount.textContent = findInput.value
-    ? `${matches.length ? matchIndex + 1 : 0}/${matches.length}${findTruncated ? '+' : ''}`
-    : '';
+  findCount.textContent = findError
+    ? '!'
+    : findInput.value
+      ? `${matches.length ? matchIndex + 1 : 0}/${matches.length}${findTruncated ? '+' : ''}`
+      : '';
+  findCount.title = findError ? findError : findCount.title;
   findCount.classList.toggle('is-empty', Boolean(findInput.value) && matches.length === 0);
   findCount.title = findInput.value
     ? matches.length
@@ -2044,10 +2101,33 @@ function stepFind(dir) {
   focusMatch();
 }
 
+// Make the next transaction its own undo step. Without this, a replacement done right after
+// typing is merged into the typing batch and one undo throws away both.
+function isolateHistoryStep() {
+  editor.commands.command(({ state, dispatch }) => {
+    dispatch(closeHistory(state.tr));
+    return true;
+  });
+}
+
+// In regex mode the replacement string may use $& and $1...$9, the way other editors do.
+function replacementFor(match) {
+  const replacement = replaceInput.value;
+  if (!findOptions.regex || !match) return replacement;
+  const source = findInput.value;
+  try {
+    const flags = findOptions.caseSensitive ? '' : 'i';
+    return String(match.text).replace(new RegExp(source, flags), replacement);
+  } catch {
+    return replacement;
+  }
+}
+
 function replaceOne() {
   if (matchIndex < 0 || !matches.length) return;
   const { from, to } = matches[matchIndex];
-  editor.chain().focus().insertContentAt({ from, to }, replaceInput.value).run();
+  isolateHistoryStep();
+  editor.chain().focus().insertContentAt({ from, to }, replacementFor(matches[matchIndex])).run();
   collectMatches();
   matchIndex = Math.min(matchIndex, matches.length - 1);
   focusMatch();
@@ -2061,9 +2141,10 @@ function replaceAll() {
   const capped = findTruncated;
   // Reverse order keeps the earlier positions valid inside the single transaction, which
   // also makes the whole replacement one undo step.
+  isolateHistoryStep();
   const chain = editor.chain().focus();
   for (const m of [...matches].reverse()) {
-    chain.insertContentAt({ from: m.from, to: m.to }, replaceInput.value);
+    chain.insertContentAt({ from: m.from, to: m.to }, replacementFor(m));
   }
   chain.run();
   collectMatches();
@@ -2076,6 +2157,50 @@ function replaceAll() {
   );
 }
 
+function applyFindOptions() {
+  for (const [id, key] of [
+    ['#find-case', 'caseSensitive'],
+    ['#find-word', 'wholeWord'],
+    ['#find-regex', 'regex'],
+  ]) {
+    const button = document.querySelector(id);
+    if (!button) continue;
+    button.classList.toggle('is-on', Boolean(findOptions[key]));
+    button.setAttribute('aria-pressed', findOptions[key] ? 'true' : 'false');
+  }
+}
+
+function setFindOptions(patch) {
+  findOptions = { ...findOptions, ...patch };
+  applyFindOptions();
+  window.api.setSettings({ findOptions }).catch(() => {});
+  collectMatches();
+  matchIndex = matches.length ? 0 : -1;
+  focusMatch();
+}
+
+for (const [id, key] of [
+  ['#find-case', 'caseSensitive'],
+  ['#find-word', 'wholeWord'],
+  ['#find-regex', 'regex'],
+]) {
+  document.querySelector(id)?.addEventListener('click', () => {
+    setFindOptions({ [key]: !findOptions[key] });
+    findInput.focus();
+  });
+}
+
+window.api.getSettings().then((settings) => {
+  if (settings && settings.findOptions) {
+    findOptions = {
+      caseSensitive: settings.findOptions.caseSensitive === true,
+      wholeWord: settings.findOptions.wholeWord === true,
+      regex: settings.findOptions.regex === true,
+    };
+    applyFindOptions();
+  }
+}).catch(() => {});
+
 let findTimer = null;
 findInput.addEventListener('input', () => {
   clearTimeout(findTimer);
@@ -2085,13 +2210,45 @@ findInput.addEventListener('input', () => {
     focusMatch();
   }, 120);
 });
+const findOptionKeys = (e) => {
+  if (!e.altKey) return false;
+  const key = String(e.key).toLowerCase();
+  if (key === 'c') {
+    e.preventDefault();
+    setFindOptions({ caseSensitive: !findOptions.caseSensitive });
+    return true;
+  }
+  if (key === 'w') {
+    e.preventDefault();
+    setFindOptions({ wholeWord: !findOptions.wholeWord });
+    return true;
+  }
+  if (key === 'r') {
+    e.preventDefault();
+    setFindOptions({ regex: !findOptions.regex });
+    return true;
+  }
+  return false;
+};
+
 findInput.addEventListener('keydown', (e) => {
+  if (findOptionKeys(e)) return;
   if (e.key === 'Enter') { e.preventDefault(); stepFind(e.shiftKey ? -1 : 1); }
   if (e.key === 'Escape') { e.preventDefault(); closeFind(); }
 });
 replaceInput.addEventListener('keydown', (e) => {
+  if (findOptionKeys(e)) return;
   if (e.key === 'Enter') { e.preventDefault(); replaceOne(); }
   if (e.key === 'Escape') { e.preventDefault(); closeFind(); }
+});
+
+// Ctrl+H opens the bar straight in its replace field.
+document.addEventListener('keydown', (e) => {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+  if (String(e.key).toLowerCase() !== 'h') return;
+  e.preventDefault();
+  openFind();
+  replaceInput.focus();
 });
 $('#find-next').addEventListener('click', () => stepFind(1));
 $('#find-prev').addEventListener('click', () => stepFind(-1));
@@ -5178,6 +5335,22 @@ window.__mdpad = {
   sectionState: () => sectionState(),
   refreshAiSetup: () => refreshAiSetup(),
   themeContrast: () => themeContrastReport(),
+  findState: () => ({ count: matches.length, index: matchIndex, error: findError, options: { ...findOptions } }),
+  setFindOptions: (patch) => {
+    setFindOptions(patch);
+    return { ...findOptions };
+  },
+  runFind: (query) => {
+    findInput.value = query;
+    collectMatches();
+    matchIndex = matches.length ? 0 : -1;
+    return { count: matches.length, error: findError, text: window.__mdpad.getMarkdown() };
+  },
+  replaceAllNow: (replacement) => {
+    replaceInput.value = replacement;
+    replaceAll();
+    return window.__mdpad.getMarkdown();
+  },
   findStats: () => ({ count: matches.length, truncated: findTruncated, ms: lastFindMs }),
   resetScopePreference: () => {
     aiScopeExplicit = false;
