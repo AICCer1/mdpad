@@ -989,6 +989,22 @@ Object.assign(DICT.zh, {
   'theme.system': '跟随系统',
 });
 
+Object.assign(DICT.en, {
+  'menu.copyDiagnostics': 'Copy diagnostics',
+  'menu.openLogFolder': 'Open log folder',
+  'settings.diagnostics': 'Copy diagnostics',
+  'settings.diagnosticsHint': 'Version, paths and the last log lines, for a bug report.',
+  'settings.diagnosticsCopied': 'Diagnostics copied to the clipboard',
+});
+
+Object.assign(DICT.zh, {
+  'menu.copyDiagnostics': '复制诊断信息',
+  'menu.openLogFolder': '打开日志文件夹',
+  'settings.diagnostics': '复制诊断信息',
+  'settings.diagnosticsHint': '版本、路径和最近的日志，用于反馈问题。',
+  'settings.diagnosticsCopied': '诊断信息已复制到剪贴板',
+});
+
 module.exports = { t, normalizeLang, LANGS, DICT };
 
 Object.assign(DICT.en, {

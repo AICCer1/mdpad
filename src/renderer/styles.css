@@ -2152,3 +2152,6 @@ textarea:focus-visible,
   padding: 1px 5px;
 }
 .slash-empty { padding: 10px; font-size: 12px; color: var(--muted); text-align: center; }
+
+.settings-row { display: flex; gap: 8px; align-items: center; margin: 4px 0 2px; }
+.settings-row button { height: var(--h-control, 26px); }

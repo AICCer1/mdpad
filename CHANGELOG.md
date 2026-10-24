@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.29.0
+
+A support path that does not require reading a log by hand.
+
+- **Help → Copy diagnostics** and **Settings → Diagnostics** put the version, Electron/Chromium
+  versions, OS, data/backup/draft paths, a settings summary and the last 60 log lines on the
+  clipboard. **Open log folder** shows `logs/mdpad.log`.
+- Nothing is uploaded. There is no telemetry; diagnostics only fill the clipboard so a report can
+  include them.
+- **A small API trap worth recording:** `clipboard.readText()` returns a promise in this Electron
+  version. The first version read it synchronously and compared a pending `Promise` against a
+  string; the new check caught it.
+- 253 smoke checks (one new `diagnostics`: report fields, clipboard contents, log path and the Help
+  menu entry), 153 unit tests.
+
 ## 1.28.0
 
 The build pipeline can sign, and it proves it did.

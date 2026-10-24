@@ -191,6 +191,14 @@ them. Right-click a tab for **Close**, **Close others**, **Close to the right**,
 Every dialog closes with **Esc** (settings, export, drafts, statistics, shortcuts and the name
 prompts), and the keyboard goes back to the editor when it does.
 
+## Reporting a problem
+
+**Help → Copy diagnostics** (or Settings → Diagnostics) copies the app version, Electron and
+Chromium versions, the data/backup/draft paths, a settings summary and the last 60 log lines. Paste
+that into the report — it saves a round trip. **Open log folder** shows the full log.
+
+Nothing is uploaded: diagnostics only fill the clipboard.
+
 ## Small windows
 
 The window can go down to 720 px wide. Below ~920 px both sidebars narrow, the HTML and PDF

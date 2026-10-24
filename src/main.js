@@ -1216,6 +1216,37 @@ function sessionFor(event) {
   return sessions.get(event.sender.id);
 }
 
+// Support should not require reading a log by hand: collect the facts a bug report needs.
+function diagnosticsReport() {
+  const settings = publicSettings();
+  const dirs = { data: userDir(), backups: backupsDir(), drafts: draftsDir() };
+  let logTail = '';
+  try {
+    const lines = fs.readFileSync(logFilePath(), 'utf8').trimEnd().split(/\r?\n/);
+    logTail = lines.slice(-60).join('\n');
+  } catch {
+    logTail = '(no log yet)';
+  }
+  return {
+    version: app.getVersion(),
+    electron: process.versions.electron,
+    chrome: process.versions.chrome,
+    node: process.versions.node,
+    platform: process.platform,
+    arch: process.arch,
+    osRelease: require('node:os').release(),
+    locale: app.getLocale(),
+    theme: settings.theme,
+    language: settings.language,
+    autosaveMs: settings.autosaveMs,
+    spellcheck: settings.spellcheck,
+    aiConfigured: Boolean(settings.ai && settings.ai.hasKey && settings.ai.baseUrl),
+    dirs,
+    logPath: logFilePath(),
+    logTail,
+  };
+}
+
 function registerIpc() {
   ipcMain.handle('app:openPath', async (_e, { path: target } = {}) => {
     const file = String(target || '');
@@ -1285,6 +1316,37 @@ function registerIpc() {
   });
 
   ipcMain.handle('app:systemTheme', () => ({ dark: nativeTheme.shouldUseDarkColors }));
+
+
+  ipcMain.handle('app:diagnostics', () => diagnosticsReport());
+
+  ipcMain.handle('app:copyDiagnostics', () => {
+    const report = diagnosticsReport();
+    const text = [
+      'mdpad diagnostics',
+      'version: ' + report.version,
+      'electron: ' + report.electron + ' (chromium ' + report.chrome + ', node ' + report.node + ')',
+      'platform: ' + report.platform + ' ' + report.arch + ' ' + report.osRelease,
+      'locale: ' + report.locale,
+      'theme: ' + report.theme + '  language: ' + report.language,
+      'autosave: ' + report.autosaveMs + ' ms  spellcheck: ' + report.spellcheck,
+      'ai configured: ' + report.aiConfigured,
+      'data: ' + report.dirs.data,
+      'backups: ' + report.dirs.backups,
+      'drafts: ' + report.dirs.drafts,
+      'log: ' + report.logPath,
+      '',
+      '--- last log lines ---',
+      report.logTail,
+    ].join('\n');
+    clipboard.writeText(text);
+    return { copied: text.length };
+  });
+
+  ipcMain.handle('app:openLogFolder', async () => {
+    await shell.openPath(path.dirname(logFilePath()));
+    return { opened: true };
+  });
 
   ipcMain.handle('app:zoom', (event, { direction = 'in' } = {}) => {
     const contents = event.sender;
@@ -2217,6 +2279,23 @@ function buildMenu() {
     {
       label: tt('menu.help'),
       submenu: [
+        {
+          label: tt('menu.copyDiagnostics'),
+          click: () => {
+            let report = {};
+            try {
+              report = diagnosticsReport();
+            } catch (err) {
+              report = { error: err.message };
+            }
+            clipboard.writeText(JSON.stringify(report, null, 2));
+          },
+        },
+        {
+          label: tt('menu.openLogFolder'),
+          click: () => shell.openPath(path.dirname(logFilePath())),
+        },
+        { type: 'separator' },
         {
           label: tt('menu.about'),
           click: () => {
@@ -8182,6 +8261,42 @@ async function runSmoke() {
     'escape-closes-dialogs',
     escModals.results.every((entry) => entry.wasOpen && entry.nowHidden) && escModals.focusInEditor === true,
     escModals
+  );
+
+  // 104. diagnostics collect the facts a bug report needs, and go to the clipboard on demand
+  const diagnostics = await (async () => {
+    const report = await win.webContents.executeJavaScript('window.__mdpad.diagnostics()');
+    const copied = await win.webContents.executeJavaScript('window.api.copyDiagnostics()');
+    // Electron 45 returns a promise from clipboard.readText().
+    const clipboardText = await clipboard.readText();
+    const hasMenuEntry = (() => {
+      const menu = Menu.getApplicationMenu();
+      const help = menu?.items.find((item) => item.label === 'Help' || item.label === '帮助');
+      return Boolean(help && help.submenu.items.some((item) => /diagnostics|诊断/i.test(item.label)));
+    })();
+    return {
+      version: report.version,
+      matchesPackage: report.version === app.getVersion(),
+      logPathOk: /logs[\\/]mdpad\.log$/.test(report.logPath || ''),
+      hasDirs: Boolean(report.dirs && report.dirs.data && report.dirs.backups),
+      logTail: typeof report.logTail === 'string' && report.logTail.length > 0,
+      copied: copied.copied,
+      clipboardHasHeader: /mdpad diagnostics/.test(clipboardText),
+      clipboardHasVersion: clipboardText.includes(app.getVersion()),
+      hasMenuEntry,
+    };
+  })();
+  step(
+    'diagnostics',
+    diagnostics.matchesPackage &&
+      diagnostics.logPathOk &&
+      diagnostics.hasDirs &&
+      diagnostics.logTail &&
+      diagnostics.copied > 200 &&
+      diagnostics.clipboardHasHeader &&
+      diagnostics.clipboardHasVersion &&
+      diagnostics.hasMenuEntry,
+    diagnostics
   );
 
   // 30k. the settings filter narrows the visible fields

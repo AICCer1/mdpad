@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 252 end-to-end checks against a real window
+npm run smoke          # 253 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -144,6 +144,8 @@ opening/closing the settings panel flips it between `flex` and `none`.
   already passed and produced "no SMOKE_RESULT" with no failure listed.
 - `process.exit()` right after the result line can truncate piped stdout on Windows; the runner
   sets `process.exitCode` and exits a tick later instead.
+- `clipboard.readText()` returns a promise in this Electron version; a synchronous call yields
+  a pending Promise, not a string.
 - `nativeTheme` must be imported from `electron`: referencing it without the import throws
   while registering IPC, and Electron then shows a blocking error dialog — the app looks like it
   hangs at startup with no stdout at all.

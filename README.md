@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              142 unit tests
-npm run smoke         252 end-to-end checks (dev or packaged)
+npm run smoke         253 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -44,6 +44,13 @@ npm run ship          release-check -> installers -> install-check -> SHA256SUMS
 
 Current artifacts: `release/mdpad Setup <version>.exe`, `release/mdpad <version>.exe`,
 `release/latest.yml`, `release/RELEASE_NOTES.md`.
+
+## Diagnostics
+
+**Help → Copy diagnostics** (also in Settings) puts version, Electron/Chromium versions, paths,
+settings summary and the last 60 log lines on the clipboard. No telemetry, no network: you paste it
+into a report yourself. **Open log folder** shows the same file. The log path is
+`<userData>/logs/mdpad.log`.
 
 ## Signing and updates
 

@@ -2448,6 +2448,15 @@ for (const button of document.querySelectorAll('.style-preset')) {
   });
 }
 
+$('#set-diagnostics').addEventListener('click', async () => {
+  const result = await window.api.copyDiagnostics();
+  flash(t('settings.diagnosticsCopied', lang, { size: result.copied || 0 }));
+});
+
+$('#set-open-log').addEventListener('click', () => {
+  window.api.openLogFolder();
+});
+
 $('#usage-export').addEventListener('click', async () => {
   const result = await window.api.aiUsageExport();
   if (result && result.exported) flash(`usage exported: ${result.path.split(/[\\/]/).pop()}`);
@@ -4786,6 +4795,7 @@ window.__mdpad = {
   }),
   relativeAge: (iso) => relativeAge(iso, lang),
   saveState: () => (saveStateEl ? saveStateEl.textContent : ''),
+  diagnostics: () => window.api.diagnostics(),
   closeTopModal,
   themeState2: () => ({
     stored: readThemeSetting,
