@@ -157,6 +157,12 @@ left margin. Click it for a menu:
 **Ctrl+Shift+↑ / ↓** does the same from the keyboard, and the caret stays where it was inside the
 block as it moves.
 
+## Image audit
+
+The command palette has **Image audit…**: it lists every image in the document with its kind
+(local, remote, embedded), marks a local file that no longer exists in red, and offers **Remove
+missing** to drop those images in one step. Each row also has its own remove button.
+
 ## Images
 
 **Images move by dragging**: press on the image and drag — a line marks where it will land, and

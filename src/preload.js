@@ -108,6 +108,7 @@ contextBridge.exposeInMainWorld('api', {
   onSessionRestored: (cb) => ipcRenderer.on('session:restored', (_e, payload) => cb(payload)),
   exportPreview: () => ipcRenderer.invoke('export:preview'),
   exportInspect: () => ipcRenderer.invoke('export:inspect'),
+  imagesAudit: () => ipcRenderer.invoke('images:audit'),
   exportToPath: (kind, path) => ipcRenderer.invoke('doc:exportToPath', { kind, path }),
   exportThumbnail: (options) => ipcRenderer.invoke('export:thumbnail', options),
   setExportDiagrams: (diagrams) => ipcRenderer.invoke('doc:diagrams', { diagrams }),

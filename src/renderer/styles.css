@@ -2341,3 +2341,15 @@ html.table-dragging-column, html.table-dragging-column * { cursor: col-resize !i
 }
 .tiptap img[draggable="true"] { cursor: grab; }
 .tiptap img[draggable="true"]:active { cursor: grabbing; }
+
+/* ---- image audit ---- */
+.image-audit-card { width: 560px; }
+.image-audit-summary { margin: 6px 0 10px; font-size: 11.5px; color: var(--muted); }
+.image-audit-list { max-height: 46vh; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.image-audit-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--r-sm, 6px); font-size: 12px; }
+.image-audit-row.is-missing { border-color: color-mix(in srgb, #c0392b 45%, var(--line)); }
+.image-audit-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.image-audit-kind { flex: 0 0 auto; font-size: 10.5px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px; }
+.image-audit-status { flex: 0 0 auto; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.image-audit-row.is-missing .image-audit-status { color: #c0392b; }
+.image-audit-remove { flex: 0 0 auto; font-size: 11px; padding: 2px 8px; }

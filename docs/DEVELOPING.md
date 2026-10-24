@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 306 end-to-end checks against a real window
+npm run smoke          # 307 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -402,3 +402,10 @@ markdown.
 atom node returns the wrong position. The drop target is `posAtCoords`, the move deletes and
 reinserts the node in one transaction (adjusting for the removed size). `image-drag` dispatches
 real `DragEvent`s with a `DataTransfer` and asserts the new order.
+
+## Image audit
+
+`images:audit` parses the markdown for images and classifies each as `local` (resolved against the
+document folder, `exists` true/false), `remote` (`exists: null`) or `embedded` (`data:` URI, with an
+approximate decoded size). The panel removes images by `src` through `removeImagesWithSrc`, which
+walks the document and deletes matching image nodes in one transaction.

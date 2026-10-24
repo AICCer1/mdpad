@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.65.0
+
+An image audit, before you ship the document.
+
+- **The palette has "Image audit…"**: every image with its kind — **local**, **remote**, **embedded**
+  (`data:` URI) — its size, and a red **missing** state when a local file no longer resolves against
+  the document folder.
+- **Remove missing** drops all broken images in one step; each row has its own remove button. Both
+  delete by `src` in a single transaction, so one Ctrl+Z brings them back.
+- `images:audit` reports `total`, `missing`, `remote`, `embedded` and per-entry `exists`/`size`, so the
+  same numbers are testable without reading the DOM.
+- 307 smoke checks (one new: `image-audit` loads a document with all four cases, opens the panel,
+  asserts the rows and then removes only the missing one), 160 unit tests.
+
 ## 1.64.0
 
 Drag an image to move it.

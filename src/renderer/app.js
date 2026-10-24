@@ -2813,6 +2813,93 @@ editor.on('selectionUpdate', () => {
 editor.on('update', updateActiveBlock);
 
 
+// ---- image audit -------------------------------------------------------------
+
+function imageNodesBySrc(src) {
+  const found = [];
+  editor.state.doc.descendants((node, pos) => {
+    if (node.type.name === 'image' && node.attrs.src === src) found.push({ pos, node });
+    return true;
+  });
+  return found;
+}
+
+function removeImagesWithSrc(src) {
+  const targets = imageNodesBySrc(src);
+  if (!targets.length) return 0;
+  let tr = editor.state.tr;
+  for (const target of targets.reverse()) {
+    tr = tr.delete(target.pos, target.pos + target.node.nodeSize);
+  }
+  editor.view.dispatch(tr);
+  return targets.length;
+}
+
+async function openImageAudit() {
+  const modal = document.querySelector('#image-audit');
+  const list = document.querySelector('#image-audit-list');
+  const summary = document.querySelector('#image-audit-summary');
+  const audit = await window.api.imagesAudit();
+  list.textContent = '';
+  const parts = [`${audit.total} image${audit.total === 1 ? '' : 's'}`];
+  if (audit.missing) parts.push(`${audit.missing} missing`);
+  if (audit.remote) parts.push(`${audit.remote} remote`);
+  if (audit.embedded) parts.push(`${audit.embedded} embedded`);
+  summary.textContent = parts.join(' · ');
+  if (!audit.entries.length) {
+    const empty = document.createElement('div');
+    empty.className = 'drafts-empty';
+    empty.textContent = 'This document has no images.';
+    list.append(empty);
+  }
+  for (const entry of audit.entries) {
+    const row = document.createElement('div');
+    row.className = 'image-audit-row' + (entry.exists === false ? ' is-missing' : '');
+    row.dataset.src = entry.src;
+    const name = document.createElement('span');
+    name.className = 'image-audit-name';
+    name.textContent = entry.alt || entry.src.split(/[\\/]/).pop() || entry.src;
+    name.title = entry.src;
+    const kind = document.createElement('span');
+    kind.className = 'image-audit-kind';
+    kind.textContent = entry.kind === 'remote' ? 'remote' : entry.kind === 'embedded' ? 'embedded' : 'local';
+    const status = document.createElement('span');
+    status.className = 'image-audit-status';
+    if (entry.exists === false) status.textContent = 'missing';
+    else if (entry.kind === 'local' && entry.size != null) status.textContent = Math.max(1, Math.round(entry.size / 1024)) + ' KB';
+    else if (entry.kind === 'embedded' && entry.size != null) status.textContent = Math.max(1, Math.round(entry.size / 1024)) + ' KB';
+    else status.textContent = 'remote';
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'image-audit-remove';
+    remove.textContent = 'Remove';
+    remove.title = 'Remove this image from the document';
+    remove.addEventListener('click', async () => {
+      removeImagesWithSrc(entry.src);
+      await openImageAudit();
+    });
+    row.append(name, kind, status, remove);
+    list.append(row);
+  }
+  modal.hidden = false;
+}
+
+document.querySelector('#image-audit-close')?.addEventListener('click', () => {
+  document.querySelector('#image-audit').hidden = true;
+});
+
+document.querySelector('#image-audit-remove')?.addEventListener('click', async () => {
+  const audit = await window.api.imagesAudit();
+  const missing = audit.entries.filter((entry) => entry.exists === false);
+  if (!missing.length) {
+    flash('No missing images');
+    return;
+  }
+  for (const entry of missing) removeImagesWithSrc(entry.src);
+  await openImageAudit();
+  flash(`Removed ${missing.length} missing image${missing.length === 1 ? '' : 's'}`);
+});
+
 // ---- recent files -----------------------------------------------------------
 
 async function openRecentPanel() {
@@ -6556,6 +6643,18 @@ window.__mdpad = {
       chars: editor.getText().length,
     };
   },
+  openImageAudit: () => openImageAudit().then(() => window.__mdpad.imageAuditState()),
+  imageAuditState: () => ({
+    open: !document.querySelector('#image-audit').hidden,
+    summary: document.querySelector('#image-audit-summary').textContent,
+    rows: [...document.querySelectorAll('#image-audit-list .image-audit-row')].map((row) => ({
+      name: row.querySelector('.image-audit-name').textContent,
+      kind: row.querySelector('.image-audit-kind').textContent,
+      status: row.querySelector('.image-audit-status').textContent,
+      missing: row.classList.contains('is-missing'),
+    })),
+  }),
+  removeMissingImages: () => document.querySelector('#image-audit-remove').click(),
   loadTiming: () => lastLoadTiming,
   loadLarge: async (markdown) => {
     const startedAt = performance.now();

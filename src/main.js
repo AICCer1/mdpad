@@ -1753,6 +1753,51 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
   });
 
   // What will actually land in the export: counts the user can check before choosing a format.
+  // Everything about the images in this document: where they point, whether they resolve, how big.
+  ipcMain.handle('images:audit', (event) => {
+    const s = sessionFor(event);
+    const text = String((s && s.contents) || '');
+    const baseDir = s && s.file ? path.dirname(s.file) : null;
+    const entries = [];
+    const pattern = /!\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      const src = match[1];
+      const altMatch = /!\[([^\]]*)\]/.exec(match[0]);
+      const alt = altMatch ? altMatch[1] : '';
+      const entry = { src, alt, kind: 'local', exists: false, size: null, resolved: null };
+      if (/^data:/i.test(src)) {
+        entry.kind = 'embedded';
+        entry.exists = true;
+        entry.size = Math.round((src.length - src.indexOf(',') - 1) * 0.75);
+      } else if (/^https?:/i.test(src)) {
+        entry.kind = 'remote';
+        entry.exists = null;
+      } else {
+        try {
+          const clean = decodeURI(src.replace(/[#?].*$/, ''));
+          const resolved = baseDir ? path.resolve(baseDir, clean) : null;
+          entry.resolved = resolved;
+          if (resolved && fs.existsSync(resolved)) {
+            entry.exists = true;
+            entry.size = fs.statSync(resolved).size;
+          }
+        } catch {
+          entry.exists = false;
+        }
+      }
+      entries.push(entry);
+    }
+    return {
+      file: s ? s.file : null,
+      total: entries.length,
+      missing: entries.filter((entry) => entry.exists === false).length,
+      remote: entries.filter((entry) => entry.kind === 'remote').length,
+      embedded: entries.filter((entry) => entry.kind === 'embedded').length,
+      entries,
+    };
+  });
+
   ipcMain.handle('export:inspect', (event) => {
     const s = sessionFor(event);
     const text = String((s && s.contents) || '');
@@ -11288,6 +11333,74 @@ async function runSmoke() {
       typeof imageDragTest.markdown === 'string' &&
       imageDragTest.markdown.indexOf('![two]') < imageDragTest.markdown.indexOf('![one]'),
     imageDragTest
+  );
+
+  // 138. the image audit lists every image with its kind and status, and can drop the missing ones
+  const imageAudit = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'image-audit.md');
+    const pixel = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    fs.writeFileSync(path.join(dir, 'present.png'), Buffer.from(pixel, 'base64'));
+    fs.writeFileSync(
+      doc,
+      [
+        '# Image audit',
+        '',
+        '![present](present.png)',
+        '',
+        '![gone](missing-image.png)',
+        '',
+        '![remote](https://example.com/pic.png)',
+        '',
+        `![inline](data:image/png;base64,${pixel})`,
+        '',
+      ].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const count = await jsOf('window.__mdpad.imagePositions().length');
+      if (count === 4) break;
+    }
+    const audit = await jsOf('window.api.imagesAudit()');
+    const panel = await jsOf('window.__mdpad.openImageAudit()');
+    const removed = await jsOf(`(async () => {
+      window.__mdpad.removeMissingImages();
+      await new Promise((r) => setTimeout(r, 700));
+      return window.__mdpad.imageAuditState();
+    })()`);
+    const remaining = await jsOf('window.__mdpad.imagePositions()');
+    await jsOf('document.querySelector(\'#image-audit\').hidden = true');
+    return { audit, panel, removed, remaining };
+  })();
+  step(
+    'image-audit',
+    imageAudit.audit &&
+      imageAudit.audit.total === 4 &&
+      imageAudit.audit.missing === 1 &&
+      imageAudit.audit.remote === 1 &&
+      imageAudit.audit.embedded === 1 &&
+      imageAudit.audit.entries[0].exists === true &&
+      imageAudit.audit.entries[1].exists === false &&
+      imageAudit.panel &&
+      imageAudit.panel.open === true &&
+      imageAudit.panel.rows.length === 4 &&
+      imageAudit.panel.rows.filter((row) => row.missing).length === 1 &&
+      imageAudit.panel.rows.find((row) => row.missing).status === 'missing' &&
+      imageAudit.removed &&
+      imageAudit.removed.rows.length === 3 &&
+      imageAudit.removed.rows.every((row) => !row.missing) &&
+      Array.isArray(imageAudit.remaining) &&
+      imageAudit.remaining.length === 3,
+    {
+      audit: imageAudit.audit,
+      panel: imageAudit.panel,
+      removedCount: imageAudit.removed && imageAudit.removed.rows ? imageAudit.removed.rows.length : imageAudit.removed,
+      remaining: imageAudit.remaining,
+    }
   );
 
   // 30k. the settings filter narrows the visible fields

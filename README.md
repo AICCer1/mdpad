@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         306 end-to-end checks (dev or packaged)
+npm run smoke         307 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -74,6 +74,12 @@ signature is real but SmartScreen still warns. See [docs/RELEASING.md](docs/RELE
 Exports keep links honest: a relative link whose file exists stays untouched, one that does not
 is flagged (`data-link-missing`, wavy underline, "File not found" tooltip), anchors keep matching
 heading ids, and absolute URLs become real hyperlinks in Word.
+
+### Image audit
+
+A panel lists every image with its kind (local, remote, embedded) and size, marks the ones whose
+file is gone in red, and can remove them in one action — the document equivalent of checking that
+nothing is broken before shipping.
 
 ## Images move by dragging
 
