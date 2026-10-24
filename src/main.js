@@ -1758,6 +1758,101 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
   // fetch. Downloading once into ./images next to the document makes the document self-contained.
   // Links between files break quietly when a folder is renamed. List them, say which resolve, and
   // let the writer unlink the dead ones without losing the text.
+  // A structure report: what a writer would check before submitting — heading order, duplicates,
+  // runaway paragraphs, and the counts that describe the shape of the document.
+  ipcMain.handle('doc:structure', (event) => {
+    const s = sessionFor(event);
+    const text = String((s && s.contents) || '');
+    const lines = text.split('\n');
+    const headings = [];
+    const paragraphs = [];
+    let current = null;
+    let inFence = false;
+    let fence = '';
+    for (let index = 0; index < lines.length; index += 1) {
+      const line = lines[index];
+      const fenceMatch = /^\s*(\x60{3,}|~{3,})/.exec(line);
+      if (fenceMatch) {
+        if (!inFence) {
+          inFence = true;
+          fence = fenceMatch[1][0];
+        } else if (fenceMatch[1][0] === fence) {
+          inFence = false;
+        }
+        if (current) {
+          paragraphs.push(current);
+          current = null;
+        }
+        continue;
+      }
+      if (inFence) continue;
+      const heading = /^(#{1,6})\s+(.*\S)/.exec(line);
+      if (heading) {
+        if (current) {
+          paragraphs.push(current);
+          current = null;
+        }
+        headings.push({ level: heading[1].length, text: heading[2].trim(), line: index + 1 });
+        continue;
+      }
+      if (!line.trim()) {
+        if (current) {
+          paragraphs.push(current);
+          current = null;
+        }
+        continue;
+      }
+      if (/^\s*(?:[-*+]\s|\d+\.\s|>\s)/.test(line)) {
+        if (current) {
+          paragraphs.push(current);
+          current = null;
+        }
+        continue;
+      }
+      if (!current) current = { line: index + 1, chars: 0 };
+      current.chars += line.trim().length;
+    }
+    if (current) paragraphs.push(current);
+
+    const seen = new Map();
+    const duplicates = [];
+    for (const heading of headings) {
+      const key = heading.text.toLowerCase();
+      const count = (seen.get(key) || 0) + 1;
+      seen.set(key, count);
+      if (count === 2) duplicates.push(heading);
+    }
+    const skips = [];
+    let previousLevel = 0;
+    for (const heading of headings) {
+      if (previousLevel && heading.level > previousLevel + 1) {
+        skips.push({ from: previousLevel, to: heading.level, text: heading.text, line: heading.line });
+      }
+      previousLevel = heading.level;
+    }
+    const longest = paragraphs.reduce((best, item) => (!best || item.chars > best.chars ? item : best), null);
+    const words = (text.match(/\S+/g) || []).length;
+    return {
+      words,
+      lines: lines.length,
+      chars: text.length,
+      readingMinutes: Math.max(1, Math.round(words / 200)),
+      headings: headings.map((heading, index) => ({ ...heading, index })),
+      counts: {
+        headings: headings.length,
+        paragraphs: paragraphs.length,
+        codeBlocks: (text.match(/^\s*(?:\x60{3,}|~{3,})/gm) || []).length / 2,
+        tables: (text.match(/^\s*\|.*\|\s*$/gm) || []).length,
+        images: (text.match(/!\[[^\]]*\]\(/g) || []).length,
+        links: (text.match(/(?<!!)\[[^\]]*\]\(/g) || []).length,
+        tasks: (text.match(/^\s*[-*+]\s*\[[ xX]\]/gm) || []).length,
+      },
+      duplicates,
+      skips,
+      longestParagraph: longest,
+    };
+  });
+
   ipcMain.handle('links:audit', (event) => {
     const s = sessionFor(event);
     const text = String((s && s.contents) || '');
@@ -11663,6 +11758,74 @@ async function runSmoke() {
       prompted: linkFix.prompted,
       after: linkFix.after,
       markdown: typeof linkFix.markdown === 'string' ? linkFix.markdown.slice(0, 200) : linkFix.markdown,
+    }
+  );
+
+  // 142. the structure report finds heading jumps, duplicates and runaway paragraphs
+  const structureReport = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const longParagraph = 'This paragraph is deliberately long so the report notices it. '.repeat(30);
+    const doc = path.join(dir, 'structure.md');
+    fs.writeFileSync(
+      doc,
+      [
+        '# Book',
+        '',
+        '## Chapter',
+        '',
+        'text',
+        '',
+        '### Too deep?',
+        '',
+        '## Notes',
+        '',
+        'a',
+        '',
+        '## Notes',
+        '',
+        longParagraph,
+        '',
+        '#### Jumped again',
+        '',
+        'end',
+        '',
+      ].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('Too deep')");
+      if (ready === true) break;
+    }
+    const report = await jsOf('window.api.docStructure()');
+    const panel = await jsOf('window.__mdpad.openStructureReport()');
+    await jsOf('document.querySelector(\'#structure-report\').hidden = true');
+    return { report, panel };
+  })();
+  step(
+    'structure-report',
+    structureReport.report &&
+      structureReport.report.headings.length === 6 &&
+      structureReport.report.duplicates.length === 1 &&
+      structureReport.report.duplicates[0].text === 'Notes' &&
+      structureReport.report.skips.length === 1 &&
+      structureReport.report.skips[0].from === 2 &&
+      structureReport.report.skips[0].to === 4 &&
+      structureReport.report.longestParagraph.chars > 1200 &&
+      structureReport.report.counts.images === 0 &&
+      structureReport.panel &&
+      structureReport.panel.open === true &&
+      structureReport.panel.rows.length === 3 &&
+      structureReport.panel.rows.some((row) => row.kind === 'duplicate') &&
+      structureReport.panel.rows.some((row) => row.kind === 'level') &&
+      structureReport.panel.rows.some((row) => row.kind === 'paragraph') &&
+      /headings/.test(structureReport.panel.summary),
+    {
+      report: structureReport.report,
+      panel: structureReport.panel,
     }
   );
 

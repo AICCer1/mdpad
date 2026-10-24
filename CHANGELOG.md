@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.69.0
+
+A structure report for long texts.
+
+- **The palette has "Structure report…"**: heading jumps (H2 straight to H4), duplicate headings,
+  and paragraphs over 1200 characters with their line numbers. **Go** jumps to the heading in
+  question.
+- **The summary is what a submission asks for**: words, headings, paragraphs, estimated reading
+  time — alongside counts of code blocks, tables, images, links and tasks.
+- The parser skips fenced code blocks, so a `#` inside a code sample is not mistaken for a heading.
+- `doc:structure` returns the data and the panel renders it, which keeps the analysis testable
+  without scraping the DOM.
+- 311 smoke checks (one new: `structure-report` with a deliberate H2→H4 jump, a duplicated heading
+  and a 1859-character paragraph), 160 unit tests.
+
 ## 1.68.0
 
 A broken link can be repaired, not just deleted.

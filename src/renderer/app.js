@@ -2813,6 +2813,102 @@ editor.on('selectionUpdate', () => {
 editor.on('update', updateActiveBlock);
 
 
+// ---- structure report --------------------------------------------------------
+
+function focusNthHeading(index) {
+  let count = 0;
+  let target = null;
+  editor.state.doc.descendants((node, pos) => {
+    if (target !== null) return false;
+    if (node.type.name === 'heading') {
+      if (count === index) {
+        target = pos + 1;
+        return false;
+      }
+      count += 1;
+    }
+    return true;
+  });
+  if (target === null) return false;
+  editor.commands.focus(target);
+  return true;
+}
+
+async function openStructureReport() {
+  const modal = document.querySelector('#structure-report');
+  const list = document.querySelector('#structure-issues');
+  const summary = document.querySelector('#structure-summary');
+  const report = await window.api.docStructure();
+  summary.textContent =
+    report.words + ' words · ' + report.headings.length + ' headings · ' +
+    report.counts.paragraphs + ' paragraphs · ~' + report.readingMinutes + ' min read';
+  list.textContent = '';
+
+  const issues = [];
+  for (const skip of report.skips) {
+    issues.push({
+      kind: 'level',
+      text: 'Heading "' + skip.text + '" jumps from H' + skip.from + ' to H' + skip.to,
+      line: skip.line,
+      heading: report.headings.find((heading) => heading.line === skip.line),
+      fixable: true,
+    });
+  }
+  for (const duplicate of report.duplicates) {
+    issues.push({
+      kind: 'duplicate',
+      text: 'Duplicate heading "' + duplicate.text + '"',
+      line: duplicate.line,
+      heading: report.headings.find((heading) => heading.line === duplicate.line),
+      fixable: true,
+    });
+  }
+  if (report.longestParagraph && report.longestParagraph.chars > 1200) {
+    issues.push({
+      kind: 'paragraph',
+      text: 'A paragraph of ' + report.longestParagraph.chars + ' characters (line ' + report.longestParagraph.line + ')',
+      line: report.longestParagraph.line,
+      fixable: false,
+    });
+  }
+  if (!issues.length) {
+    const empty = document.createElement('div');
+    empty.className = 'drafts-empty';
+    empty.textContent = 'No structural problems found.';
+    list.append(empty);
+  }
+  for (const issue of issues) {
+    const row = document.createElement('div');
+    row.className = 'image-audit-row';
+    row.dataset.kind = issue.kind;
+    row.dataset.line = String(issue.line);
+    const name = document.createElement('span');
+    name.className = 'image-audit-name';
+    name.textContent = issue.text;
+    const kind = document.createElement('span');
+    kind.className = 'image-audit-kind';
+    kind.textContent = issue.kind;
+    row.append(name, kind);
+    if (issue.heading) {
+      const jump = document.createElement('button');
+      jump.type = 'button';
+      jump.className = 'image-audit-remove';
+      jump.textContent = 'Go';
+      jump.addEventListener('click', async () => {
+        modal.hidden = true;
+        focusNthHeading(issue.heading.index);
+      });
+      row.append(jump);
+    }
+    list.append(row);
+  }
+  modal.hidden = false;
+}
+
+document.querySelector('#structure-close')?.addEventListener('click', () => {
+  document.querySelector('#structure-report').hidden = true;
+});
+
 // ---- link audit --------------------------------------------------------------
 
 // Replace a link target everywhere it appears, keeping the text and its other marks.
@@ -6850,6 +6946,16 @@ window.__mdpad = {
     });
     return out;
   },
+  openStructureReport: () => openStructureReport().then(() => window.__mdpad.structureState()),
+  structureState: () => ({
+    open: !document.querySelector('#structure-report').hidden,
+    summary: document.querySelector('#structure-summary').textContent,
+    rows: [...document.querySelectorAll('#structure-issues .image-audit-row')].map((row) => ({
+      text: row.querySelector('.image-audit-name').textContent,
+      kind: row.dataset.kind,
+      line: Number(row.dataset.line),
+    })),
+  }),
   openLinkAudit: () => openLinkAudit().then(() => window.__mdpad.linkAuditState()),
   linkAuditState: () => ({
     open: !document.querySelector('#link-audit').hidden,

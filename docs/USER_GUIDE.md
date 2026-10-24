@@ -101,6 +101,17 @@ Images are saved next to the document in `assets/`. Size and alignment are store
 the markdown link title (`![alt](src "w=50%;align=center")`), so they survive a round
 trip through any markdown tool.
 
+## Structure report
+
+The palette has **Structure report…**, the check to run before sending a long text anywhere:
+
+- **Heading jumps**: a heading deeper than its predecessor by more than one level (H2 → H4).
+- **Duplicate headings**: the same title twice; the export anchors would collide.
+- **Long paragraphs**: anything over 1200 characters, with its line number.
+
+Every heading issue has a **Go** button that puts the caret in that heading. The summary counts
+words, headings, paragraphs and an estimated reading time.
+
 ## Link audit
 
 The palette has **Link audit…**: it lists every link with its kind — **local** (resolved against

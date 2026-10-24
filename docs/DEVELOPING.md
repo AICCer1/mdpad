@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 310 end-to-end checks against a real window
+npm run smoke          # 311 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -431,3 +431,10 @@ text; the smoke check asserts both the row counts and that the label survives in
 mark and adds a new one with `to` in the same transaction, so the text and its other marks survive.
 The row action goes through the existing `askName` dialog; `link-fix` drives that dialog for real
 and asserts the markdown afterwards.
+
+## Structure report
+
+`doc:structure` walks the markdown line by line (skipping fenced code), collecting headings,
+paragraph lengths and counts. Duplicates are found by lower-cased text; a jump is a heading more
+than one level deeper than the previous one. The panel's Go button focuses the nth heading by
+index, so no markdown-to-ProseMirror position mapping is needed.
