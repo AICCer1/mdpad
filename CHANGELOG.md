@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.59.0
+
+Performance now has a memory.
+
+- **`npm run perf-trend`** runs the real perf report and appends one row per run to
+  `docs/perf-history.csv`: ms per keystroke, outline, find, undo, heap, node count, PDF and HTML
+  export times and sizes. `--show` prints history without measuring.
+- **The table prints the delta against the previous run**, which is the number that drifts as
+  features land. Two baseline runs (5.13 and 5.28 ms/key on this machine) put the noise floor at
+  about 0.15 ms, so a change under ~0.3 ms is not a regression.
+- Times are stored in **local time**; the first version wrote UTC and the date looked a day old.
+- Five unit tests cover the report parser (with noisy stdout), CSV quoting, append/read round trip,
+  delta formatting, and the empty-history message (`node --test` now 160).
+- 301 smoke checks, 160 unit tests.
+
 ## 1.58.0
 
 Tabs work without a mouse.

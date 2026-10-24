@@ -60,3 +60,13 @@ npm run perf
 ```
 
 Prints one JSON object and writes `%TEMP%\mdpad-perf.json`, `mdpad-perf.pdf`, `mdpad-perf.html`.
+
+## Trend log
+
+`npm run perf-trend` runs the perf report and appends one row per run to
+[perf-history.csv](perf-history.csv); `node scripts/perf-trend.js --show` prints the last rows
+without measuring. The table shows the delta in ms per keystroke against the previous run, which is
+the number most likely to drift as features are added.
+
+Two measurements taken on the same machine are enough to see the noise floor (~0.15 ms here), so a
+delta under about 0.3 ms is not a regression.

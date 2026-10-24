@@ -204,6 +204,12 @@ When the backups folder cannot be written, saving still succeeds and a banner sa
 console. An unreadable `settings.json` is copied to `settings.json.corrupt-<timestamp>` before
 the app continues with defaults, so a broken file is never overwritten silently.
 
+## Performance is tracked, not remembered
+
+`npm run perf-trend` appends a real measurement (ms per keystroke, outline, find, undo, PDF and
+HTML export) to `docs/perf-history.csv`, so a regression shows up as a trend instead of a number
+someone has to recall.
+
 ## Known limitations
 
 - **The installer is unsigned** — SmartScreen warns, and update download/install is
