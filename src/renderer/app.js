@@ -901,6 +901,7 @@ document.addEventListener('keydown', (event) => {
 
 // ---- state plumbing --------------------------------------------------------
 
+let draftBannerShown = false;
 let changeTimer = null;
 let applying = false;
 
@@ -5433,6 +5434,21 @@ window.api.onStatus((payload) => {
   if (payload.exported) flash(`exported ${payload.exported.path.split(/[\\/]/).pop()}`);
   if (payload.sizeWarning) {
     showBanner(t('export.largeWarning', lang, { size: payload.sizeWarning }), 'OK', () => {}, '', () => {});
+  }
+  if (payload.draftError) {
+    draftBannerShown = true;
+    showBanner(
+      'Recovery drafts are off: ' + payload.draftError + '. Your text is not protected against a crash.',
+      'Open folder',
+      () => window.api.openDataFolder(),
+      'Dismiss',
+      () => {}
+    );
+  } else if (payload.draftOk) {
+    if (draftBannerShown) {
+      draftBannerShown = false;
+      banner.hidden = true;
+    }
   }
   if (payload.saveFailed) {
     showBanner(

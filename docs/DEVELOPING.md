@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 290 end-to-end checks against a real window
+npm run smoke          # 291 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -272,6 +272,10 @@ guard (`looksLikeMarkdown`) parses a pasted block only on a strong signal, so pr
 stay literal.
 
 ## Failure paths
+
+`writeDraftNow` catches its own storage errors: the first failure sets `draftBroken` and sends
+`draftError` once; the next successful write sends `draftOk`. The renderer turns that into a
+banner that clears itself, so a broken drafts folder cannot masquerade as protection.
 
 `runExportSafely` converts a throwing export into `{ exported: false, error }`; the renderer shows
 a Retry banner. `readSettings` copies an unreadable file aside before returning defaults.

@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.50.0
+
+Crash protection now admits when it is off.
+
+- **A drafts folder that cannot be written raises a persistent banner**: "Recovery drafts are off:
+  <reason>", with a shortcut to the data folder. Before this, the failure only flashed in the status
+  bar for two seconds, so the user kept writing under the impression that a crash would be recoverable.
+- **The banner clears itself** after the next successful draft write (`draftOk`), so a temporarily
+  full disk does not leave a permanent scare.
+- `writeDraftNow` handles its own storage errors and reports each state transition once
+  (`draftBroken`), instead of two call sites catching and formatting the same message.
+- 291 smoke checks (one new: `draft-failure-banner` turns the drafts directory into a file,
+  asserts the banner, restores the directory and asserts it clears plus a draft lands), 155 unit
+  tests.
+
 ## 1.49.0
 
 The failure paths answer now.

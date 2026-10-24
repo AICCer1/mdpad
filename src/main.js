@@ -579,6 +579,7 @@ class Session {
     this.autosaveTimer = null;
     this.draftTimer = null;
     this.lastDraftAt = 0;
+    this.draftBroken = false;
     this.fileWatcher = null;
     this.treeWatcher = null;
     this.treeRoot = null;
@@ -785,11 +786,27 @@ class Session {
   }
 
   writeDraftNow() {
-    if (this.contents === this.savedContents) {
-      storage.clearDraft(this.file, draftsDir());
+    try {
+      if (this.contents === this.savedContents) {
+        storage.clearDraft(this.file, draftsDir());
+        return null;
+      }
+      const written = storage.writeDraft(this.file, this.contents, draftsDir());
+      if (this.draftBroken) {
+        this.draftBroken = false;
+        this.sendStatus({ draftOk: true });
+      }
+      return written;
+    } catch (err) {
+      // A broken drafts folder means the crash protection is gone. Say it once, loudly, and keep
+      // editing; retrying silently would let the user believe the text is protected.
+      if (!this.draftBroken) {
+        this.draftBroken = true;
+        logLine('draft', 'write failed: ' + err.message);
+        this.sendStatus({ draftError: err.message, draftsDir: draftsDir() });
+      }
       return null;
     }
-    return storage.writeDraft(this.file, this.contents, draftsDir());
   }
 
   scheduleDraft() {
@@ -800,11 +817,7 @@ class Session {
     clearTimeout(this.draftTimer);
     if (idle && this.file) {
       this.lastDraftAt = now;
-      try {
-        this.writeDraftNow();
-      } catch (err) {
-        this.sendStatus({ error: `draft: ${err.message}` });
-      }
+      this.writeDraftNow();
       return;
     }
     this.draftTimer = setTimeout(() => {
@@ -10250,6 +10263,59 @@ async function runSmoke() {
     'settings-corrupt-recovery',
     settingsRecovery.theme === 'light' && settingsRecovery.backups >= 1,
     settingsRecovery
+  );
+
+  // 124. a drafts folder that cannot be written raises a visible, recoverable warning
+  const draftFailure = await (async () => {
+    const drafts = draftsDir();
+    const marker = path.join(drafts + '.broken-marker');
+    // turn the drafts directory into a plain file so every write fails
+    try {
+      fs.rmSync(drafts, { recursive: true, force: true });
+    } catch {
+      /* nothing to remove */
+    }
+    fs.writeFileSync(drafts, 'blocked', 'utf8');
+    win.webContents.sendInputEvent({ type: 'char', keyCode: 'x' });
+    await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      window.__mdpad.applyMarkdown('# draft failure probe');
+      await sleep(700);
+    })()`);
+    const broken = await win.webContents.executeJavaScript(
+      `(() => { const b = document.querySelector('#banner'); return { visible: !b.hidden, text: document.querySelector('#banner-text').textContent }; })()`
+    );
+
+    // restore the folder: the next change writes again and clears the banner
+    try {
+      fs.unlinkSync(drafts);
+    } catch {
+      /* already gone */
+    }
+    fs.mkdirSync(drafts, { recursive: true });
+    await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      window.__mdpad.applyMarkdown('# draft failure probe recovered');
+      await sleep(800);
+    })()`);
+    const recovered = await win.webContents.executeJavaScript(
+      `(() => { const b = document.querySelector('#banner'); return { visible: !b.hidden, drafts: null }; })()`
+    );
+    const draftsNow = await win.webContents.executeJavaScript('window.api.listDrafts()');
+    try {
+      fs.unlinkSync(marker);
+    } catch {
+      /* never created */
+    }
+    return { broken, recovered, draftsNow: draftsNow.length };
+  })();
+  step(
+    'draft-failure-banner',
+    draftFailure.broken.visible === true &&
+      /Recovery drafts are off/.test(draftFailure.broken.text) &&
+      draftFailure.recovered.visible === false &&
+      draftFailure.draftsNow >= 1,
+    draftFailure
   );
 
   // 30k. the settings filter narrows the visible fields
