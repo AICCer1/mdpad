@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 253 end-to-end checks against a real window
+npm run smoke          # 254 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -187,6 +187,11 @@ opening/closing the settings panel flips it between `flex` and `none`.
 - Tiptap renders block math into `[data-type="block-math"]`, not KaTeX's `.katex-display`;
   style that element instead.
 - electron-builder fails with `"name"... is not valid JSON` if package.json gains a BOM.
+
+- `npm run feed` serves `release/` as a generic feed with the version raised by one
+  patch level, for exercising the update path by hand.
+- `scripts/feed.js` keeps the served file name unchanged, so the sha512 in `latest.yml` still
+  matches while the version looks newer.
 
 ## Release steps
 

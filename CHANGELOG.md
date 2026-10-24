@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.30.0
+
+The update path is verified past the check.
+
+- **`update-download` smoke check**: against a local feed, the app checks, downloads and validates
+  the payload's sha512 from `latest.yml`, then stops — installing is left to `quitAndInstall`, which
+  requires a trusted signature. Download verification is now proven, not assumed.
+- **`npm run feed`**: serves `release/` as a generic feed on `http://127.0.0.1:8199`. With
+  `--bump` the manifest version is raised by one patch while the file name and hash stay valid, so
+  an installed build can be pointed at it (Settings → Updates) to see the real update dialog.
+- `src/updater.js` gained `downloadUpdate()`: resolves on `update-downloaded`, fails on error or a
+  120 s timeout, and never installs.
+- Two unit tests for the feed server: version bumping, serving `latest.yml`, a space in an asset
+  name, a 404 and a traversal attempt.
+
 ## 1.29.0
 
 A support path that does not require reading a log by hand.

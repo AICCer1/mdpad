@@ -51,4 +51,35 @@ function checkForUpdates(updater, { feedUrl, timeoutMs = 15000 } = {}) {
   });
 }
 
-module.exports = { createUpdater, checkForUpdates };
+function downloadUpdate(updater, { timeoutMs = 120000 } = {}) {
+  return new Promise((resolve) => {
+    let settled = false;
+    let timer = null;
+    const cleanup = () => {
+      clearTimeout(timer);
+      updater.removeListener('update-downloaded', onDone);
+      updater.removeListener('error', onError);
+    };
+    const finish = (payload) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(payload);
+    };
+    const onDone = (info) => finish({ ok: true, file: (info && info.downloadedFile) || null });
+    const onError = (err) => finish({ ok: false, error: (err && err.message) || String(err) });
+    updater.on('update-downloaded', onDone);
+    updater.on('error', onError);
+    timer = setTimeout(() => finish({ ok: false, error: 'update download timed out' }), timeoutMs);
+    try {
+      const pending = updater.downloadUpdate();
+      if (pending && typeof pending.catch === 'function') {
+        pending.catch((err) => finish({ ok: false, error: (err && err.message) || String(err) }));
+      }
+    } catch (err) {
+      finish({ ok: false, error: (err && err.message) || String(err) });
+    }
+  });
+}
+
+module.exports = { createUpdater, checkForUpdates, downloadUpdate };

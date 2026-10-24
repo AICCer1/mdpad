@@ -84,6 +84,22 @@ To make updates installable:
 4. From an installed older build, Help → Check for updates reports the version, downloads it and
    offers to restart. electron-updater refuses unsigned downloads, so signing comes first.
 
+## Testing an update locally
+
+```powershell
+npm run ship
+npm run feed            # http://127.0.0.1:8199/, version raised by one patch
+```
+
+Open Settings → Updates, set the feed URL to the printed address, then Help → Check for updates.
+The app should report the bumped version; **Download** fetches the installer and verifies its
+sha512 against `latest.yml`. Installing is deliberately not part of this flow: `quitAndInstall`
+only runs from a trusted, signed update, and the manual check exists to prove the feed and hash
+are wired correctly.
+
+`node scripts/feed.js --bump --port 8200` does the same on another port; without `--bump` the
+feed reports the current version, which is useful to check the "up to date" path.
+
 ## Publishing to GitHub Releases
 
 The repository is private (`AICCer1/mdpad`) and the installers are **not** committed — GitHub

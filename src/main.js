@@ -25,7 +25,7 @@ const { diagnoseAiError } = require('./ai-errors');
 const { isSafeExternalUrl } = require('./link-guard');
 const { listModels } = require('./ai-models');
 const { pruneTurns } = require('./ai-history');
-const { createUpdater, checkForUpdates: runUpdateCheck } = require('./updater');
+const { createUpdater, checkForUpdates: runUpdateCheck, downloadUpdate } = require('./updater');
 
 const AUTOSAVE_MS = Number(process.env.MDPAD_AUTOSAVE_MS || 5000);
 const DRAFT_MS = Number(process.env.MDPAD_DRAFT_MS || 600);
@@ -1604,6 +1604,21 @@ function registerIpc() {
 
   ipcMain.handle('update:check', (_e, payload = {}) => performUpdateCheck(payload.feedUrl));
 
+  // Download only: installing is left to quitAndInstall, which needs a trusted signature. The
+  // smoke test uses this to prove the feed and its sha512 are consumed end to end.
+  ipcMain.handle('update:download', async () => {
+    const result = await downloadUpdate(getUpdater());
+    if (!result.ok || !result.file) return result;
+    let size = 0;
+    try {
+      size = fs.statSync(result.file).size;
+    } catch {
+      /* the file may already be gone */
+    }
+    logLine('update', 'downloaded ' + result.file + ' (' + size + ' bytes)');
+    return { ...result, size };
+  });
+
   ipcMain.handle('recent:list', () => recentFiles());
 
   ipcMain.handle('clipboard:write', (_e, { text } = {}) => {
@@ -2994,19 +3009,38 @@ async function runSmoke() {
 
   // electron-updater refuses to check in an unpacked dev run unless this file exists.
   const devFeedFile = path.join(__dirname, '..', 'dev-app-update.yml');
+  const feedYaml = `provider: generic\nurl: http://127.0.0.1:${feedPort}\nchannel: latest\n`;
   const wroteDevFeed = !app.isPackaged;
-  if (wroteDevFeed) {
-    fs.writeFileSync(
-      devFeedFile,
-      `provider: generic\nurl: http://127.0.0.1:${feedPort}\nchannel: latest\n`,
-      'utf8'
-    );
+  if (wroteDevFeed) fs.writeFileSync(devFeedFile, feedYaml, 'utf8');
+  const resourceFeed = path.join(process.resourcesPath || '', 'app-update.yml');
+  let wroteResourceFeed = false;
+  if (app.isPackaged && process.resourcesPath && !fs.existsSync(resourceFeed)) {
+    fs.writeFileSync(resourceFeed, feedYaml, 'utf8');
+    wroteResourceFeed = true;
   }
 
   const updateRes = await win.webContents.executeJavaScript(
     `window.api.updateCheck(${JSON.stringify(`http://127.0.0.1:${feedPort}`)})`
   );
   step('update-check', Boolean(updateRes && updateRes.ok && updateRes.available && updateRes.version === '9.9.9'), updateRes);
+
+  // 17b. the download path consumes the feed's sha512 and stops before installing. The served
+  // payload is a 24-byte placeholder with a matching hash, so this stays fast.
+  const downloadRes = await win.webContents.executeJavaScript('window.api.updateDownload()');
+  const downloadedSize = downloadRes && downloadRes.file && fs.existsSync(downloadRes.file)
+    ? fs.statSync(downloadRes.file).size
+    : 0;
+  step(
+    'update-download',
+    Boolean(downloadRes && downloadRes.ok && downloadRes.file && downloadedSize === dummy.length),
+    { result: downloadRes, size: downloadedSize }
+  );
+  try {
+    if (downloadRes && downloadRes.file) fs.unlinkSync(downloadRes.file);
+  } catch {
+    /* the updater may move it itself */
+  }
+
 
   // 18. large-document performance
   const perf = await win.webContents.executeJavaScript(`(() => {
@@ -8520,6 +8554,13 @@ async function runSmoke() {
   );
 
 
+  if (wroteResourceFeed) {
+    try {
+      fs.unlinkSync(resourceFeed);
+    } catch {
+      /* best effort */
+    }
+  }
   if (wroteDevFeed) {
     try {
       fs.unlinkSync(devFeedFile);

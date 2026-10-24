@@ -33,8 +33,8 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 ## Quality gates
 
 ```
-npm test              142 unit tests
-npm run smoke         253 end-to-end checks (dev or packaged)
+npm test              155 unit tests
+npm run smoke         254 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable

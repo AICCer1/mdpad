@@ -79,6 +79,7 @@ contextBridge.exposeInMainWorld('api', {
   aiUsageExport: () => ipcRenderer.invoke('ai:usage:export'),
   aiUsageExportTo: (filePath) => ipcRenderer.invoke('ai:usage:exportPath', { filePath }),
   updateCheck: (feedUrl) => ipcRenderer.invoke('update:check', { feedUrl }),
+  updateDownload: () => ipcRenderer.invoke('update:download'),
   recentList: () => ipcRenderer.invoke('recent:list'),
   clipboardWrite: (text) => ipcRenderer.invoke('clipboard:write', { text }),
   clipboardRead: () => ipcRenderer.invoke('clipboard:read'),
