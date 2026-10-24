@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.37.0
+
+Old documents can shed their embedded images.
+
+- **File → Extract embedded images…** (also in the command palette) finds `data:image/...` URLs in
+  the document, writes each one into `assets/<sha1>.<ext>`, rewrites the references and saves
+  through the normal atomic path, which keeps a backup of the previous version.
+- **It refuses while the document is dirty.** Extraction rewrites the file, so unsaved text always
+  wins; the command reports "save first" instead of touching anything.
+- **This is a command, not a save-time behaviour.** Rewriting someone's document behind their back
+  is exactly the kind of silent change this project avoids.
+- 267 smoke checks (two new: `extract-images` — two data URLs become two files, the markdown more
+  than halves, a backup exists — and `extract-images-dirty-guard`), 155 unit tests.
+
 ## 1.36.0
 
 Images stop bloating documents.

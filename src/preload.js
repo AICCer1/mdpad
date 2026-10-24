@@ -28,6 +28,8 @@ contextBridge.exposeInMainWorld('api', {
   },
   onTreeChanged: (cb) => ipcRenderer.on('tree:changed', (_e, payload) => cb(payload)),
   save: (options = {}) => ipcRenderer.invoke('doc:save', options),
+  extractImages: () => ipcRenderer.invoke('doc:extractImages'),
+  onDocReloaded: (cb) => ipcRenderer.on('doc:reloaded', (_e, payload) => cb(payload)),
   saveAs: () => ipcRenderer.invoke('doc:saveAs'),
   open: () => ipcRenderer.invoke('doc:open'),
   newDoc: () => ipcRenderer.invoke('doc:new'),

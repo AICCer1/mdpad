@@ -820,6 +820,54 @@ class Session {
     }, delay);
   }
 
+  // Old documents can still carry pasted images as data URLs. Moving them next to the file is
+  // explicit: it rewrites the document, so it is offered as a command, never done silently.
+  extractEmbeddedImages() {
+    if (!this.file) return { extracted: false, reason: 'no-file' };
+    if (this.contents !== this.diskRaw) return { extracted: false, reason: 'dirty' };
+    const pattern = /!\[([^\]]*)\]\(data:image\/([a-z0-9+.-]+);base64,([A-Za-z0-9+/=\s]+)\)/gi;
+    const found = [];
+    this.contents.replace(pattern, (match, alt, type, base64) => {
+      found.push({ alt, type, base64, match });
+      return match;
+    });
+    if (!found.length) return { extracted: false, reason: 'none' };
+    const dir = path.join(path.dirname(this.file), 'assets');
+    fs.mkdirSync(dir, { recursive: true });
+    let before = this.contents.length;
+    let replaced = 0;
+    const names = [];
+    let next = this.contents.replace(pattern, (match, alt, type, base64) => {
+      const ext = String(type).toLowerCase().replace(/^jpeg$/, 'jpg');
+      const bytes = Buffer.from(String(base64).replace(/\s+/g, ''), 'base64');
+      if (!bytes.length) return match;
+      const name = crypto.createHash('sha1').update(bytes).digest('hex').slice(0, 12) + '.' + ext;
+      const target = path.join(dir, name);
+      if (!fs.existsSync(target)) fs.writeFileSync(target, bytes);
+      names.push(name);
+      replaced += 1;
+      return '![' + alt + '](assets/' + name + ')';
+    });
+    if (!replaced) return { extracted: false, reason: 'none' };
+    const backup = storage.saveDocument(this.file, next, { backupsDir: backupsDir(), keep: BACKUP_KEEP });
+    this.contents = next;
+    this.savedContents = next;
+    this.diskRaw = next;
+    this.stashActive();
+    this.broadcastTabs();
+    this.send('doc:reloaded', { contents: next, file: this.file });
+    this.sendStatus({ extracted: replaced });
+    logLine('images', 'extracted ' + replaced + ' embedded image(s) from ' + this.file);
+    return {
+      extracted: true,
+      count: replaced,
+      bytesBefore: before,
+      bytesAfter: next.length,
+      names,
+      backup: Boolean(backup && backup.backup),
+    };
+  }
+
   saveCurrent({ silent = false, force = false } = {}) {
     if (!this.file) {
       this.send('save:state', { state: 'dirty', savedAt: null });
@@ -1468,6 +1516,22 @@ function registerIpc() {
   ipcMain.handle('doc:close', (event, { id }) => sessionFor(event).closeTab(id));
   ipcMain.handle('tabs:reorder', (event, { ids } = {}) => sessionFor(event).reorderTabs(ids));
   ipcMain.handle('tabs:reopen', (event) => sessionFor(event).reopenTab());
+
+  ipcMain.handle('doc:extractImages', async (event) => {
+    const s = sessionFor(event);
+    const result = s.extractEmbeddedImages();
+    if (!result.extracted && result.reason === 'none') {
+      if (!SMOKE && s.win && !s.win.isDestroyed()) {
+        dialog.showMessageBox(s.win, {
+          type: 'info',
+          title: t('dialog.extractTitle', currentLang()),
+          message: t('dialog.extractNone', currentLang()),
+          buttons: [t('dialog.ok', currentLang())],
+        });
+      }
+    }
+    return result;
+  });
 
   ipcMain.handle('doc:save', async (event, payload = {}) => {
     const s = sessionFor(event);
@@ -2337,6 +2401,8 @@ function buildMenu() {
         { label: tt('menu.exportWord'), click: () => sendMenuAction('exportDocx') },
         { label: tt('menu.exportEpub'), click: () => sendMenuAction('exportEpub') },
         { label: tt('menu.preview'), accelerator: 'CmdOrCtrl+Shift+V', click: () => sendMenuAction('previewExport') },
+          { type: 'separator' },
+          { label: tt('menu.extractImages'), click: () => sendMenuAction('extractImages') },
         { type: 'separator' },
         { label: tt('menu.backups'), click: () => shell.openPath(backupsDir()) },
         { label: tt('menu.logs'), click: () => shell.openPath(path.dirname(logFilePath())) },
@@ -9007,6 +9073,11 @@ async function runSmoke() {
   );
 
   // 110b. dropping that image really writes the smaller file next to the document
+  const dropTarget = path.join(dir, 'image-drop.md');
+  fs.writeFileSync(dropTarget, '# Drop target' + String.fromCharCode(10), 'utf8');
+  const dropSession = sessions.get(win.webContents.id);
+  await dropSession.loadDocument(dropTarget);
+  await sleep(700);
   const imageDrop = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const canvas = document.createElement('canvas');
@@ -9037,7 +9108,9 @@ async function runSmoke() {
     };
   })()`);
   const droppedMatch = /assets\/([a-f0-9]+\.(jpg|png))/.exec(imageDrop.markdown);
-  const droppedSize = droppedMatch ? fs.statSync(path.join(path.dirname(docPath), 'assets', droppedMatch[1])).size : 0;
+  const droppedSize = droppedMatch
+    ? fs.statSync(path.join(path.dirname(dropTarget), 'assets', droppedMatch[1])).size
+    : 0;
   step(
     'image-drop-compressed',
     Boolean(droppedMatch) &&
@@ -9045,6 +9118,67 @@ async function runSmoke() {
       droppedSize > 0 &&
       droppedSize < Math.min(1200000, imageDrop.originalBytes),
     { matched: Boolean(droppedMatch), droppedSize, originalBytes: imageDrop.originalBytes }
+  );
+
+  // 111a. embedded data-URL images are moved into assets/ and the document shrinks
+  const extract = await (async () => {
+    const png =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    const file = path.join(dir, 'embedded.md');
+    const original = ['# Embedded', '', '![one](data:image/png;base64,' + png + ')', '', '![two](data:image/png;base64,' + png + ')', '', 'Text after the images.'].join(String.fromCharCode(10));
+    fs.writeFileSync(file, original, 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(file);
+    await sleep(600);
+    const result = await win.webContents.executeJavaScript('window.api.extractImages()');
+    await sleep(400);
+    const after = fs.readFileSync(file, 'utf8');
+    const assetsDir = path.join(dir, 'assets');
+    const assets = fs.existsSync(assetsDir) ? fs.readdirSync(assetsDir) : [];
+    const backups = storage.listBackups(file, backupsDir());
+    return {
+      extracted: result && result.extracted,
+      count: result && result.count,
+      bytesBefore: result && result.bytesBefore,
+      bytesAfter: result && result.bytesAfter,
+      hasDataUrl: /data:image/.test(after),
+      hasAssetsRef: /!\[one\]\(assets\/[a-f0-9]+\.png\)/.test(after),
+      assets: assets.length,
+      backups: backups.length,
+      markdownLength: after.length,
+      sessionContentsHasAssets: session.contents.includes('assets/'),
+    };
+  })();
+  step(
+    'extract-images',
+    extract.extracted === true &&
+      extract.count === 2 &&
+      extract.bytesAfter < extract.bytesBefore / 2 &&
+      extract.hasDataUrl === false &&
+      extract.hasAssetsRef === true &&
+      extract.assets === 2 &&
+      extract.backups >= 1 &&
+      extract.sessionContentsHasAssets === true,
+    extract
+  );
+
+  // 111b. a dirty document is refused: extraction rewrites the file, so unsaved text must win
+  const extractDirty = await (async () => {
+    const file = path.join(dir, 'embedded-dirty.md');
+    const png =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    fs.writeFileSync(file, '# dirty' + String.fromCharCode(10) + String.fromCharCode(10) + '![x](data:image/png;base64,' + png + ')', 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(file);
+    await sleep(500);
+    session.contents = session.contents + String.fromCharCode(10) + 'unsaved words';
+    const result = await win.webContents.executeJavaScript('window.api.extractImages()');
+    return { extracted: result && result.extracted, reason: result && result.reason };
+  })();
+  step(
+    'extract-images-dirty-guard',
+    extractDirty.extracted === false && extractDirty.reason === 'dirty',
+    extractDirty
   );
 
   // 30k. the settings filter narrows the visible fields

@@ -223,6 +223,11 @@ capped at 2200 px, and the file is re-encoded as whichever of JPEG or PNG is sma
 become JPEG, screenshots of text usually stay PNG). The toast shows the before/after size — a 9 MB
 photo typically lands around 100–300 KB.
 
+Older documents can still contain pasted images as data URLs. **File → Extract embedded
+images…** moves them into `assets/`, replaces the references, and keeps a backup of the previous
+version. It only runs on a saved document with no unsaved changes — save first if the command seems
+to do nothing.
+
 The file goes to an `assets/` folder next to the document, so the markdown stays readable and the
 document folder stays portable. Images smaller than 1.2 MB and 2200 px are left untouched.
 

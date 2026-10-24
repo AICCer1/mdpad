@@ -1069,6 +1069,20 @@ Object.assign(DICT.zh, {
   'settings.resetDone': '设置已重置',
 });
 
+Object.assign(DICT.en, {
+  'menu.extractImages': 'Extract embedded images…',
+  'dialog.extractTitle': 'Embedded images',
+  'dialog.extractNone': 'This document has no embedded images to extract.',
+  'dialog.extracted': 'Moved {count} image(s) to assets/',
+});
+
+Object.assign(DICT.zh, {
+  'menu.extractImages': '提取内嵌图片…',
+  'dialog.extractTitle': '内嵌图片',
+  'dialog.extractNone': '这个文档没有可提取的内嵌图片。',
+  'dialog.extracted': '已移动 {count} 张图片到 assets/',
+});
+
 module.exports = { t, normalizeLang, LANGS, DICT };
 
 Object.assign(DICT.en, {

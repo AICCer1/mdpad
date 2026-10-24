@@ -3816,6 +3816,7 @@ function commandList() {
   return [
     { id: 'save', hint: 'Ctrl+S', label: p('palette.save'), run: () => saveDocument() },
     { id: 'saveAs', hint: 'Ctrl+Shift+S', label: p('palette.saveAs'), run: () => window.api.saveAs() },
+    { id: 'extractImages', label: 'Extract embedded images', run: () => actions.extractImages() },
     { id: 'open', hint: 'Ctrl+O', label: p('palette.open'), run: () => actions.open() },
     { id: 'openFolder', hint: 'Ctrl+Shift+O', label: p('palette.openFolder'), run: () => actions.openFolder() },
     { id: 'newTab', hint: 'Ctrl+T', label: p('palette.newTab'), run: () => actions.new() },
@@ -4423,6 +4424,14 @@ const actions = {
   open: async () => { await flushChange(); return window.api.open(); },
   save: () => saveDocument(),
   saveAs: () => window.api.saveAs(),
+  extractImages: async () => {
+    const result = await window.api.extractImages();
+    if (result && result.extracted) {
+      flash(t('dialog.extracted', lang, { count: result.count }));
+    } else if (result && result.reason === 'dirty') {
+      flash('Save the document first, then extract its images');
+    }
+  },
   exportHtml: () => openExportPanel('html'),
   exportPdf: () => openExportPanel('pdf'),
   exportDocx: () => openExportPanel('docx'),
@@ -4554,6 +4563,16 @@ window.api.onLoaded(({ id, file, contents, draft }) => {
     .backupInfo()
     .then(({ count, lastAt }) => updateBackupInfo(count, lastAt))
     .catch(() => {});
+});
+
+window.api.onDocReloaded(({ contents }) => {
+  setMarkdown(contents);
+  updateStats();
+});
+
+window.api.onDocReloaded(({ contents }) => {
+  setMarkdown(contents);
+  updateStats();
 });
 
 window.api.onFileExternal(() => {

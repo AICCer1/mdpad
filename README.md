@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         265 end-to-end checks (dev or packaged)
+npm run smoke         267 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -75,6 +75,13 @@ Pasted and dropped images are downscaled to 2200 px on the long edge and re-enco
 of JPEG and PNG (JPEG for photos, PNG for screenshots of text), then written to `assets/` next to
 the document. An 8.9 MB photo becomes about 110 KB with no visible loss at document size; the toast
 reports the saving.
+
+## Extracting old images
+
+Documents written before the image pipeline can still carry pasted pictures as data URLs.
+**File → Extract embedded images…** (also in the command palette) writes them into `assets/` and
+rewrites the references, through a backup. It refuses while the document has unsaved changes, so it
+can never destroy text you are still editing.
 
 ## Performance
 
