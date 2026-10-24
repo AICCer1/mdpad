@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.61.0
+
+Typing in a large document: 50 ms per keystroke → 4 ms.
+
+- **Measured first**: a 415 KB file (900 sections) took **49.7 ms per keystroke**, with a bare
+  insertion costing ~6 ms at the end of the document and ~1.5 ms for a no-op transaction — so the
+  cost was layout, not the transaction.
+- **`content-visibility: auto`** on the top-level blocks of documents above 200 KB (`is-large`
+  class) lets the browser skip layout and paint for everything off screen. Worst-case insert dropped
+  from 47 ms to 5 ms.
+- **No leading-edge change sync for large documents**: serialising 400 KB of markdown on the first
+  keystroke of a burst cost ~40 ms; those documents now debounce at 600 ms and skip the leading
+  edge. Small documents keep the immediate sync that protects against a crash right after typing.
+- **Result in the suite**: average **4.0 ms**, worst 5.1 ms per keystroke.
+- **Guarded**: `large-doc-typing` opens the big file and inserts 18 characters through the real
+  editor, asserting average < 25 ms and worst < 60 ms. The first version of the check asserted the
+  editor's text length against the file's *byte* length and failed at 380k vs 400k.
+- 303 smoke checks, 160 unit tests.
+
 ## 1.60.0
 
 Large documents open in half the time — and the number is measured.

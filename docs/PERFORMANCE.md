@@ -79,6 +79,20 @@ boundaries and inserts one chunk per task, which cut the 2 MB case to **7.2 s** 
 window painting between chunks. `npm run perf-open` reproduces the numbers and appends them to
 [perf-open.csv](perf-open.csv); `--kb 4096` or `--file some.md` change the input.
 
+## Typing in a large document
+
+A 415 KB document (900 sections) typed at **49.7 ms per keystroke** before this change — the
+browser laid out every one of ~19k blocks on each transaction. Two fixes:
+
+1. `content-visibility: auto` with `contain-intrinsic-size` on the top-level blocks of documents
+   above 200 KB (the `is-large` class), so off-screen blocks are not laid out or painted.
+2. No leading-edge change sync for those documents: serialising 400 KB of markdown on the first
+   keystroke of a burst cost ~40 ms; the debounce is 600 ms instead of 300 ms there.
+
+Result: **4.0 ms per keystroke, 5.1 ms worst case** in the smoke suite (a bare insert costs
+~6 ms at the end of the document, ~1.5 ms for a no-op transaction). Small documents are
+unaffected — the class only applies above 200 KB.
+
 ## Trend log
 
 `npm run perf-trend` runs the perf report and appends one row per run to

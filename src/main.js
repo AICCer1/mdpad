@@ -2935,6 +2935,20 @@ async function runPerfReport() {
 
 // Opening a large file is the moment a writing app feels slow. This measures the three phases
 // separately (read, IPC, renderer parse+layout) instead of one opaque number.
+async function runBenchTyping() {
+  const target = process.env.MDPAD_PERF_OPEN;
+  const win = createWindow({ show: false, width: 1180, height: 900 });
+  await new Promise((resolve) => win.webContents.once('did-finish-load', resolve));
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  const session = sessions.get(win.webContents.id);
+  await session.loadDocument(target);
+  await new Promise((resolve) => setTimeout(resolve, 2500));
+  const parts = await win.webContents.executeJavaScript('window.__mdpad.benchTypingParts()');
+  const typing = await win.webContents.executeJavaScript('window.__mdpad.measureTyping(18)');
+  console.log('BENCH_TYPING ' + JSON.stringify({ parts, typing }));
+  app.exit(0);
+}
+
 async function runBenchLoad() {
   const target = process.env.MDPAD_PERF_OPEN;
   const text = fs.readFileSync(target, 'utf8');
@@ -11023,6 +11037,40 @@ async function runSmoke() {
     largeLoad
   );
 
+  // 134. typing stays responsive in a large document
+  const largeTyping = await (async () => {
+    const nl = String.fromCharCode(10);
+    const parts = ['# Large typing'];
+    for (let section = 1; section <= 900; section += 1) {
+      parts.push('', '## Section ' + section, '');
+      parts.push('A paragraph with **bold** and *italic* that repeats to make the file big. '.repeat(6));
+    }
+    const doc = path.join(dir, 'large-typing.md');
+    fs.writeFileSync(doc, parts.join(nl), 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    const expected = Buffer.byteLength(parts.join(nl), 'utf8');
+    for (let attempt = 0; attempt < 240; attempt += 1) {
+      const timing = await win.webContents.executeJavaScript('window.__mdpad.loadTiming()');
+      if (timing && timing.chars === expected) break;
+      await sleep(60);
+    }
+    await sleep(500);
+    // warm up: the first insert also flushes a full serialisation
+    const warmup = await win.webContents.executeJavaScript('window.__mdpad.measureTyping(3)');
+    const measured = await win.webContents.executeJavaScript('window.__mdpad.measureTyping(18)');
+    return { bytes: expected, chars: measured.chars, warmup, measured };
+  })();
+  step(
+    'large-doc-typing',
+    largeTyping.bytes > 400000 &&
+      largeTyping.chars > 350000 &&
+      largeTyping.measured.count === 18 &&
+      largeTyping.measured.avg < 25 &&
+      largeTyping.measured.max < 60,
+    largeTyping
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -11787,6 +11835,10 @@ app.whenReady().then(async () => {
   }
   if (process.argv.includes('--perf-report')) {
     await runPerfReport();
+    return;
+  }
+  if (process.argv.includes('--bench-typing')) {
+    await runBenchTyping();
     return;
   }
   if (process.argv.includes('--bench-load')) {

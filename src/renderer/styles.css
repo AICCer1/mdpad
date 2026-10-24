@@ -2311,3 +2311,11 @@ textarea:focus-visible,
 /* ---- export inspection ---- */
 .export-inspect { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--chrome-line, var(--line)); font-size: 11.5px; color: var(--muted); line-height: 1.55; }
 .export-inspect-warn { margin-top: 4px; color: #b23b2e; }
+
+
+/* Large documents: skip layout and paint for blocks that are off screen. Without this, one inserted
+   character forces the browser to lay out the whole 20k-block document (~50 ms per keystroke). */
+.tiptap.is-large > * {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 2.5rem;
+}

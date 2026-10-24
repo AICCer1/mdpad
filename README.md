@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         302 end-to-end checks (dev or packaged)
+npm run smoke         303 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -203,6 +203,12 @@ instead of overwriting whatever is open.
 When the backups folder cannot be written, saving still succeeds and a banner says **"Backups are off"** — protection degrades instead of blocking the save. A drafts folder that cannot be written raises a **persistent banner** ("Recovery drafts are off: <reason>") with a shortcut to the data folder; the next successful write clears it. A failed export answers with an error and shows a **Retry** banner instead of throwing into the
 console. An unreadable `settings.json` is copied to `settings.json.corrupt-<timestamp>` before
 the app continues with defaults, so a broken file is never overwritten silently.
+
+## Typing in a large document stays fast
+
+Off-screen blocks of documents over 200 KB skip layout and paint (`content-visibility`), and the
+leading-edge change sync is skipped for them. On a 415 KB file that took a keystroke from
+**~50 ms to ~4 ms** (measured by `large-doc-typing`, not eyeballed).
 
 ## Large documents load progressively
 

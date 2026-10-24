@@ -750,7 +750,7 @@ const editor = new Editor({
       return false;
     },
   },
-  onUpdate: () => { scheduleChange(); syncToolbar(); },
+  onUpdate: () => { scheduleChange(); syncToolbar(); markLargeDocument(); },
   onSelectionUpdate: () => { updateStats(); syncToolbar(); },
 });
 
@@ -1102,6 +1102,14 @@ document.addEventListener('visibilitychange', () => {
   pushChange().catch(() => {});
   window.api.flushDraft().catch(() => {});
 });
+
+// Off-screen blocks of a huge document can skip layout; small ones keep exact layout semantics.
+function markLargeDocument() {
+  if (!editor || !editor.view) return;
+  const big = editor.state.doc.content.size > 200000;
+  const dom = editor.view.dom;
+  if (dom.classList.contains('is-large') !== big) dom.classList.toggle('is-large', big);
+}
 
 function setMarkdown(markdown) {
   applying = true;
@@ -5496,6 +5504,7 @@ window.api.onLoaded(async ({ id, file, contents, draft }) => {
   } else {
     const loadStartedAt = performance.now();
     await setMarkdownProgressive(contents);
+    markLargeDocument();
     lastLoadTiming = {
       renderMs: Math.round(performance.now() - loadStartedAt),
       chars: contents.length,
@@ -6163,6 +6172,50 @@ window.__mdpad = {
       count: rows.length,
       current: current.map((node) => node.textContent),
       expanded: twisties.map((node) => node.getAttribute('aria-expanded')),
+    };
+  },
+  benchTypingParts: () => {
+    const t0 = performance.now();
+    editor.commands.insertContent('a', { emitUpdate: false });
+    const insertMs = performance.now() - t0;
+    const n0 = performance.now();
+    editor.view.dispatch(editor.state.tr);
+    const noopMs = performance.now() - n0;
+    const e0 = performance.now();
+    editor.commands.insertContentAt(editor.state.doc.content.size - 1, 'b', { emitUpdate: false });
+    const insertEndMs = performance.now() - e0;
+    const t1 = performance.now();
+    syncToolbar();
+    const toolbarMs = performance.now() - t1;
+    const t2 = performance.now();
+    updateStatsNow();
+    const statsMs = performance.now() - t2;
+    const t3 = performance.now();
+    const md = editor.getMarkdown();
+    const markdownMs = performance.now() - t3;
+    return {
+      insertMs: Math.round(insertMs * 100) / 100,
+      noopMs: Math.round(noopMs * 100) / 100,
+      insertEndMs: Math.round(insertEndMs * 100) / 100,
+      toolbarMs: Math.round(toolbarMs * 100) / 100,
+      statsMs: Math.round(statsMs * 100) / 100,
+      markdownMs: Math.round(markdownMs * 100) / 100,
+      markdownChars: md.length,
+    };
+  },
+  measureTyping: (count = 20) => {
+    const times = [];
+    for (let index = 0; index < count; index += 1) {
+      const startedAt = performance.now();
+      editor.commands.insertContent('a');
+      times.push(performance.now() - startedAt);
+    }
+    const total = times.reduce((sum, value) => sum + value, 0);
+    return {
+      count,
+      avg: Math.round((total / count) * 100) / 100,
+      max: Math.round(Math.max(...times) * 100) / 100,
+      chars: editor.getText().length,
     };
   },
   loadTiming: () => lastLoadTiming,

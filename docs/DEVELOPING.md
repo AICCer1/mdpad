@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 302 end-to-end checks against a real window
+npm run smoke          # 303 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -372,3 +372,11 @@ silently stopped working.
 per `setTimeout(0)` and suppresses change emission with `applying`. The smoke check
 `large-doc-open` opens an 800 KB file, waits for the last section and asserts the outline has all
 1201 headings — chunking must never drop a block.
+
+## Typing performance
+
+`markLargeDocument()` toggles `is-large` on the editor above 200k characters; the stylesheet then
+applies `content-visibility: auto` to top-level blocks. `scheduleChange` skips the leading-edge
+sync for those documents. `large-doc-typing` inserts 18 characters through the real editor and
+asserts average under 25 ms and worst under 60 ms — the numbers regressed badly once, so they are
+guarded.
