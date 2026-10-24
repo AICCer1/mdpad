@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.33.0
+
+Two windows can no longer destroy each other's work silently.
+
+- **Saving over a file that changed on disk asks first.** Before writing, the session compares the
+  file with the bytes it last read or wrote. If another window, another editor or a sync client
+  replaced it, the explicit save returns a conflict and shows **This file changed on disk** with
+  **Overwrite**; closing the dialog keeps your text in the editor, still unsaved. Autosave raises
+  the banner and stays dirty instead of overwriting.
+- **Opening a file that is already open elsewhere focuses that window** rather than opening a
+  second copy that will fight over the file.
+- **Two bugs found by the regression run:**
+  - The first guard compared against `savedContents`, but the editor normalizes markdown on load,
+    so the baseline never matched the file and *every* save reported a conflict. It now compares
+    against `diskRaw`, set at load and after each write.
+  - "Read-only" was tracked per window, so one unwritable file stopped autosave for every other
+    document until a save succeeded. It is now tracked per file.
+- 258 smoke checks (three new: `save-conflict`, `save-conflict-dialog`, `open-existing-tab`),
+  155 unit tests.
+
 ## 1.32.0
 
 A first-run guide that does the thing instead of describing it.

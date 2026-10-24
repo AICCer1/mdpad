@@ -27,7 +27,7 @@ contextBridge.exposeInMainWorld('api', {
     }
   },
   onTreeChanged: (cb) => ipcRenderer.on('tree:changed', (_e, payload) => cb(payload)),
-  save: () => ipcRenderer.invoke('doc:save'),
+  save: (options = {}) => ipcRenderer.invoke('doc:save', options),
   saveAs: () => ipcRenderer.invoke('doc:saveAs'),
   open: () => ipcRenderer.invoke('doc:open'),
   newDoc: () => ipcRenderer.invoke('doc:new'),

@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 255 end-to-end checks against a real window
+npm run smoke          # 258 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -144,6 +144,9 @@ opening/closing the settings panel flips it between `flex` and `none`.
   already passed and produced "no SMOKE_RESULT" with no failure listed.
 - `process.exit()` right after the result line can truncate piped stdout on Windows; the runner
   sets `process.exitCode` and exits a tick later instead.
+- The save conflict guard compares the file against `diskRaw` (the bytes we last read or
+  wrote), not against `savedContents`: the editor normalizes markdown on load, so the stored
+  baseline and the file differ by design and comparing them reports a conflict on every save.
 - Draft writes have a leading edge: the first change of a burst is written synchronously in
   `doc:syncChange`, later ones are coalesced. Blur, visibility change, `before-quit` and
   `powerMonitor` suspend flush the buffer, so an Alt-F4 or a sleep does not wait for a debounce.

@@ -764,6 +764,52 @@ function scheduleChange() {
 }
 
 // Leaving the window (alt-tab, another app) and hidden tabs flush the draft right away.
+// Save hit a file that changed underneath us. Never overwrite silently: offer the three
+// sensible resolutions and let the user pick.
+function showConflictDialog(result, after) {
+  const modal = document.querySelector('#tree-confirm');
+  const title = document.querySelector('#tree-confirm-title');
+  const text = document.querySelector('#tree-confirm-text');
+  const ok = document.querySelector('#tree-confirm-ok');
+  const cancel = document.querySelector('#tree-confirm-cancel');
+  title.textContent = 'This file changed on disk';
+  text.textContent =
+    'Another window or app wrote this file after you opened it. Saving now would replace that version.';
+  ok.textContent = 'Overwrite';
+  ok.classList.remove('danger');
+  if (cancel.dataset.conflictBound !== '1') {
+    cancel.dataset.conflictBound = '1';
+  }
+  // Three-way choice: the confirm button overwrites, Cancel keeps the editor version unsaved.
+  const close = () => {
+    modal.hidden = true;
+    ok.removeEventListener('click', onOverwrite);
+    cancel.removeEventListener('click', onKeep);
+  };
+  const onOverwrite = async () => {
+    close();
+    const saved = await window.api.save({ force: true });
+    if (saved && saved.saved) {
+      showToast('Overwritten on disk', 3000);
+      after?.(saved);
+    }
+  };
+  const onKeep = () => {
+    close();
+    showToast('Kept your version in the editor — save again to overwrite', 5000);
+  };
+  ok.addEventListener('click', onOverwrite);
+  cancel.addEventListener('click', onKeep);
+  modal.hidden = false;
+  return result;
+}
+
+async function saveDocument(options = {}) {
+  const result = await window.api.save(options);
+  if (result && result.conflict) return showConflictDialog(result);
+  return result;
+}
+
 window.addEventListener('blur', () => {
   if (applying || !pendingChange) return;
   clearTimeout(changeTimer);
@@ -3656,7 +3702,7 @@ function commandList() {
   const p = (key) => t(key, lang);
   // id + hint let the palette show the shortcut and rank the commands the user actually runs.
   return [
-    { id: 'save', hint: 'Ctrl+S', label: p('palette.save'), run: () => window.api.save() },
+    { id: 'save', hint: 'Ctrl+S', label: p('palette.save'), run: () => saveDocument() },
     { id: 'saveAs', hint: 'Ctrl+Shift+S', label: p('palette.saveAs'), run: () => window.api.saveAs() },
     { id: 'open', hint: 'Ctrl+O', label: p('palette.open'), run: () => actions.open() },
     { id: 'openFolder', hint: 'Ctrl+Shift+O', label: p('palette.openFolder'), run: () => actions.openFolder() },
@@ -4263,7 +4309,7 @@ statsModal.addEventListener('click', (event) => {
 const actions = {
   new: async () => { await flushChange(); return window.api.newDoc(); },
   open: async () => { await flushChange(); return window.api.open(); },
-  save: () => window.api.save(),
+  save: () => saveDocument(),
   saveAs: () => window.api.saveAs(),
   exportHtml: () => openExportPanel('html'),
   exportPdf: () => openExportPanel('pdf'),
@@ -4577,7 +4623,7 @@ window.api.onStatus((payload) => {
         ? 'This file cannot be written. Your text is kept; editing continues without autosave.'
         : `Save failed — ${payload.error || 'unknown error'}. Your text is still here.`,
       'Retry',
-      () => window.api.save(),
+      () => saveDocument(),
       'Dismiss',
       () => {}
     );
@@ -4850,6 +4896,11 @@ window.__mdpad = {
   }),
   relativeAge: (iso) => relativeAge(iso, lang),
   saveState: () => (saveStateEl ? saveStateEl.textContent : ''),
+  saveNow: () => saveDocument(),
+  conflictState: () => {
+    const modal = document.querySelector('#tree-confirm');
+    return { open: !modal.hidden, title: document.querySelector('#tree-confirm-title').textContent };
+  },
   welcomeState: () => ({
     hidden: document.querySelector('#empty-hint').hidden,
     steps: [...document.querySelectorAll('#empty-hint .empty-step')].map((button) => button.id),

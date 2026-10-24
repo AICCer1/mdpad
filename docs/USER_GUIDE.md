@@ -205,6 +205,17 @@ them. Right-click a tab for **Close**, **Close others**, **Close to the right**,
 Every dialog closes with **Esc** (settings, export, drafts, statistics, shortcuts and the name
 prompts), and the keyboard goes back to the editor when it does.
 
+## Two windows, one file
+
+Opening a file that is already open in another mdpad window brings that window forward instead of
+opening a second copy.
+
+If the file changes on disk while you are editing it — the other window saved, a sync client
+rewrote it, another editor touched it — **saving does not silently overwrite it**. You get a
+dialog: **Overwrite** replaces the disk version with yours, and closing it keeps your text in the
+editor (still unsaved) so you can copy it or save under another name. Autosave stays dirty and
+raises the "changed on disk" banner rather than overwriting.
+
 ## Crash safety
 
 Typing is written to a recovery draft on the **first change of a burst** (not after a delay), and

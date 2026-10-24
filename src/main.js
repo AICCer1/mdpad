@@ -608,6 +608,7 @@ class Session {
       file: this.file,
       contents: this.contents,
       savedContents: this.savedContents,
+        diskRaw: this.diskRaw,
     });
   }
 
@@ -684,6 +685,7 @@ class Session {
     this.file = tab.file;
     this.contents = tab.contents;
     this.savedContents = tab.savedContents;
+      this.diskRaw = tab.diskRaw ?? null;
     this.watchDocument(this.file);
     this.refreshTitle();
     this.broadcastTabs();
@@ -762,7 +764,7 @@ class Session {
     const existing = [...this.tabs.values()].find((tab) => tab.file === file);
     if (existing) return this.activateTab(existing.id);
     const id = file;
-    this.tabs.set(id, { id, file, contents, savedContents: contents });
+    this.tabs.set(id, { id, file, contents, savedContents: contents, diskRaw: contents });
     return this.activateTab(id);
   }
 
@@ -801,24 +803,52 @@ class Session {
 
   scheduleAutosave() {
     clearTimeout(this.autosaveTimer);
-    if (this.readOnly) return; // do not hammer a file we already know is not writable
+    if (this.readOnly && this.readOnlyFile === this.file) return; // do not hammer a file we know is not writable
     const delay = clampAutosave(readSettings().autosaveMs);
     this.autosaveTimer = setTimeout(() => {
       if (!this.isDirty()) return;
       try {
         if (this.file) this.send('save:state', { state: 'saving', savedAt: this.savedAt || null });
-        this.saveCurrent({ silent: true });
+        const autosaved = this.saveCurrent({ silent: true });
+        // Skipped because the file changed underneath: stay dirty rather than look saved.
+        if (autosaved && autosaved.conflict) {
+          this.send('save:state', { state: 'dirty', savedAt: this.savedAt || null });
+        }
       } catch (err) {
         this.sendStatus({ error: `autosave: ${err.message}` });
       }
     }, delay);
   }
 
-  saveCurrent({ silent = false } = {}) {
+  saveCurrent({ silent = false, force = false } = {}) {
     if (!this.file) {
       this.send('save:state', { state: 'dirty', savedAt: null });
       return { saved: false, reason: 'no-file' };
     }
+    // Another window or editor may have written the file after we loaded it. Overwriting then
+    // would destroy that work silently, so ask first (autosave only raises the banner).
+    if (!force) {
+      const onDisk = storage.readIfExists(this.file);
+      if (onDisk !== null && onDisk !== this.diskRaw && onDisk !== this.contents) {
+        this.externalConflict = true;
+        logLine('save', `conflict: ${this.file} changed on disk`);
+        if (!silent) this.send('file:external', { size: onDisk.length, conflict: true });
+        return {
+          saved: false,
+          conflict: true,
+          reason: 'changed-on-disk',
+          onDiskBytes: onDisk.length,
+          onDiskAt: (() => {
+            try {
+              return fs.statSync(this.file).mtimeMs;
+            } catch {
+              return null;
+            }
+          })(),
+        };
+      }
+    }
+    this.externalConflict = false;
     let result;
     try {
       result = storage.saveDocument(this.file, this.contents, {
@@ -833,6 +863,7 @@ class Session {
       // A permission problem will not fix itself by retrying every autosave tick.
       if (code === 'EACCES' || code === 'EPERM' || code === 'EROFS') {
         this.readOnly = true;
+        this.readOnlyFile = this.file;
       }
       this.sendStatus({
         error: message,
@@ -844,9 +875,11 @@ class Session {
     }
     if (result.changed) {
       this.savedContents = this.contents;
+      this.diskRaw = this.contents;
       this.savedAt = Date.now();
       this.send('save:state', { state: 'saved', savedAt: this.savedAt });
       this.readOnly = false;
+      this.readOnlyFile = null;
       storage.clearDraft(this.file, draftsDir());
     }
     this.stashActive();
@@ -1436,10 +1469,12 @@ function registerIpc() {
   ipcMain.handle('tabs:reorder', (event, { ids } = {}) => sessionFor(event).reorderTabs(ids));
   ipcMain.handle('tabs:reopen', (event) => sessionFor(event).reopenTab());
 
-  ipcMain.handle('doc:save', async (event) => {
+  ipcMain.handle('doc:save', async (event, payload = {}) => {
     const s = sessionFor(event);
     if (!s.file) return s.saveAs();
-    const result = s.saveCurrent();
+    const result = s.saveCurrent({ force: payload.force === true });
+    if (result.conflict) return { ...result, saved: false };
+    result.saved = result.saved !== false;
     if (result.saved === false && result.error) {
       if (!SMOKE && s.win && !s.win.isDestroyed()) {
         const lang = currentLang();
@@ -2168,7 +2203,21 @@ function registerIpc() {
     return { ok: true };
   });
 
-  ipcMain.handle('tree:open', (event, { file }) => sessionFor(event).loadDocument(file));
+  ipcMain.handle('tree:open', (event, { file }) => {
+    const target = path.resolve(String(file || ''));
+    for (const [wcId, other] of sessions.entries()) {
+      if (other === sessionFor(event)) continue;
+      const existing = [...other.tabs.values()].find((tab) => tab.file && path.resolve(tab.file) === target);
+      if (!existing) continue;
+      other.activateTab(existing.id);
+      if (other.win && !other.win.isDestroyed()) {
+        if (other.win.isMinimized()) other.win.restore();
+        other.win.focus();
+      }
+      return { opened: true, focused: true, id: existing.id };
+    }
+    return sessionFor(event).loadDocument(file);
+  });
 }
 
 // ---- menu ------------------------------------------------------------------
@@ -2613,7 +2662,7 @@ async function runSmoke() {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     window.__mdpad.applyMarkdown('# read only\\n\\nedited while protected');
     await sleep(300);
-    const result = await window.api.save();
+    const result = await window.api.save({ force: true });
     await sleep(300);
     const info = await window.api.info();
     return {
@@ -2635,7 +2684,7 @@ async function runSmoke() {
   fs.chmodSync(readonlyPath, 0o666);
   const readonlyRecover = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-    const result = await window.api.save();
+    const result = await window.api.save({ force: true });
     await sleep(300);
     const info = await window.api.info();
     return { saved: result.saved !== false, readOnly: info.readOnly };
@@ -2653,9 +2702,12 @@ async function runSmoke() {
     await sleep(500);
     storage.writeDraft(clearFile, '# clear me\n\nunsaved\n', draftsDir());
     s.contents = '# clear me\n\nunsaved\n';
+    s.savedContents = '# clear me\n';
+    const clearSave = s.saveCurrent({ silent: true, force: true });
     s.saveCurrent({ silent: true });
     const leftover = storage.readDraft(clearFile, draftsDir());
-    step('draft-cleared', leftover === null, {
+    step('draft-cleared', leftover === null && clearSave.changed === true, {
+      changed: clearSave.changed,
       leftover: leftover ? leftover.contents.slice(0, 80) : null,
     });
   }
@@ -3213,7 +3265,7 @@ async function runSmoke() {
   step('save-failure-banner', failBanner.visible && /Save failed/.test(failBanner.text), failBanner);
 
   s.file = docPath;
-  const recovered = s.saveCurrent({ silent: true });
+  const recovered = s.saveCurrent({ silent: true, force: true });
   step('save-recovered', recovered.saved !== false, recovered);
 
   // 21. AI diff review against the current selection
@@ -8500,6 +8552,88 @@ async function runSmoke() {
       welcome.persisted === true &&
       welcome.reopened.hidden === false,
     welcome
+  );
+
+  // 107a. saving over a file that changed on disk asks instead of clobbering it
+  const conflict = await (async () => {
+    const file = path.join(dir, 'conflict.md');
+    fs.writeFileSync(file, '# original' + String.fromCharCode(10), 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(file);
+    await sleep(500);
+    await win.webContents.executeJavaScript("window.__mdpad.applyMarkdown('# local edit')");
+    await sleep(500);
+    // simulate another window writing the file
+    fs.writeFileSync(file, '# from another window' + String.fromCharCode(10), 'utf8');
+    const refused = await win.webContents.executeJavaScript('window.api.save()');
+    const diskAfterRefusal = fs.readFileSync(file, 'utf8');
+    // the force path is what the dialog's Overwrite button uses
+    const forced = await win.webContents.executeJavaScript('window.api.save({ force: true })');
+    const diskAfterForce = fs.readFileSync(file, 'utf8');
+    return {
+      refusedConflict: Boolean(refused && refused.conflict),
+      onDiskBytes: refused && refused.onDiskBytes,
+      diskAfterRefusal: diskAfterRefusal.slice(0, 40),
+      forcedSaved: Boolean(forced && forced.saved),
+      diskAfterForce: diskAfterForce.slice(0, 40),
+    };
+  })();
+  step(
+    'save-conflict',
+    conflict.refusedConflict &&
+      conflict.onDiskBytes > 0 &&
+      /from another window/.test(conflict.diskAfterRefusal) &&
+      conflict.forcedSaved &&
+      /local edit/.test(conflict.diskAfterForce),
+    conflict
+  );
+
+  // 107b. the dialog itself opens from the real save path and Overwrite resolves it
+  const conflictUi = await (async () => {
+    const file = path.join(dir, 'conflict-ui.md');
+    fs.writeFileSync(file, '# ui original' + String.fromCharCode(10), 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(file);
+    await sleep(600);
+    await win.webContents.executeJavaScript("window.__mdpad.applyMarkdown('# ui local')");
+    await sleep(600);
+    fs.writeFileSync(file, '# ui external' + String.fromCharCode(10), 'utf8');
+    const state = await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      // the same function the menu and palette call
+      window.__mdpad.saveNow();
+      await sleep(600);
+      const dialog = window.__mdpad.conflictState();
+      document.querySelector('#tree-confirm-ok').click();
+      await sleep(700);
+      return { dialog, after: window.__mdpad.conflictState() };
+    })()`);
+    return { ...state, disk: fs.readFileSync(file, 'utf8').slice(0, 40) };
+  })();
+  step(
+    'save-conflict-dialog',
+    conflictUi.dialog.open === true &&
+      /changed on disk/i.test(conflictUi.dialog.title) &&
+      conflictUi.after.open === false &&
+      /ui local/.test(conflictUi.disk),
+    conflictUi
+  );
+
+  // 107c. opening a file that is already open focuses the existing tab instead of duplicating it
+  const reopen = await (async () => {
+    const file = path.join(dir, 'conflict.md');
+    const before = await win.webContents.executeJavaScript('window.api.listTabs()');
+    const result = await win.webContents.executeJavaScript(`window.api.openPath(${JSON.stringify(file)})`);
+    await sleep(500);
+    const after = await win.webContents.executeJavaScript('window.api.listTabs()');
+    const matching = after.filter((tab) => tab.file === file).length;
+    const active = after.find((tab) => tab.active);
+    return { before: before.length, after: after.length, matching, activeIsFile: active && active.file === file, result };
+  })();
+  step(
+    'open-existing-tab',
+    reopen.matching === 1 && reopen.activeIsFile === true && reopen.after === reopen.before,
+    reopen
   );
 
   // 30k. the settings filter narrows the visible fields
