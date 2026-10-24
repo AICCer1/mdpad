@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         262 end-to-end checks (dev or packaged)
+npm run smoke         263 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -68,6 +68,12 @@ The build pipeline can sign: set `CSC_LINK` and `CSC_KEY_PASSWORD` (or run
 installer and uninstaller, then *fails the build* if an artifact lost its signature. The
 difference between "signed" and "trusted by Windows" is reported separately — a self-signed
 signature is real but SmartScreen still warns. See [docs/RELEASING.md](docs/RELEASING.md).
+
+## Performance
+
+A 14 000-word document opens in ~190 ms, rebuilds its outline in ~6 ms and costs ~4.8 ms per
+keystroke; PDF export takes ~0.5 s. Measured with `npm run perf`; method and caveats in
+[docs/PERFORMANCE.md](docs/PERFORMANCE.md).
 
 ## Advanced settings
 

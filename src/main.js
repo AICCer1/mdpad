@@ -2501,6 +2501,145 @@ function buildMenu() {
 
 // ---- smoke test ------------------------------------------------------------
 
+// Long-document acceptance: build a heavy document in the real editor, measure the operations a
+// writer actually waits for, and print one JSON object. Used by `npm run perf`.
+async function runPerfReport() {
+  const win = createWindow({ show: false, width: 1180, height: 900 });
+  const session = sessions.get(win.webContents.id);
+  await new Promise((resolve) => win.webContents.once('did-finish-load', resolve));
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
+  const measured = await win.webContents.executeJavaScript(`(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const nl = String.fromCharCode(10);
+    const fence = String.fromCharCode(96, 96, 96);
+    const image =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    const parts = ['# Performance document', ''];
+    // 12 000 words across 60 sections
+    for (let s = 0; s < 60; s += 1) {
+      parts.push('## Section ' + s);
+      parts.push('');
+      for (let p = 0; p < 4; p += 1) {
+        parts.push(
+          'Paragraph ' + p + ' of section ' + s + ' with **bold**, *italic*, \`inline code\` and a ' +
+            'sentence that keeps going so the line wraps a few times on a normal window. '.repeat(3)
+        );
+      }
+      if (s % 12 === 0) {
+        parts.push('');
+        parts.push('![pixel](' + image + ' "w=25%")');
+      }
+      if (s === 6) {
+        parts.push('');
+        parts.push('| Name | Value | Note |');
+        parts.push('| --- | --- | --- |');
+        for (let r = 0; r < 20; r += 1) parts.push('| row ' + r + ' | ' + r * 3 + ' | note ' + r + ' |');
+      }
+      if (s === 12) {
+        parts.push('');
+        parts.push('$');
+        parts.push('\\int_0^1 x^2 dx = \\tfrac{1}{3}');
+        parts.push('$');
+      }
+      if (s === 18) {
+        parts.push('');
+        parts.push(fence + 'js');
+        parts.push('const total = items.reduce((sum, item) => sum + item.price, 0);');
+        parts.push(fence);
+      }
+      if (s === 24) {
+        parts.push('');
+        parts.push(fence + 'mermaid');
+        parts.push('graph LR;');
+        parts.push('  draft-->export;');
+        parts.push(fence);
+      }
+      parts.push('');
+    }
+    const markdown = parts.join(nl);
+    const words = (markdown.match(/\\S+/g) || []).length;
+
+    const t0 = performance.now();
+    window.__mdpad.setMarkdown(markdown);
+    const loadMs = performance.now() - t0;
+    await wait(1200);
+
+    const outlineStart = performance.now();
+    window.__mdpad.refreshOutlineForPerf();
+    const outlineMs = performance.now() - outlineStart;
+    const outlineItems = document.querySelectorAll('#outline-list .outline-item').length;
+
+    // find: the same search the find bar runs
+    const findStart = performance.now();
+    const found = window.__mdpad.findForPerf('Section 42');
+    const findMs = performance.now() - findStart;
+
+    const nodeCount = window.__mdpad.nodeCountForPerf();
+    // Typing latency in a large document: 30 real transactions. This is the cost a writer feels
+    // on every keystroke; scroll offsets are handled by the compositor and cannot be measured in a
+    // hidden window.
+    const editor = window.__mdpad.editor;
+    const typeStart = performance.now();
+    for (let i = 0; i < 30; i += 1) {
+      editor.chain().focus('end').insertContent('x').run();
+    }
+    const typeMs = performance.now() - typeStart;
+    const perKeyMs = typeMs / 30;
+
+    const undoStart = performance.now();
+    for (let i = 0; i < 10; i += 1) editor.commands.undo();
+    const undoMs = performance.now() - undoStart;
+
+    // Put the document back: the export that follows must measure the full document, not the
+    // post-undo buffer.
+    window.__mdpad.setMarkdown(markdown);
+    await wait(700);
+
+    return {
+      chars: markdown.length,
+      words,
+      loadMs: Math.round(loadMs),
+      outlineMs: Math.round(outlineMs),
+      outlineItems,
+      findMs: Math.round(findMs),
+      found,
+      typeMs: Math.round(typeMs),
+      perKeyMs: Math.round(perKeyMs * 100) / 100,
+      undoMs: Math.round(undoMs),
+      heapMb: Math.round(performance.memory ? performance.memory.usedJSHeapSize / 1048576 : 0),
+      nodeCount,
+    };
+  })()`);
+
+  const file = path.join(app.getPath('temp'), 'mdpad-perf.md');
+  fs.writeFileSync(file, await win.webContents.executeJavaScript('window.__mdpad.getMarkdown()'), 'utf8');
+  session.loadDocument(file);
+  await new Promise((resolve) => setTimeout(resolve, 800));
+  const pdfPath = path.join(app.getPath('temp'), 'mdpad-perf.pdf');
+  const htmlPath = path.join(app.getPath('temp'), 'mdpad-perf.html');
+  const pdfStart = Date.now();
+  await session.exportTo(pdfPath, 'pdf');
+  const pdfMs = Date.now() - pdfStart;
+  const htmlStart = Date.now();
+  await session.exportTo(htmlPath, 'html');
+  const htmlMs = Date.now() - htmlStart;
+
+  const report = {
+    app: app.getVersion(),
+    at: new Date().toISOString(),
+    ...measured,
+    pdfMs,
+    pdfBytes: fs.statSync(pdfPath).size,
+    htmlMs,
+    htmlBytes: fs.statSync(htmlPath).size,
+    files: { markdown: file, pdf: pdfPath, html: htmlPath },
+  };
+  fs.writeFileSync(path.join(app.getPath('temp'), 'mdpad-perf.json'), JSON.stringify(report, null, 2), 'utf8');
+  console.log('PERF_REPORT ' + JSON.stringify(report));
+  app.exit(0);
+}
+
 async function runSmoke() {
   const out = [];
   const dir = path.join(app.getPath('temp'), `mdpad-smoke-${Date.now()}`);
@@ -8776,6 +8915,64 @@ async function runSmoke() {
     advancedUi
   );
 
+  // 109. a 14k-word document stays usable: load, outline, find, typing are measured in the editor
+  const perfDoc = await win.webContents.executeJavaScript(`(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const nl = String.fromCharCode(10);
+    const fence = String.fromCharCode(96, 96, 96);
+    const parts = ['# Perf', ''];
+    for (let s = 0; s < 60; s += 1) {
+      parts.push('## Section ' + s, '');
+      for (let p = 0; p < 4; p += 1) {
+        parts.push('Paragraph ' + p + ' of ' + s + ' with **bold** and *italic* and a sentence that keeps going to wrap lines. '.repeat(2));
+      }
+      if (s === 6) {
+        parts.push('', '| A | B |', '| --- | --- |');
+        for (let r = 0; r < 20; r += 1) parts.push('| r' + r + ' | v' + r + ' |');
+      }
+      if (s === 12) parts.push('', '$$', 'a^2 + b^2 = c^2', '$$');
+      if (s === 18) parts.push('', fence + 'js', 'const total = items.reduce((a, b) => a + b, 0);', fence);
+      parts.push('');
+    }
+    const markdown = parts.join(nl);
+
+    const t0 = performance.now();
+    window.__mdpad.setMarkdown(markdown);
+    const loadMs = performance.now() - t0;
+    await wait(1000);
+    const o0 = performance.now();
+    window.__mdpad.refreshOutlineForPerf();
+    const outlineMs = performance.now() - o0;
+    const headCount = document.querySelectorAll('#outline-list .outline-item').length;
+    const f0 = performance.now();
+    const found = window.__mdpad.findForPerf('Section 42');
+    const findMs = performance.now() - f0;
+    const ed = window.__mdpad.editor;
+    const k0 = performance.now();
+    for (let i = 0; i < 20; i += 1) ed.chain().focus('end').insertContent('x').run();
+    const perKeyMs = (performance.now() - k0) / 20;
+    return {
+      chars: markdown.length,
+      loadMs: Math.round(loadMs),
+      outlineMs: Math.round(outlineMs),
+      headCount,
+      findMs: Math.round(findMs),
+      found,
+      perKeyMs: Math.round(perKeyMs * 100) / 100,
+    };
+  })()`);
+  step(
+    'perf-long-doc',
+    perfDoc.chars > 40000 &&
+      perfDoc.loadMs < 3000 &&
+      perfDoc.outlineMs < 500 &&
+      perfDoc.headCount === 61 &&
+      perfDoc.findMs < 400 &&
+      perfDoc.found > 0 &&
+      perfDoc.perKeyMs < 16,
+    perfDoc
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -9536,6 +9733,10 @@ app.whenReady().then(async () => {
   }
   if (CRASH_PHASE === 'fast-verify') {
     await runCrashFastVerify();
+    return;
+  }
+  if (process.argv.includes('--perf-report')) {
+    await runPerfReport();
     return;
   }
   if (CRASH_PHASE === 'write') {

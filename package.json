@@ -1,6 +1,6 @@
 {
   "name": "mdpad",
-  "version": "1.34.0",
+  "version": "1.35.0",
   "private": true,
   "description": "A small Electron markdown editor: WYSIWYG editing, crash-safe saving, tabs, file tree and AI writing.",
   "main": "src/main.js",
@@ -26,7 +26,8 @@
     "shot-export": "electron scripts/shot-export.js",
     "cert": "node scripts/make-dev-cert.js --print",
     "sign-check": "node scripts/verify-sign.js",
-    "feed": "node scripts/feed.js"
+    "feed": "node scripts/feed.js",
+    "perf": "npm run build && electron . --perf-report"
   },
   "dependencies": {
     "docx": "^9.13.0",

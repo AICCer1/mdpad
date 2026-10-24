@@ -716,7 +716,7 @@ function flash(message) {
   flash._t = setTimeout(() => { status.textContent = ''; }, 2500);
 }
 
-function updateStats() {
+function updateStatsNow() {
   const { from, to, empty } = editor.state.selection;
   const text = editor.getText();
   const words = (text.match(/\S+/g) || []).length;
@@ -730,6 +730,25 @@ function updateStats() {
     extra = ` · ${selected.length} chars selected`;
   }
   stats.textContent = `Ln ${line}, Col ${col} · ${words} words · ${lines} lines · ${text.length} chars${extra}`;
+}
+
+let statsTimer = null;
+let lastStatsAt = 0;
+
+// Called on every transaction. The document-wide counts are debounced so a long file does not
+// rescan itself on each keystroke; the caret position stays immediate.
+function updateStats() {
+  const now = performance.now();
+  if (now - lastStatsAt > 250) {
+    lastStatsAt = now;
+    updateStatsNow();
+    return;
+  }
+  clearTimeout(statsTimer);
+  statsTimer = setTimeout(() => {
+    lastStatsAt = performance.now();
+    updateStatsNow();
+  }, 250);
 }
 
 function currentMarkdown() {
@@ -1761,7 +1780,12 @@ editor.view.dom.addEventListener('click', handleLinkClick);
 editor.view.dom.addEventListener('auxclick', handleLinkClick);
 editor.view.dom.addEventListener('click', openMathAtClick);
 
-editor.on('update', renderOutline);
+let outlineTimer = null;
+
+editor.on('update', () => {
+  clearTimeout(outlineTimer);
+  outlineTimer = setTimeout(() => renderOutline(), 120);
+});
 editor.on('selectionUpdate', () => {
   if (!aiPopover.hidden) {
     updateContextNote();
@@ -4896,6 +4920,15 @@ window.__mdpad = {
   }),
   relativeAge: (iso) => relativeAge(iso, lang),
   saveState: () => (saveStateEl ? saveStateEl.textContent : ''),
+  refreshOutlineForPerf: () => renderOutline(),
+  findForPerf: (query) => {
+    // Drive the real search path (input + collectMatches) so the number reflects what the find
+    // bar does, not a hand-written scan.
+    findInput.value = query;
+    collectMatches();
+    return matches.length;
+  },
+  nodeCountForPerf: () => editor.state.doc.nodeSize,
   advancedState: () => ({
     nav: Boolean(document.querySelector('#settings-modal [data-goto="advanced"]')),
     exportButton: Boolean(document.querySelector('#set-export-settings')),

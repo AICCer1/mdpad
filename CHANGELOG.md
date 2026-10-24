@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.35.0
+
+Long-document performance, measured and improved.
+
+- **A 14 000-word document (74 KB, 71 521 nodes)**: open 194 ms, outline 6 ms, find < 1 ms, typing
+  4.8 ms per keystroke, PDF export 484 ms, HTML 11 ms, renderer heap ~40 MB.
+- **Typing was 9.3 ms per keystroke** because every transaction rescanned the whole document twice:
+  once for the word/character count, once to rebuild the outline. The status-bar counts are now
+  debounced at 250 ms (the caret line/column stays immediate) and the outline rebuild at 120 ms —
+  the keystroke cost halved.
+- **`npm run perf`** runs the real editor through `--perf-report` and writes a JSON report plus the
+  exported PDF/HTML to `%TEMP%`. `perf-long-doc` in the smoke suite asserts the thresholds,
+  including **under 16 ms per keystroke**.
+- **Honest limits documented** in [docs/PERFORMANCE.md](docs/PERFORMANCE.md): paint and compositing
+  are not measured (the test window is hidden and Chromium throttles rendering there), and huge
+  embedded images are limited by memory rather than this pipeline.
+
 ## 1.34.0
 
 An Advanced section for the things that previously meant editing files by hand.

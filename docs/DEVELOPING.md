@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 262 end-to-end checks against a real window
+npm run smoke          # 263 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -200,6 +200,13 @@ opening/closing the settings panel flips it between `flex` and `none`.
   patch level, for exercising the update path by hand.
 - `scripts/feed.js` keeps the served file name unchanged, so the sha512 in `latest.yml` still
   matches while the version looks newer.
+
+## Performance
+
+`npm run perf` runs the app with `--perf-report`, builds a 14k-word document, measures load,
+outline, find, typing and both exports, prints JSON and writes the artefacts to `%TEMP%`. The
+smoke suite keeps a lighter guard (`perf-long-doc`). Numbers and caveats live in
+[PERFORMANCE.md](PERFORMANCE.md).
 
 ## Release steps
 
