@@ -617,6 +617,12 @@ level adapts to the theme (32% light, 38% sepia, 45% dark) so faded text stays r
 The ▤ button in the AI panel (or "Open AI usage log" in the palette) jumps straight to the
 usage section of Settings, expanding it if it was folded.
 
+## Dialogs keep the keyboard
+
+While a dialog is open, **Tab** and **Shift+Tab** cycle within it and never reach the editor
+behind it; **Escape** closes it and puts the caret back in the document. Screen readers announce
+the dialog by its title, and toolbar buttons announce whether they are on (`aria-pressed`).
+
 ## Keyboard shortcuts
 
 | Keys | Action |

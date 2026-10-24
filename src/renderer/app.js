@@ -1568,7 +1568,12 @@ function syncToolbar() {
   };
   for (const [cmd, active] of Object.entries(markState)) {
     const button = document.querySelector(`[data-cmd="${cmd}"]`);
-    if (button) button.classList.toggle('active', active);
+    if (!button) continue;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    if (!button.getAttribute('aria-label') && button.title) {
+      button.setAttribute('aria-label', button.title);
+    }
   }
 
   let level = 0;
@@ -2485,6 +2490,88 @@ document.querySelector('#recent-clear')?.addEventListener('click', async () => {
   await window.api.recentClear();
   await openRecentPanel();
 });
+
+// ---- dialog accessibility ----------------------------------------------------
+// Dialogs are modal in behaviour but were not in the accessibility tree: no role, no focus trap,
+// and Tab could walk into the editor behind them. This wires the tree and keeps the keyboard inside.
+
+function modalCards() {
+  return [...document.querySelectorAll('.modal')].map((modal) => ({
+    modal,
+    card: modal.querySelector('.modal-card') || modal.firstElementChild,
+  }));
+}
+
+function prepareDialogs() {
+  let counter = 0;
+  for (const { modal, card } of modalCards()) {
+    if (!card) continue;
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-modal', 'true');
+    const title = card.querySelector('.modal-title');
+    if (title) {
+      counter += 1;
+      if (!title.id) title.id = 'dialog-title-' + counter;
+      card.setAttribute('aria-labelledby', title.id);
+    }
+  }
+}
+
+function focusablesIn(modal) {
+  return [
+    ...modal.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    ),
+  ].filter((el) => el.offsetParent !== null || el === document.activeElement);
+}
+
+function trapModalFocus(event) {
+  if (event.key !== 'Tab') return;
+  const open = [...document.querySelectorAll('.modal')].filter((modal) => !modal.hidden);
+  if (!open.length) return;
+  const modal = open[open.length - 1];
+  const focusables = focusablesIn(modal);
+  if (!focusables.length) return;
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  if (!modal.contains(document.activeElement)) {
+    event.preventDefault();
+    first.focus();
+    return;
+  }
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+document.addEventListener('keydown', trapModalFocus, true);
+
+// When a dialog becomes visible, move the keyboard into it unless it is already there.
+const dialogObserver = new MutationObserver((mutations) => {
+  for (const mutation of mutations) {
+    const modal = mutation.target;
+    if (modal.hidden) continue;
+    if (modal.contains(document.activeElement)) continue;
+    const focusables = focusablesIn(modal);
+    if (focusables.length) focusables[0].focus();
+  }
+});
+for (const { modal } of modalCards()) {
+  dialogObserver.observe(modal, { attributes: true, attributeFilter: ['hidden'] });
+}
+prepareDialogs();
+
+// Icon buttons carry their meaning in a title; mirror it into aria-label for screen readers.
+function labelButtons() {
+  for (const button of document.querySelectorAll('button[title], [role="button"][title]')) {
+    if (!button.getAttribute('aria-label')) button.setAttribute('aria-label', button.title);
+  }
+}
+labelButtons();
 
 // ---- find & replace --------------------------------------------------------
 
@@ -5879,6 +5966,24 @@ window.__mdpad = {
   focusState: () => ({ caret: editor.state.selection.$from.parent.textContent.slice(0, 40) }),
   exportInspect: () => window.api.exportInspect(),
   exportInspectText: () => (document.querySelector('#export-inspect') || {}).textContent || '',
+  a11yState: () => ({
+    dialogRoles: [...document.querySelectorAll('.modal .modal-card')].map((card) => ({
+      role: card.getAttribute('role'),
+      modal: card.getAttribute('aria-modal'),
+      labelled: Boolean(card.getAttribute('aria-labelledby')),
+    })),
+    toolbar: [...document.querySelectorAll('[data-cmd]')].map((button) => ({
+      cmd: button.dataset.cmd,
+      pressed: button.getAttribute('aria-pressed'),
+      label: button.getAttribute('aria-label') || button.title || '',
+    })),
+    focusInside: (() => {
+      const open = [...document.querySelectorAll('.modal')].filter((modal) => !modal.hidden);
+      if (!open.length) return null;
+      return open[open.length - 1].contains(document.activeElement);
+    })(),
+    activeId: document.activeElement ? document.activeElement.id || document.activeElement.tagName : '',
+  }),
   navJump: (pos) => {
     recordJump();
     return navTo(pos);

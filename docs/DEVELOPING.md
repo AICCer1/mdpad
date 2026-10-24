@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 297 end-to-end checks against a real window
+npm run smoke          # 299 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -341,3 +341,10 @@ cannot do on its own.
 `export:inspect` counts images/links/tables/diagrams/math/tasks in the current buffer and resolves
 relative image and link targets against the document folder; the panel renders it under the
 format summary and refreshes on every open.
+
+## Dialogs and keyboards
+
+`prepareDialogs()` adds `role="dialog"`, `aria-modal` and `aria-labelledby` to every modal card;
+`trapModalFocus` is a capturing Tab handler that keeps focus inside the topmost open modal, and a
+MutationObserver moves focus in when a modal becomes visible. The smoke test presses Tab 18 times
+and asserts focus never leaves the dialog.

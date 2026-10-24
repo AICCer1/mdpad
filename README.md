@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         297 end-to-end checks (dev or packaged)
+npm run smoke         299 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -180,6 +180,12 @@ Opening a file that another window already shows focuses that window instead of 
 editor. If a file changes on disk (another window, another app, a sync client), a save refuses to
 clobber it: the dialog offers **Overwrite**, and autosave stays dirty instead of pretending to
 save. Saving is never silent about losing someone else's work.
+
+## Keyboard and screen readers
+
+Dialogs are real dialogs: `role="dialog"`, `aria-modal`, labelled by their title, and **Tab is
+trapped inside** while one is open; Escape returns focus to the editor. Toolbar toggles expose
+`aria-pressed`, and every icon button gets an accessible name from its tooltip.
 
 ## Multiple windows stay in sync
 

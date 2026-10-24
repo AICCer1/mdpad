@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.56.0
+
+The keyboard stays where it should.
+
+- **Dialogs are dialogs**: every modal card gets `role="dialog"`, `aria-modal="true"` and
+  `aria-labelledby` pointing at its title. **Tab is trapped inside the open dialog** (Shift+Tab too),
+  and Escape closes it and returns the caret to the editor.
+- **Toolbar toggles announce their state**: `aria-pressed` on bold, italic, strike, code, lists,
+  quote, code block and link; every titled button now mirrors its tooltip into `aria-label`.
+- **The smoke test presses Tab 18 times** with a real settings dialog open and asserts focus never
+  leaves it, then presses Shift+Tab and Escape and asserts the caret is back in `.tiptap`.
+- Two patching mistakes made this round longer than it should have been: a loose
+  `/aria-pressed/` check matched a different line and skipped the real edit, and a second attempt
+  duplicated the `const button` declaration. The lesson is in the changelog rather than the code:
+  verify the *specific* statement, not the token.
+- 299 smoke checks (two new: `a11y-modal-focus`, `a11y-toolbar`), 155 unit tests.
+
 ## 1.55.0
 
 Look before you export.

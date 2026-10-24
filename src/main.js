@@ -10738,6 +10738,74 @@ async function runSmoke() {
     exportInspect
   );
 
+  // 130a. dialogs expose a dialog role and keep the keyboard inside when pressing Tab
+  const a11yDialogs = await (async () => {
+    await win.webContents.executeJavaScript(`document.querySelector('#open-settings').click()`);
+    await sleep(800);
+    const opened = await win.webContents.executeJavaScript('window.__mdpad.a11yState()');
+    const tabResults = [];
+    for (let i = 0; i < 18; i += 1) {
+      win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Tab' });
+      win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Tab' });
+      await sleep(60);
+      tabResults.push(await win.webContents.executeJavaScript('window.__mdpad.a11yState().focusInside'));
+    }
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Tab', modifiers: ['shift'] });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Tab', modifiers: ['shift'] });
+    await sleep(120);
+    const afterShiftTab = await win.webContents.executeJavaScript('window.__mdpad.a11yState().focusInside');
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' });
+    await sleep(300);
+    const closed = await win.webContents.executeJavaScript(`({
+      hidden: document.querySelector('#settings-modal').hidden,
+      inEditor: Boolean(document.activeElement && document.activeElement.closest && document.activeElement.closest('.tiptap')),
+    })`);
+    return { opened, tabResults, afterShiftTab, closed };
+  })();
+  step(
+    'a11y-modal-focus',
+    a11yDialogs.opened.focusInside === true &&
+      a11yDialogs.opened.dialogRoles.every((entry) => entry.role === 'dialog' && entry.modal === 'true') &&
+      a11yDialogs.opened.dialogRoles.some((entry) => entry.labelled) &&
+      a11yDialogs.tabResults.every((inside) => inside === true) &&
+      a11yDialogs.afterShiftTab === true &&
+      a11yDialogs.closed.hidden === true &&
+      a11yDialogs.closed.inEditor === true,
+    a11yDialogs
+  );
+
+  // 130b. toolbar toggles announce pressed state with an accessible name
+  const a11yToolbar = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    window.__mdpad.setMarkdown('plain');
+    await sleep(400);
+    window.__mdpad.editor.commands.selectAll();
+    const bold = document.querySelector('[data-cmd="bold"]');
+    bold.click();
+    await sleep(200);
+    const on = bold.getAttribute('aria-pressed');
+    bold.click();
+    await sleep(200);
+    const off = bold.getAttribute('aria-pressed');
+    const all = window.__mdpad.a11yState().toolbar;
+    return { on, off, all };
+  })()`);
+  const toggles = a11yToolbar.all.filter((entry) =>
+    ['bold', 'italic', 'strike', 'code', 'bulletList', 'orderedList', 'taskList', 'blockquote', 'codeBlock', 'link'].includes(entry.cmd)
+  );
+  const actions = a11yToolbar.all.filter((entry) => !toggles.includes(entry));
+  step(
+    'a11y-toolbar',
+    a11yToolbar.on === 'true' &&
+      a11yToolbar.off === 'false' &&
+      toggles.length === 10 &&
+      toggles.every((entry) => entry.pressed === 'true' || entry.pressed === 'false') &&
+      actions.length >= 3 &&
+      a11yToolbar.all.every((entry) => entry.label.length > 0),
+    a11yToolbar
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
