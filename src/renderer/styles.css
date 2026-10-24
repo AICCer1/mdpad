@@ -2319,3 +2319,14 @@ textarea:focus-visible,
   content-visibility: auto;
   contain-intrinsic-size: auto 2.5rem;
 }
+
+/* ---- table drag reordering ---- */
+.table-drop-line {
+  position: fixed;
+  z-index: 60;
+  background: var(--accent);
+  border-radius: 2px;
+  pointer-events: none;
+}
+html.table-dragging-row, html.table-dragging-row * { cursor: row-resize !important; }
+html.table-dragging-column, html.table-dragging-column * { cursor: col-resize !important; }

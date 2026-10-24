@@ -11127,6 +11127,111 @@ async function runSmoke() {
     tableMove
   );
 
+  // 136. dragging a row edge reorders rows, dragging a column edge reorders columns
+  const tableDrag = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'table-drag.md');
+    fs.writeFileSync(
+      doc,
+      [
+        '# Drag table',
+        '',
+        '| A | B | C |',
+        '| --- | --- | --- |',
+        '| a1 | b1 | c1 |',
+        '| a2 | b2 | c2 |',
+        '',
+      ].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    let rects = {};
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const value = await jsOf(`(() => {
+        const cells = {};
+        for (const cell of document.querySelectorAll('.tiptap td, .tiptap th')) {
+          const text = cell.textContent.trim();
+          const r = cell.getBoundingClientRect();
+          cells[text] = { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
+        }
+        return cells;
+      })()`);
+      if (!value || value.__error) return { error: 'rects', value };
+      rects = value;
+      if (rects.a1 && rects.a2 && rects.b1 && rects.c1) break;
+    }
+    if (!rects.a1 || !rects.a2 || !rects.b1 || !rects.c1) {
+      return { setupFailed: true, cells: Object.keys(rects) };
+    }
+    const rowSource = rects.a1;
+    const rowTarget = rects.a2;
+    win.webContents.sendInputEvent({ type: 'mouseDown', x: Math.round(rowSource.left + 3), y: Math.round(rowSource.top + rowSource.height / 2), button: 'left', clickCount: 1 });
+    await sleep(150);
+    const rowDragging = await jsOf('window.__mdpad.tableDragState()');
+    win.webContents.sendInputEvent({ type: 'mouseMove', x: Math.round(rowTarget.left + rowTarget.width / 2), y: Math.round(rowTarget.top + rowTarget.height / 2), button: 'left' });
+    await sleep(150);
+    const rowMoved = await jsOf('window.__mdpad.tableDragState()');
+    win.webContents.sendInputEvent({ type: 'mouseUp', x: Math.round(rowTarget.left + rowTarget.width / 2), y: Math.round(rowTarget.top + rowTarget.height / 2), button: 'left', clickCount: 1 });
+    await sleep(500);
+    const afterRow = await jsOf('window.__mdpad.getMarkdown()');
+
+    let rects2 = {};
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      const value = await jsOf(`(() => {
+        const cells = {};
+        for (const cell of document.querySelectorAll('.tiptap td, .tiptap th')) {
+          const text = cell.textContent.trim();
+          const r = cell.getBoundingClientRect();
+          cells[text] = { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
+        }
+        return cells;
+      })()`);
+      if (!value || value.__error) return { error: 'rects2', value };
+      rects2 = value;
+      if (rects2.b1 && rects2.c1) break;
+      await sleep(200);
+    }
+    if (!rects2.b1 || !rects2.c1) return { setupFailed: true, cells: Object.keys(rects2) };
+    const colSource = rects2.b1;
+    const colTarget = rects2.c1;
+    win.webContents.sendInputEvent({ type: 'mouseDown', x: Math.round(colSource.left + colSource.width / 2), y: Math.round(colSource.top + 3), button: 'left', clickCount: 1 });
+    await sleep(150);
+    const colDragging = await jsOf('window.__mdpad.tableDragState()');
+    win.webContents.sendInputEvent({ type: 'mouseMove', x: Math.round(colTarget.left + colTarget.width / 2), y: Math.round(colTarget.top + colTarget.height / 2), button: 'left' });
+    await sleep(150);
+    win.webContents.sendInputEvent({ type: 'mouseUp', x: Math.round(colTarget.left + colTarget.width / 2), y: Math.round(colTarget.top + colTarget.height / 2), button: 'left', clickCount: 1 });
+    await sleep(500);
+    const afterColumn = await jsOf('window.__mdpad.getMarkdown()');
+    return { rowDragging, rowMoved, colDragging, afterRow, afterColumn };
+  })();
+  step(
+    'table-drag',
+    tableDrag.rowDragging &&
+      tableDrag.rowDragging.active === true &&
+      tableDrag.rowDragging.axis === 'row' &&
+      tableDrag.rowMoved &&
+      tableDrag.rowMoved.target === 2 &&
+      typeof tableDrag.afterRow === 'string' &&
+      /\\| a2 \\| b2 \\| c2 \\|\\n\\| a1 \\| b1 \\| c1 \\|/.test(tableDrag.afterRow) &&
+      tableDrag.colDragging &&
+      tableDrag.colDragging.axis === 'column' &&
+      typeof tableDrag.afterColumn === 'string' &&
+      /\\| a1 \\| c1 \\| b1 \\|/.test(tableDrag.afterColumn),
+    {
+      rowDragging: tableDrag.rowDragging,
+      rowMoved: tableDrag.rowMoved,
+      colDragging: tableDrag.colDragging,
+      rowOrder: typeof tableDrag.afterRow === 'string' ? tableDrag.afterRow.split('\\n').filter((line) => /^\\|/.test(line)) : tableDrag.afterRow,
+      lastRow: typeof tableDrag.afterColumn === 'string' ? tableDrag.afterColumn.split('\\n').filter((line) => /^\\|/.test(line)).pop() : tableDrag.afterColumn,
+      setupFailed: tableDrag.setupFailed,
+      cells: tableDrag.cells,
+      error: tableDrag.error,
+    }
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

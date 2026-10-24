@@ -159,6 +159,11 @@ block as it moves.
 
 ## Tables
 
+**Drag to reorder**: grab the **left edge** of a cell to drag its row, or the **top edge** to
+drag its column. A line shows where the row or column will land; release to move it, Escape to
+cancel. Dragging a column of a table with merged cells is refused (the columns would no longer
+line up).
+
 Right-click inside a table for the cell menu. Besides adding and deleting rows and columns, it
 can **reorder**: move a row up or down, move a column left or right. Reordering a table with
 merged cells is refused (the columns would no longer line up), with a message instead of a

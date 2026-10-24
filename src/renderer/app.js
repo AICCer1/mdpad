@@ -1296,6 +1296,104 @@ function closeTableMenu() {
   if (menu) menu.hidden = true;
 }
 
+// ---- table drag reordering ---------------------------------------------------
+// Dragging from the left edge of a cell moves its row; from the top edge, its column. The drop
+// target is read from the cell under the pointer, so no coordinate maths on table geometry.
+const tableDragState = { active: false, axis: null, from: 0, target: 0, indicator: null };
+
+function tableCellInfo(cell) {
+  const pos = editor.view.posAtDOM(cell, 0);
+  const $pos = editor.state.doc.resolve(pos);
+  let tableDepth = -1;
+  for (let depth = $pos.depth; depth > 0; depth -= 1) {
+    if ($pos.node(depth).type.name === 'table') {
+      tableDepth = depth;
+      break;
+    }
+  }
+  if (tableDepth < 0) return null;
+  return {
+    tableDepth,
+    row: $pos.index(tableDepth),
+    column: $pos.index(tableDepth + 1),
+  };
+}
+
+function tableIndicator() {
+  if (tableDragState.indicator) return tableDragState.indicator;
+  const line = document.createElement('div');
+  line.className = 'table-drop-line';
+  line.hidden = true;
+  document.body.appendChild(line);
+  tableDragState.indicator = line;
+  return line;
+}
+
+function edgeHit(event) {
+  const cell = event.target.closest ? event.target.closest('td, th') : null;
+  if (!cell || !editor.view.dom.contains(cell)) return null;
+  const rect = cell.getBoundingClientRect();
+  if (event.clientX - rect.left <= 9) return { cell, rect, axis: 'row' };
+  if (event.clientY - rect.top <= 9) return { cell, rect, axis: 'column' };
+  return null;
+}
+
+editor.view.dom.addEventListener('mousedown', (event) => {
+  if (event.button !== 0) return;
+  const hit = edgeHit(event);
+  if (!hit) return;
+  const info = tableCellInfo(hit.cell);
+  if (!info) return;
+  event.preventDefault();
+  tableDragState.active = true;
+  tableDragState.axis = hit.axis;
+  tableDragState.from = hit.axis === 'row' ? info.row : info.column;
+  tableDragState.target = tableDragState.from;
+  document.documentElement.classList.add('table-dragging-' + hit.axis);
+});
+
+window.addEventListener('mousemove', (event) => {
+  if (!tableDragState.active) return;
+  const cell = document.elementFromPoint(event.clientX, event.clientY);
+  const target = cell && cell.closest ? cell.closest('td, th') : null;
+  if (!target || !editor.view.dom.contains(target)) return;
+  const info = tableCellInfo(target);
+  if (!info) return;
+  const index = tableDragState.axis === 'row' ? info.row : info.column;
+  tableDragState.target = index;
+  const rect = target.getBoundingClientRect();
+  const line = tableIndicator();
+  line.hidden = false;
+  if (tableDragState.axis === 'row') {
+    line.style.left = rect.left + 'px';
+    line.style.top = (index < tableDragState.from ? rect.top : rect.bottom) + 'px';
+    line.style.width = rect.width + 'px';
+    line.style.height = '2px';
+  } else {
+    line.style.left = (index < tableDragState.from ? rect.left : rect.right) + 'px';
+    line.style.top = rect.top + 'px';
+    line.style.width = '2px';
+    line.style.height = rect.height + 'px';
+  }
+});
+
+function endTableDrag(commit) {
+  if (!tableDragState.active) return;
+  const { axis, from, target } = tableDragState;
+  tableDragState.active = false;
+  document.documentElement.classList.remove('table-dragging-row', 'table-dragging-column');
+  tableIndicator().hidden = true;
+  if (commit && target !== from) {
+    if (axis === 'row') moveTableRowTo(target);
+    else moveTableColumnTo(target);
+  }
+}
+
+window.addEventListener('mouseup', () => endTableDrag(true));
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && tableDragState.active) endTableDrag(false);
+});
+
 function openTableMenu(x, y) {
   const menu = document.querySelector('#table-menu');
   if (!menu) return;
@@ -1413,6 +1511,85 @@ function moveRowTo(from, to) {
 
 // Columns move by rebuilding every row with its cells reordered. Merged cells make "the same
 // column" ambiguous, so the operation is refused instead of guessing.
+function moveTableRowTo(targetRow) {
+  const { state } = editor;
+  const { $from } = state.selection;
+  let tableDepth = -1;
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    if ($from.node(depth).type.name === 'table') {
+      tableDepth = depth;
+      break;
+    }
+  }
+  if (tableDepth < 0) return false;
+  const table = $from.node(tableDepth);
+  const rowIndex = $from.index(tableDepth);
+  const rows = [];
+  table.content.forEach((row) => rows.push(row));
+  if (targetRow < 0 || targetRow >= rows.length || targetRow === rowIndex) return false;
+  const [moved] = rows.splice(rowIndex, 1);
+  rows.splice(targetRow, 0, moved);
+  const tableStart = $from.before(tableDepth);
+  const replacement = table.type.create(table.attrs, rows);
+  editor.view.dispatch(state.tr.replaceWith(tableStart, tableStart + table.nodeSize, replacement));
+  try {
+    editor.commands.setTextSelection(Math.min(tableStart + 2, editor.state.doc.content.size));
+  } catch {
+    /* cosmetic */
+  }
+  return true;
+}
+
+function moveTableColumnTo(targetColumn) {
+  const { state } = editor;
+  const { $from } = state.selection;
+  let tableDepth = -1;
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    if ($from.node(depth).type.name === 'table') {
+      tableDepth = depth;
+      break;
+    }
+  }
+  if (tableDepth < 0) return false;
+  const table = $from.node(tableDepth);
+  const column = $from.index(tableDepth + 1);
+  const rows = [];
+  let merged = false;
+  table.content.forEach((row) => {
+    const cells = [];
+    row.content.forEach((cell) => {
+      if ((cell.attrs.colspan || 1) > 1 || (cell.attrs.rowspan || 1) > 1) merged = true;
+      cells.push(cell);
+    });
+    rows.push({ row, cells });
+  });
+  if (merged) {
+    flash('Column moves are not available with merged cells');
+    return false;
+  }
+  if (targetColumn < 0 || rows.some((entry) => targetColumn >= entry.cells.length)) return false;
+  if (targetColumn === column) return false;
+  const tableStart = $from.before(tableDepth);
+  const newRows = rows.map(({ row, cells }) => {
+    const next = cells.slice();
+    const [moved] = next.splice(column, 1);
+    next.splice(targetColumn, 0, moved);
+    return row.type.create(row.attrs, next);
+  });
+  const replacement = table.type.create(table.attrs, newRows);
+  editor.view.dispatch(tr0(state, tableStart, table, replacement));
+  try {
+    editor.commands.setTextSelection(Math.min(tableStart + 2, editor.state.doc.content.size));
+  } catch {
+    /* cosmetic */
+  }
+  return true;
+}
+
+function tr0(state, tableStart, table, replacement) {
+  return state.tr.replaceWith(tableStart, tableStart + table.nodeSize, replacement);
+}
+
 function moveTableColumn(direction) {
   const { state } = editor;
   const { $from } = state.selection;
@@ -1460,6 +1637,7 @@ function moveTableColumn(direction) {
 }
 
 function moveTableRow(direction) {
+  if (!Number.isFinite(direction)) return false;
   const { state } = editor;
   const { $from } = state.selection;
   let tableDepth = -1;
@@ -6254,6 +6432,7 @@ window.__mdpad = {
     };
   },
   tableMove: (direction) => moveTableColumn(direction),
+  tableDragState: () => ({ active: tableDragState.active, axis: tableDragState.axis, from: tableDragState.from, target: tableDragState.target }),
   tableMoveRow: (direction) => moveTableRow(direction),
   measureTyping: (count = 20) => {
     const times = [];

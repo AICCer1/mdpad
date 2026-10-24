@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.63.0
+
+Drag a row or column where you want it.
+
+- **Grab the left edge of a cell to drag its row, the top edge to drag its column.** A highlight line
+  shows where it will land, Escape cancels, and the drop index comes from the cell under the pointer
+  (`posAtDOM` → row/column index), never from pixel arithmetic.
+- **`moveTableRowTo` / `moveTableColumnTo`** do the reorder in one transaction; the existing
+  up/down/left/right menu items remain for keyboard use.
+- **The first version silently did nothing**: the code block inserting the drag implementation missed
+  its anchor, so only the test hook existed and every call threw inside the page. The test reported a
+  generic "Script failed to execute" until each call was wrapped and the failure became visible; the
+  implementation is now inserted at a verified line.
+- 305 smoke checks (one new: `table-drag` performs both drags with real mouse events — down, move,
+  up — and asserts the resulting markdown), 160 unit tests.
+
 ## 1.62.0
 
 Tables can be reordered, not just edited.

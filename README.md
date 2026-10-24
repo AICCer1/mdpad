@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         304 end-to-end checks (dev or packaged)
+npm run smoke         305 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -76,6 +76,10 @@ is flagged (`data-link-missing`, wavy underline, "File not found" tooltip), anch
 heading ids, and absolute URLs become real hyperlinks in Word.
 
 ## Tables that move
+
+**Drag a row or column edge** to reorder it: grab the left edge of a cell to move its row, the top
+edge to move its column, and a highlight line shows where it will land. The menu offers the same
+moves without a mouse.
 
 Right-click a cell to **move a row up/down or a column left/right**. Columns are rebuilt row by
 row; merged cells make "the same column" ambiguous, so the action refuses instead of guessing.

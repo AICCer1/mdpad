@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 304 end-to-end checks against a real window
+npm run smoke          # 305 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -387,3 +387,11 @@ guarded.
 never by position arithmetic inside the table. Columns are rebuilt per row; a merged cell aborts
 the move with a message, because column identity is undefined there. `table-move` asserts the
 resulting markdown after a real row move and column move.
+
+## Table dragging
+
+`tableDragState` + a `mousedown` handler on the editor DOM starts a row drag within 9 px of a
+cell's left edge, or a column drag within 9 px of its top edge. The drop index comes from the cell
+under the pointer (`elementFromPoint` → `closest("td, th")` → `posAtDOM` → `$pos.index`), not from
+geometry. `table-drag` performs both drags with real mouse events and asserts the resulting
+markdown.
