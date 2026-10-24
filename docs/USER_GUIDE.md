@@ -380,6 +380,16 @@ that into the report — it saves a round trip. **Open log folder** shows the fu
 
 Nothing is uploaded: diagnostics only fill the clipboard.
 
+## When something goes wrong
+
+- **An export cannot be written** (target folder gone, permission denied, disk full): a banner
+  explains the error and offers **Retry**. The document itself is never touched.
+- **`settings.json` is unreadable** (a crash while saving, a sync client, a manual edit): the app
+  keeps the broken file as `settings.json.corrupt-<timestamp>` next to the original and starts
+  with defaults. Your documents, backups and drafts are unaffected.
+- **A save fails** (read-only file, no permission): the editor stays dirty, the file is not
+  touched, and the banner explains what happened — the text is never dropped.
+
 ## Small windows
 
 The window can go down to 720 px wide. Below ~920 px both sidebars narrow, the HTML and PDF

@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.49.0
+
+The failure paths answer now.
+
+- **A failed export no longer throws into the void.** The four export handlers run through
+  `runExportSafely`, which logs and returns `{ exported: false, error }`; the panel shows a
+  **Retry** banner with the message. `doc:exportToPath` exists for automation and for the test.
+- **A corrupt `settings.json` is preserved, not overwritten.** `readSettings` copies the unreadable
+  file to `settings.json.corrupt-<timestamp>`, logs it and continues with defaults. Before this,
+  the next settings write would have replaced the broken file with an empty object and the old
+  preferences were gone for good.
+- **Found while patching:** the working tree is CRLF, so line-exact scripted edits silently missed
+  (`function readSettings() {` never matched). Normalising `\r\n` first fixed four failed patches in
+  a row; documented in DEVELOPING.
+- 290 smoke checks (two new: `export-failure` writing through a path whose parent is a file,
+  `settings-corrupt-recovery` asserting the backup and default fallback), 155 unit tests.
+
 ## 1.48.0
 
 Exported links tell the truth about where they point.

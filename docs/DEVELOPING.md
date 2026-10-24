@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 288 end-to-end checks against a real window
+npm run smoke          # 290 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -270,6 +270,15 @@ ProseMirror merges it into the typing batch and one undo removes both.
 pattern carries a negative lookbehind so it does not swallow the closing `**` of bold. The paste
 guard (`looksLikeMarkdown`) parses a pasted block only on a strong signal, so prose and `#tag`
 stay literal.
+
+## Failure paths
+
+`runExportSafely` converts a throwing export into `{ exported: false, error }`; the renderer shows
+a Retry banner. `readSettings` copies an unreadable file aside before returning defaults.
+
+**Line endings:** the source files are CRLF in the working tree, so line-exact patching scripts
+must normalise `\r\n` to `\n` before comparing lines — otherwise every exact-match replacement
+silently misses.
 
 ## Export consistency
 

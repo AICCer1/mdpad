@@ -4831,7 +4831,17 @@ document.querySelector('#export-preview-open').addEventListener('click', async (
 document.querySelector('#export-run').addEventListener('click', async () => {
   await saveExportPanelSettings();
   document.querySelector('#export-modal').hidden = true;
-  await runExport(exportFormat);
+  const result = await runExport(exportFormat).catch((err) => ({ exported: false, error: err.message }));
+  if (result && result.exported === false && result.error) {
+    showBanner(
+      'Export failed',
+      'The file could not be written: ' + result.error,
+      'Retry',
+      () => runExport(exportFormat),
+      'Dismiss',
+      () => {}
+    );
+  }
 });
 document.querySelector('#export-modal').addEventListener('click', (event) => {
   if (event.target.id === 'export-modal') document.querySelector('#export-modal').hidden = true;

@@ -106,6 +106,7 @@ contextBridge.exposeInMainWorld('api', {
   onSessionTruncated: (cb) => ipcRenderer.on('session:truncated', (_e, payload) => cb(payload)),
   onSessionRestored: (cb) => ipcRenderer.on('session:restored', (_e, payload) => cb(payload)),
   exportPreview: () => ipcRenderer.invoke('export:preview'),
+  exportToPath: (kind, path) => ipcRenderer.invoke('doc:exportToPath', { kind, path }),
   exportThumbnail: (options) => ipcRenderer.invoke('export:thumbnail', options),
   setExportDiagrams: (diagrams) => ipcRenderer.invoke('doc:diagrams', { diagrams }),
   exportNamePreview: (template) => ipcRenderer.invoke('export:namePreview', { template }),

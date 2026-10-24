@@ -182,7 +182,15 @@ function readSettings() {
   if (!raw) return {};
   try {
     return JSON.parse(raw);
-  } catch {
+  } catch (err) {
+    // Never let a broken file be overwritten silently: keep a copy and say so in the log.
+    try {
+      const backup = settingsFile() + '.corrupt-' + Date.now();
+      fs.copyFileSync(settingsFile(), backup);
+      logLine('settings', 'unreadable settings (' + err.message + '); kept ' + path.basename(backup));
+    } catch (copyErr) {
+      logLine('settings', 'unreadable settings and backup failed: ' + copyErr.message);
+    }
     return {};
   }
 }
@@ -1639,10 +1647,30 @@ function registerIpc() {
     return { stored: Object.keys(map).length };
   });
 
-  ipcMain.handle('doc:exportHtml', (event) => sessionFor(event).exportWith('html'));
-  ipcMain.handle('doc:exportPdf', (event) => sessionFor(event).exportWith('pdf'));
-  ipcMain.handle('doc:exportDocx', (event) => sessionFor(event).exportWith('docx'));
-  ipcMain.handle('doc:exportEpub', (event) => sessionFor(event).exportWith('epub'));
+// An export that cannot write must answer, not throw: the renderer needs something to show.
+const runExportSafely = async (event, kind) => {
+  try {
+    return await sessionFor(event).exportWith(kind);
+  } catch (err) {
+    logLine('export', kind + ': ' + err.message);
+    return { exported: false, kind, error: err.message };
+  }
+};
+
+ipcMain.handle('doc:exportHtml', (event) => runExportSafely(event, 'html'));
+ipcMain.handle('doc:exportPdf', (event) => runExportSafely(event, 'pdf'));
+ipcMain.handle('doc:exportDocx', (event) => runExportSafely(event, 'docx'));
+ipcMain.handle('doc:exportEpub', (event) => runExportSafely(event, 'epub'));
+
+// Same as above but with an explicit target: useful for automation and for the failure test.
+ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } = {}) => {
+  try {
+    return await sessionFor(event).exportTo(target, kind);
+  } catch (err) {
+    logLine('export', kind + ' -> ' + target + ': ' + err.message);
+    return { exported: false, kind, error: err.message, path: target };
+  }
+});
 
   ipcMain.handle('doc:backupInfo', (event) => {
     const s = sessionFor(event);
@@ -10175,6 +10203,53 @@ async function runSmoke() {
       exportLinks.epubExternal &&
       exportLinks.docxHyperlinks >= 1,
     exportLinks
+  );
+
+  // 123a. an export that cannot be written answers with an error instead of throwing
+  const exportFailure = await (async () => {
+    const blocker = path.join(dir, 'blocked-target');
+    fs.writeFileSync(blocker, 'not a directory', 'utf8');
+    const badPath = path.join(blocker, 'out.html');
+    const bad = await win.webContents.executeJavaScript(
+      `window.api.exportToPath('html', ${JSON.stringify(badPath)})`
+    );
+    const goodPath = path.join(dir, 'export-ok.html');
+    const good = await win.webContents.executeJavaScript(
+      `window.api.exportToPath('html', ${JSON.stringify(goodPath)})`
+    );
+    return {
+      bad,
+      badExists: fs.existsSync(badPath),
+      good,
+      goodExists: fs.existsSync(goodPath),
+    };
+  })();
+  step(
+    'export-failure',
+    exportFailure.bad.exported === false &&
+      typeof exportFailure.bad.error === 'string' &&
+      exportFailure.bad.error.length > 0 &&
+      exportFailure.badExists === false &&
+      exportFailure.good.exported === true &&
+      exportFailure.goodExists === true,
+    exportFailure
+  );
+
+  // 123b. a corrupt settings file is kept aside and the app keeps working with defaults
+  const settingsRecovery = await (async () => {
+    const dataDir = userDir();
+    const file = settingsFile();
+    fs.writeFileSync(file, '{ this is not json', 'utf8');
+    const settings = await win.webContents.executeJavaScript('window.api.getSettings()');
+    const backups = fs.readdirSync(dataDir).filter((name) => name.startsWith('settings.json.corrupt-'));
+    // leave a valid file behind for the rest of the suite
+    writeSettings({ language: 'en', theme: 'light' });
+    return { theme: settings.theme, backups: backups.length };
+  })();
+  step(
+    'settings-corrupt-recovery',
+    settingsRecovery.theme === 'light' && settingsRecovery.backups >= 1,
+    settingsRecovery
   );
 
   // 30k. the settings filter narrows the visible fields
