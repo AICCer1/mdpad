@@ -5,6 +5,7 @@
 
 import { Editor, Extension, markInputRule } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { wrapIn, lift } from 'prosemirror-commands';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from '@tiptap/markdown';
@@ -585,6 +586,14 @@ const AiTarget = Extension.create({
 
 // Typing **bold** (or *italic*, ~~strike~~, `code`) converts on the closing delimiter, the way
 // people who write markdown expect. The node-level rules (#, -, 1., >, fences) come from StarterKit.
+// Tab / Shift+Tab inside a quote nest or lift it; lists keep ProseMirror's own sink/lift keymap.
+function indentBlockquote(editorRef, direction) {
+  const type = editorRef.schema.nodes.blockquote;
+  if (!type) return false;
+  const command = direction > 0 ? wrapIn(type) : lift;
+  return command(editorRef.state, editorRef.view.dispatch, editorRef.view);
+}
+
 const inlineMarkdownInputRules = Extension.create({
   name: 'inlineMarkdownInputRules',
   addInputRules() {
@@ -649,13 +658,52 @@ const editor = new Editor({
     attributes: { class: 'mdpad-prose', spellcheck: 'false' },
     handleKeyDown(view, event) {
       const mod = event.ctrlKey || event.metaKey;
+      const { $from } = view.state.selection;
+      const inList = (() => {
+        for (let depth = $from.depth; depth > 0; depth -= 1) {
+          if ($from.node(depth).type.name === 'listItem') return true;
+        }
+        return false;
+      })();
+      const inQuote = (() => {
+        for (let depth = $from.depth; depth > 0; depth -= 1) {
+          if ($from.node(depth).type.name === 'blockquote') return true;
+        }
+        return false;
+      })();
+
       if (event.key === 'Tab' && !event.shiftKey) {
-        const { $from } = view.state.selection;
         if ($from.parent.type.name === 'codeBlock') {
           event.preventDefault();
           view.dispatch(view.state.tr.insertText('  ', view.state.selection.from));
           return true;
         }
+        // Lists are handled by ProseMirror's own keymap below this handler.
+        if (!inList && inQuote) {
+          event.preventDefault();
+          indentBlockquote({ state: view.state, schema: view.state.schema, view }, 1);
+          return true;
+        }
+      }
+      if (event.key === 'Tab' && event.shiftKey) {
+        if (!inList && inQuote) {
+          event.preventDefault();
+          indentBlockquote({ state: view.state, schema: view.state.schema, view }, -1);
+          return true;
+        }
+      }
+      // Ctrl+] / Ctrl+[ work everywhere: lists sink, quotes nest.
+      if (mod && (event.key === ']' || event.key === '}')) {
+        event.preventDefault();
+        if (inList) {
+          return editor.commands.sinkListItem('listItem');
+        }
+        if (inQuote) return indentBlockquote({ state: view.state, schema: view.state.schema, view }, 1);
+      }
+      if (mod && (event.key === '[' || event.key === '{')) {
+        event.preventDefault();
+        if (inList) return editor.commands.liftListItem('listItem');
+        if (inQuote) return indentBlockquote({ state: view.state, schema: view.state.schema, view }, -1);
       }
       // Move the current top-level block with Ctrl+Shift+Up/Down.
       if (mod && event.shiftKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
@@ -5223,6 +5271,57 @@ window.__mdpad = {
   relativeAge: (iso) => relativeAge(iso, lang),
   saveState: () => (saveStateEl ? saveStateEl.textContent : ''),
   looksLikeMarkdown: (text) => looksLikeMarkdown(text),
+  focusFirst: (typeName) => {
+    let target = null;
+    editor.state.doc.descendants((node, pos) => {
+      if (target !== null) return false;
+      if (!node.isText) return true;
+      const $pos = editor.state.doc.resolve(pos);
+      for (let depth = $pos.depth; depth > 0; depth -= 1) {
+        if ($pos.node(depth).type.name === typeName) {
+          target = pos + 1;
+          return false;
+        }
+      }
+      return true;
+    });
+    if (target === null) return false;
+    editor.commands.setTextSelection(target);
+    return true;
+  },
+  focusLast: (typeName) => {
+    let target = null;
+    editor.state.doc.descendants((node, pos) => {
+      if (!node.isText) return true;
+      const $pos = editor.state.doc.resolve(pos);
+      for (let depth = $pos.depth; depth > 0; depth -= 1) {
+        if ($pos.node(depth).type.name === typeName) {
+          target = pos + 1;
+          break;
+        }
+      }
+      return true;
+    });
+    if (target === null) return false;
+    editor.commands.setTextSelection(target);
+    return true;
+  },
+  quoteDepth: () => {
+    const { $from } = editor.state.selection;
+    let depth = 0;
+    for (let d = $from.depth; d > 0; d -= 1) {
+      if ($from.node(d).type.name === 'blockquote') depth += 1;
+    }
+    return depth;
+  },
+  selectAll: () => {
+    editor.commands.selectAll();
+    return editor.state.selection.to;
+  },
+  toggleQuote: () => {
+    editor.chain().focus().toggleBlockquote().run();
+    return true;
+  },
   docShape: () =>
     editor.state.doc.content.content.map((node) => ({
       type: node.type.name,

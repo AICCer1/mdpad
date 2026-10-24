@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.42.0
+
+Quotes nest, and indentation has a keyboard path.
+
+- **Tab inside a quote nests it, Shift+Tab lifts it**, and the `> >` survives the markdown round
+  trip. **Ctrl+]** / **Ctrl+[** do the same for lists and quotes, so indentation does not depend on
+  Tab being free.
+- **Lists keep their own Tab behaviour**: the handler checks for a list item first and steps aside,
+  which is why a list inside a quote still indents the list instead of wrapping another quote.
+- **A selection of several paragraphs becomes one quote**, leaving a trailing empty paragraph to
+  type in — asserted rather than treated as a defect.
+- 277 smoke checks (two new: `quote-structure`, `quote-keys` with real Tab/Shift+Tab key events),
+  155 unit tests.
+
 ## 1.41.0
 
 Task lists, from the checkbox to the Word file.

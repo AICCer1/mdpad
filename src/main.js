@@ -9602,6 +9602,86 @@ async function runSmoke() {
     taskExports
   );
 
+  // 116a. nested quotes and a quote around a multi-block selection round-trip through markdown
+  const quoteStructure = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const nl = String.fromCharCode(10);
+    window.__mdpad.setMarkdown('> outer' + nl + '>' + nl + '> > inner' + nl + '>' + nl + '> - item');
+    await sleep(500);
+    const parsed = window.__mdpad.getMarkdown();
+    const nestedDepth = window.__mdpad.quoteDepth();
+
+    window.__mdpad.setMarkdown('first paragraph' + nl + nl + 'second paragraph');
+    await sleep(400);
+    window.__mdpad.selectAll();
+    window.__mdpad.toggleQuote();
+    await sleep(400);
+    const shape = window.__mdpad.docShape();
+    const quoted = window.__mdpad.getMarkdown();
+    return { parsed, nestedDepth, shape, quoted };
+  })()`);
+  step(
+    'quote-structure',
+    /> > inner/.test(quoteStructure.parsed) &&
+      /> - item/.test(quoteStructure.parsed) &&
+      quoteStructure.parsed.includes('> outer') &&
+      quoteStructure.shape[0].type === 'blockquote' &&
+      quoteStructure.shape.slice(1).every((node) => node.type === 'paragraph' && node.text === '') &&
+      /first paragraph/.test(quoteStructure.quoted) &&
+      /second paragraph/.test(quoteStructure.quoted) &&
+      /\n>\n/.test(quoteStructure.quoted),
+    quoteStructure
+  );
+
+  // 116b. Tab nests a quote, Shift+Tab lifts it, lists still use their own keymap
+  const quoteKeys = await (async () => {
+    win.focus();
+    win.webContents.focus();
+    await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      window.__mdpad.setMarkdown('> quoted line');
+      await sleep(400);
+      window.__mdpad.focusFirst('blockquote');
+      await sleep(200);
+    })()`);
+    const depthBefore = await win.webContents.executeJavaScript('window.__mdpad.quoteDepth()');
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Tab' });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Tab' });
+    await sleep(500);
+    const afterTab = await win.webContents.executeJavaScript(
+      `({ depth: window.__mdpad.quoteDepth(), markdown: window.__mdpad.getMarkdown() })`
+    );
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Tab', modifiers: ['shift'] });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Tab', modifiers: ['shift'] });
+    await sleep(500);
+    const afterShiftTab = await win.webContents.executeJavaScript(
+      `({ depth: window.__mdpad.quoteDepth(), markdown: window.__mdpad.getMarkdown() })`
+    );
+    // a list item must still sink with Tab rather than nesting a quote
+    await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      window.__mdpad.setMarkdown('- one' + String.fromCharCode(10) + '- two');
+      await sleep(400);
+      window.__mdpad.focusLast('listItem');
+      await sleep(200);
+    })()`);
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Tab' });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Tab' });
+    await sleep(500);
+    const listMarkdown = await win.webContents.executeJavaScript('window.__mdpad.getMarkdown()');
+    return { depthBefore, afterTab, afterShiftTab, listMarkdown };
+  })();
+  step(
+    'quote-keys',
+    quoteKeys.depthBefore === 1 &&
+      quoteKeys.afterTab.depth === 2 &&
+      /> > quoted line/.test(quoteKeys.afterTab.markdown) &&
+      quoteKeys.afterShiftTab.depth === 1 &&
+      !/> > quoted line/.test(quoteKeys.afterShiftTab.markdown) &&
+      /\n\s{2,}- two/.test(quoteKeys.listMarkdown),
+    quoteKeys
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

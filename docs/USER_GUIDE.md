@@ -101,6 +101,16 @@ Images are saved next to the document in `assets/`. Size and alignment are store
 the markdown link title (`![alt](src "w=50%;align=center")`), so they survive a round
 trip through any markdown tool.
 
+## Quotes and indentation
+
+**Ctrl+Shift+Q** or the toolbar turns the selected block(s) into a quote — select several
+paragraphs and they share one quote. Quotes nest: press **Tab** inside a quote to put it one level
+deeper, **Shift+Tab** to lift it back. `> >` in the markdown is preserved on save.
+
+Lists keep their own Tab behaviour (indent the item), so a quote inside a list still indents the
+list, not the quote. **Ctrl+]** and **Ctrl+[** indent and outdent without touching Tab, for lists
+and quotes alike.
+
 ## Task lists
 
 Type `- [ ] ` or use **Insert a block → Task list**. Clicking a box toggles it, and the change is
