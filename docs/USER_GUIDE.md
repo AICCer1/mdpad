@@ -171,6 +171,20 @@ restarts.
 **Check spelling** (Settings → Appearance) turns the checker on or off; right-click a word with a
 red underline for suggestions, **Add to dictionary** or **Ignore**.
 
+## First run
+
+A blank untitled tab shows a four-step checklist. Each row is a working button:
+
+1. **Start writing** — focus the editor (Ctrl+N opens another tab)
+2. **Open a folder** — the file tree appears on the left
+3. **Insert a block** — types `/` so the block menu opens immediately
+4. **Export** — opens the export panel
+
+**Skip the guide** hides it for good; **Help → Welcome guide** brings it back. Opening an empty
+file you already have does not show the card — it belongs to untitled buffers only.
+
+![Welcome checklist](images/01-empty.png)
+
 ## Slash menu
 
 Type **/** at the start of an empty paragraph and a block menu opens: Heading 1–3, bullet /

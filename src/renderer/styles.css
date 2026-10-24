@@ -699,7 +699,6 @@ body { display: flex; flex-direction: column; }
   cursor: pointer;
 }
 .empty-actions button:hover { border-color: var(--accent); color: var(--accent); }
-#empty-new { background: var(--accent); border-color: var(--accent); color: #fff; }
 .empty-tip { margin-top: 14px; font-size: 11px; color: var(--muted); }
 
 /* ---- tab overflow arrows ---- */
@@ -2155,3 +2154,45 @@ textarea:focus-visible,
 
 .settings-row { display: flex; gap: 8px; align-items: center; margin: 4px 0 2px; }
 .settings-row button { height: var(--h-control, 26px); }
+
+/* ---- welcome checklist ---- */
+.empty-steps { list-style: none; margin: 14px 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.empty-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid var(--chrome-line, var(--line));
+  border-radius: var(--r-sm, 6px);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.empty-step:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--bg)); }
+.empty-step-n {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 650;
+}
+.empty-step-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.empty-step-title { font-size: 13px; font-weight: 550; }
+.empty-step-hint { font-size: 11px; color: var(--muted); }
+.empty-secondary { font-size: 12px; color: var(--muted); background: transparent; border: 1px solid transparent; }
+.empty-secondary:hover { color: var(--text); border-color: var(--chrome-line, var(--line)); }
+
+.empty-card .empty-step {
+  background: var(--bg);
+  color: var(--text);
+}
+.empty-card .empty-step:hover { background: color-mix(in srgb, var(--accent) 8%, var(--bg)); color: var(--text); }

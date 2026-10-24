@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.32.0
+
+A first-run guide that does the thing instead of describing it.
+
+- The blank-tab card became a **four-step checklist**: Start writing, Open a folder, Insert a
+  block, Export. Each row is a working action — "Insert a block" types `/` and opens the slash menu
+  right there. **Skip the guide** hides it for good; **Help → Welcome guide** brings it back, and
+  it opens a fresh tab so there is somewhere for the card to appear.
+- **The card no longer covers an empty file you opened on purpose.** It is tied to untitled
+  buffers, not to "editor is empty".
+- **Why the first build looked broken:** `#empty-new` still had the old primary-button styling
+  (`background: accent`), and an id selector beat the new class rule, so step 1 rendered as a big
+  blue button while the others were plain rows. Removed the rule.
+- Two smoke checks now cover it: `empty-guide` (four steps, two secondary actions, hidden once you
+  type, hidden for an empty saved file) and `welcome-guide` (the slash menu really opens, skip
+  persists the setting, reopening works).
+
 ## 1.31.0
 
 Crash safety down to the first keystroke.

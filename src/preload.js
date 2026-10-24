@@ -91,6 +91,7 @@ contextBridge.exposeInMainWorld('api', {
   deleteDraft: (file) => ipcRenderer.invoke('drafts:delete', { file }),
   onCrashed: (cb) => ipcRenderer.on('app:crashed', (_e, payload) => cb(payload)),
   onFirstRun: (cb) => ipcRenderer.on('app:first-run', (_e, payload) => cb(payload)),
+  onWelcomeGuide: (cb) => ipcRenderer.on('app:welcome', (_e, payload) => cb(payload)),
   onPreflight: (cb) => ipcRenderer.on('app:preflight', (_e, payload) => cb(payload)),
   onSessionTruncated: (cb) => ipcRenderer.on('session:truncated', (_e, payload) => cb(payload)),
   onSessionRestored: (cb) => ipcRenderer.on('session:restored', (_e, payload) => cb(payload)),

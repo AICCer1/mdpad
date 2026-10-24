@@ -3849,9 +3849,19 @@ const emptyHint = $('#empty-hint');
 // empty tab. Dismissal is remembered in settings.
 let guideDismissed = false;
 
+// The guide belongs to a blank untitled document: an empty file the user opened on purpose
+// should not be covered by it.
+let activeIsUntitled = true;
+
 function syncEmptyHint() {
   emptyHint.hidden =
-    guideDismissed || !editor.isEmpty || !aiPopover.hidden || !palette.hidden;
+    guideDismissed || !editor.isEmpty || !activeIsUntitled || !aiPopover.hidden || !palette.hidden;
+}
+
+function showWelcomeGuide() {
+  guideDismissed = false;
+  window.api.setSettings({ guideDismissed: false }).catch(() => {});
+  syncEmptyHint();
 }
 
 $('#empty-dismiss').addEventListener('click', () => {
@@ -3863,6 +3873,21 @@ $('#empty-dismiss').addEventListener('click', () => {
 $('#empty-new').addEventListener('click', () => window.api.newDoc());
 $('#empty-folder').addEventListener('click', () => actions.openFolder());
 $('#empty-ai').addEventListener('click', () => openAI());
+$('#empty-skip').addEventListener('click', () => {
+  guideDismissed = true;
+  syncEmptyHint();
+  window.api.setSettings({ guideDismissed: true }).catch(() => {});
+});
+// Demonstrate the slash menu instead of describing it: focus the empty paragraph and type "/".
+$('#empty-block').addEventListener('click', () => {
+  editor.chain().focus('end').insertContent('/').run();
+});
+$('#empty-export').addEventListener('click', () => openExportPanel('pdf'));
+
+window.api.onWelcomeGuide(() => {
+  showWelcomeGuide();
+  if (!activeIsUntitled || !editor.isEmpty) window.api.newDoc();
+});
 
 editor.on('update', syncEmptyHint);
 editor.on('selectionUpdate', syncEmptyHint);
@@ -4332,6 +4357,7 @@ function cacheActiveEditorState() {
 
 window.api.onLoaded(({ id, file, contents, draft }) => {
   const nextId = id || null;
+  activeIsUntitled = !file;
   if (activeTabId && activeTabId !== nextId) cacheActiveEditorState();
   const cached = nextId ? editorStateCache.get(nextId) : null;
   if (cached && cached.markdown === contents) {
@@ -4345,6 +4371,7 @@ window.api.onLoaded(({ id, file, contents, draft }) => {
     setMarkdown(contents);
   }
   activeTabId = nextId;
+  syncEmptyHint();
   // Restore after the new content has been laid out; clamp in case the document got shorter.
   const wantedScroll = (nextId && tabScroll.get(nextId)) || 0;
   if (editorPane) {
@@ -4823,6 +4850,12 @@ window.__mdpad = {
   }),
   relativeAge: (iso) => relativeAge(iso, lang),
   saveState: () => (saveStateEl ? saveStateEl.textContent : ''),
+  welcomeState: () => ({
+    hidden: document.querySelector('#empty-hint').hidden,
+    steps: [...document.querySelectorAll('#empty-hint .empty-step')].map((button) => button.id),
+    dismissed: guideDismissed,
+  }),
+  showWelcomeGuide: () => showWelcomeGuide(),
   diagnostics: () => window.api.diagnostics(),
   closeTopModal,
   themeState2: () => ({

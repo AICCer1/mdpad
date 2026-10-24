@@ -653,10 +653,47 @@
           <button id="empty-dismiss" class="empty-dismiss" data-icon="close" data-icon-size="14" title="Hide this guide">Close</button>
           <div class="empty-title" data-i18n="empty.title">mdpad</div>
           <div class="empty-sub" data-i18n="empty.subtitle">A markdown editor that survives crashes and interruptions</div>
+          <ol class="empty-steps">
+            <li>
+              <button id="empty-new" class="empty-step">
+                <span class="empty-step-n">1</span>
+                <span class="empty-step-body">
+                  <span class="empty-step-title" data-i18n="empty.new">Start writing</span>
+                  <span class="empty-step-hint" data-i18n="empty.newHint">Ctrl+N makes another tab</span>
+                </span>
+              </button>
+            </li>
+            <li>
+              <button id="empty-folder" class="empty-step">
+                <span class="empty-step-n">2</span>
+                <span class="empty-step-body">
+                  <span class="empty-step-title" data-i18n="empty.folder">Open a folder</span>
+                  <span class="empty-step-hint" data-i18n="empty.folderHint">Your markdown files appear in the tree</span>
+                </span>
+              </button>
+            </li>
+            <li>
+              <button id="empty-block" class="empty-step">
+                <span class="empty-step-n">3</span>
+                <span class="empty-step-body">
+                  <span class="empty-step-title" data-i18n="empty.block">Insert a block</span>
+                  <span class="empty-step-hint" data-i18n="empty.blockHint">Type / for headings, tables, diagrams</span>
+                </span>
+              </button>
+            </li>
+            <li>
+              <button id="empty-export" class="empty-step">
+                <span class="empty-step-n">4</span>
+                <span class="empty-step-body">
+                  <span class="empty-step-title" data-i18n="empty.export">Export</span>
+                  <span class="empty-step-hint" data-i18n="empty.exportHint">PDF, Word, HTML, EPUB and images</span>
+                </span>
+              </button>
+            </li>
+          </ol>
           <div class="empty-actions">
-            <button id="empty-new" data-i18n="empty.new">New document</button>
-            <button id="empty-folder" data-i18n="empty.folder">Open a folder</button>
-            <button id="empty-ai" data-i18n="empty.ai">Try AI writing</button>
+            <button id="empty-ai" class="empty-secondary" data-i18n="empty.ai">Try AI writing</button>
+            <button id="empty-skip" class="empty-secondary" data-i18n="empty.skip">Skip the guide</button>
           </div>
           <div class="empty-tip" data-i18n="empty.tip">Ctrl+Shift+P for commands · F1 for shortcuts</div>
         </div>

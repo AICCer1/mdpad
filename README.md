@@ -45,6 +45,15 @@ npm run ship          release-check -> installers -> install-check -> SHA256SUMS
 Current artifacts: `release/mdpad Setup <version>.exe`, `release/mdpad <version>.exe`,
 `release/latest.yml`, `release/RELEASE_NOTES.md`.
 
+## First run
+
+A blank untitled tab shows a four-step welcome checklist — start writing, open a folder, insert a
+block, export — where each step performs the action rather than describing it ("Insert a block"
+types `/` for you). It can be skipped for good, and **Help → Welcome guide** brings it back. An
+empty *saved* file is never covered by it.
+
+![Welcome checklist](docs/images/01-empty.png)
+
 ## Diagnostics
 
 **Help → Copy diagnostics** (also in Settings) puts version, Electron/Chromium versions, paths,

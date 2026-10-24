@@ -1005,6 +1005,30 @@ Object.assign(DICT.zh, {
   'settings.diagnosticsCopied': '诊断信息已复制到剪贴板',
 });
 
+Object.assign(DICT.en, {
+  'empty.new': 'Start writing',
+  'empty.newHint': 'Ctrl+N makes another tab',
+  'empty.folderHint': 'Your markdown files appear in the tree',
+  'empty.block': 'Insert a block',
+  'empty.blockHint': 'Type / for headings, tables, diagrams',
+  'empty.export': 'Export',
+  'empty.exportHint': 'PDF, Word, HTML, EPUB and images',
+  'empty.skip': 'Skip the guide',
+  'menu.welcome': 'Welcome guide',
+});
+
+Object.assign(DICT.zh, {
+  'empty.new': '开始写',
+  'empty.newHint': 'Ctrl+N 新建标签页',
+  'empty.folderHint': '文件夹里的 Markdown 会显示在左侧',
+  'empty.block': '插入块',
+  'empty.blockHint': '输入 / 插入标题、表格、图表',
+  'empty.export': '导出',
+  'empty.exportHint': 'PDF、Word、HTML、EPUB 和图片',
+  'empty.skip': '跳过引导',
+  'menu.welcome': '欢迎引导',
+});
+
 module.exports = { t, normalizeLang, LANGS, DICT };
 
 Object.assign(DICT.en, {

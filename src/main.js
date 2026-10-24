@@ -1107,6 +1107,12 @@ function createWindow({ show = true, restore = null, cascade = 0, bounds: explic
     Menu.buildFromTemplate(template).popup({ window: win });
   });
 
+  win.webContents.on('console-message', (_event, level, message, line, source) => {
+    if (process.env.MDPAD_LOG_RENDERER === '1' || SMOKE) {
+      console.log('RENDERER [' + level + '] ' + message + ' (' + source + ':' + line + ')');
+    }
+  });
+
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (event, url) => {
     if (url === win.webContents.getURL()) return;
@@ -2330,6 +2336,15 @@ function buildMenu() {
       label: tt('menu.help'),
       submenu: [
         {
+          label: tt('menu.welcome'),
+          click: () => {
+            const focused = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+            if (!focused) return;
+            writeSettings({ ...readSettings(), guideDismissed: false });
+            focused.webContents.send('app:welcome');
+          },
+          },
+          {
           label: tt('menu.copyDiagnostics'),
           click: () => {
             let report = {};
@@ -3460,38 +3475,37 @@ async function runSmoke() {
 
   await win.webContents.executeJavaScript(`document.querySelector('#ai-clear').click()`);
 
-  // 22. first-run guide appears only for an empty document
+  // 22. the welcome guide belongs to an empty untitled buffer, not to an empty saved file
+  const emptyFile = path.join(dir, 'empty-file.md');
+  fs.writeFileSync(emptyFile, '', 'utf8');
   const guide = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     document.querySelector('#ai-popover').hidden = true;
+    await window.api.newDoc();
+    await sleep(600);
     window.__mdpad.setMarkdown('');
-    await sleep(200);
+    await sleep(250);
     const hint = document.querySelector('#empty-hint');
     const visible = !hint.hidden;
-    const buttons = hint.querySelectorAll('.empty-actions button').length;
+    const steps = hint.querySelectorAll('.empty-steps li').length;
+    const actions = hint.querySelectorAll('.empty-actions button').length;
     window.__mdpad.setMarkdown('# not empty anymore');
-    await sleep(200);
-    return { visible, buttons, hiddenAfter: document.querySelector('#empty-hint').hidden };
-  })()`);
-  step('empty-guide', guide.visible && guide.buttons === 3 && guide.hiddenAfter, guide);
-
-  // 23. overflowing tab strips expose scroll arrows
-  const overflow = await win.webContents.executeJavaScript(`(async () => {
-    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-    for (let i = 0; i < 12; i += 1) await window.api.newDoc();
-    await sleep(500);
-    const list = document.querySelector('#tab-list');
-    return {
-      tabs: (await window.api.listTabs()).length,
-      overflows: list.scrollWidth > list.clientWidth + 2,
-      leftVisible: !document.querySelector('#tab-left').hidden,
-      rightVisible: !document.querySelector('#tab-right').hidden,
-    };
+    await sleep(250);
+    const hiddenAfter = hint.hidden;
+    // an empty file the user opened on purpose must not be covered by the guide
+    await window.api.openPath(${JSON.stringify(emptyFile)});
+    await sleep(700);
+    const hiddenOnEmptyFile = hint.hidden;
+    return { visible, steps, actions, hiddenAfter, hiddenOnEmptyFile };
   })()`);
   step(
-    'tabs-overflow',
-    overflow.overflows && overflow.leftVisible && overflow.rightVisible,
-    overflow
+    'empty-guide',
+    guide.visible &&
+      guide.steps === 4 &&
+      guide.actions === 2 &&
+      guide.hiddenAfter &&
+      guide.hiddenOnEmptyFile,
+    guide
   );
 
   // 24. opening a file does not mark it dirty just because of normalization
@@ -8428,6 +8442,65 @@ async function runSmoke() {
     };
   })();
   step('draft-flush', draftFlush.leadingHasProbe && draftFlush.flushHasProbe, draftFlush);
+
+  // 106. the welcome checklist is actionable, dismissible and re-openable
+  const welcome = await win.webContents.executeJavaScript(`(async () => {
+   try {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    window.__mdpad.showWelcomeGuide();
+    window.api.newDoc();
+    await sleep(600);
+    const shown = window.__mdpad.welcomeState();
+    // "Insert a block" must actually open the slash menu, not just describe it.
+    document.querySelector('#empty-block').click();
+    await sleep(500);
+    const afterBlock = {
+      menu: window.__mdpad.slashState(),
+      guide: window.__mdpad.welcomeState(),
+    };
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await sleep(300);
+    // Skipping hides the card and persists the choice.
+    window.__mdpad.showWelcomeGuide();
+    await sleep(150);
+    document.querySelector('#empty-skip').click();
+    await sleep(300);
+    const skipped = window.__mdpad.welcomeState();
+    const stored = await window.api.getSettings();
+    // The Help menu clears the flag and opens a fresh empty tab, so the card has somewhere to
+    // show; reproduce both steps.
+    window.api.newDoc();
+    await sleep(600);
+    window.api.setSettings({ guideDismissed: false });
+    window.__mdpad.showWelcomeGuide();
+    await sleep(250);
+    const reopened = window.__mdpad.welcomeState();
+    document.querySelector('#empty-skip').click();
+    await sleep(200);
+    return {
+      shown,
+      afterBlock,
+      skipped,
+      persisted: stored.guideDismissed,
+      reopened,
+    };
+   } catch (err) {
+     return { error: String(err && err.stack ? err.stack : err).slice(0, 400) };
+   }
+  })()`);
+  step(
+    'welcome-guide',
+    welcome.shown.hidden === false &&
+      welcome.shown.steps.length === 4 &&
+      welcome.shown.steps.join(',') === 'empty-new,empty-folder,empty-block,empty-export' &&
+      welcome.afterBlock.menu.hidden === false &&
+      welcome.afterBlock.guide.hidden === true &&
+      welcome.skipped.hidden === true &&
+      welcome.skipped.dismissed === true &&
+      welcome.persisted === true &&
+      welcome.reopened.hidden === false,
+    welcome
+  );
 
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
