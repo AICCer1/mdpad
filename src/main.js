@@ -9533,6 +9533,75 @@ async function runSmoke() {
     findUi
   );
 
+  // 115a. task lists round-trip through markdown and their boxes toggle
+  const taskRoundTrip = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const nl = String.fromCharCode(10);
+    window.__mdpad.setMarkdown('- [ ] open item' + nl + '- [x] done item');
+    await sleep(500);
+    const before = window.__mdpad.getMarkdown();
+    const box = document.querySelector('.tiptap ul[data-type="taskList"] li input[type="checkbox"]');
+    const hasBox = Boolean(box);
+    if (box) box.click();
+    await sleep(500);
+    const after = window.__mdpad.getMarkdown();
+    return { before, after, hasBox, shape: window.__mdpad.docShape() };
+  })()`);
+  step(
+    'task-roundtrip',
+    /- \[ \] open item/.test(taskRoundTrip.before) &&
+      /- \[x\] done item/.test(taskRoundTrip.before) &&
+      taskRoundTrip.hasBox === true &&
+      taskRoundTrip.shape.some((node) => node.type === 'taskList') &&
+      (taskRoundTrip.after.match(/- \[x\]/g) || []).length === 2 &&
+      !/- \[ \]/.test(taskRoundTrip.after),
+    taskRoundTrip
+  );
+
+  // 115b. task state survives HTML, Word and EPUB export
+  const taskExports = await (async () => {
+    const JSZip = require('jszip');
+    const nl = String.fromCharCode(10);
+    const markdown = ['# Chores', '', '- [ ] water plants', '- [x] pay bills'].join(nl);
+    const taskFile = path.join(dir, 'tasks.md');
+    fs.writeFileSync(taskFile, markdown, 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(taskFile);
+    await sleep(700);
+    session.contents = markdown;
+    const htmlPath = path.join(dir, 'tasks.html');
+    const docxPath = path.join(dir, 'tasks.docx');
+    const epubPath = path.join(dir, 'tasks.epub');
+    await session.exportTo(htmlPath, 'html');
+    await session.exportTo(docxPath, 'docx');
+    await session.exportTo(epubPath, 'epub');
+
+    const html = fs.readFileSync(htmlPath, 'utf8');
+    const docxZip = await JSZip.loadAsync(fs.readFileSync(docxPath));
+    const docxText = (await docxZip.file('word/document.xml').async('string'))
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const epubZip = await JSZip.loadAsync(fs.readFileSync(epubPath));
+    const chapter = await epubZip.file(Object.keys(epubZip.files).find((name) => /\.xhtml$/.test(name))).async('string');
+    return {
+      htmlUnchecked: /<input[^>]+type="checkbox"[^>]*>/.test(html) && /water plants/.test(html),
+      htmlChecked: /<input[^>]+checked[^>]*type="checkbox"|<input[^>]+type="checkbox"[^>]+checked/.test(html),
+      docxBoxes: /☐/.test(docxText) && /☑/.test(docxText),
+      epubUnchecked: /<input[^>]+type="checkbox"/.test(chapter) && /water plants/.test(chapter),
+      epubChecked: /checked/.test(chapter),
+    };
+  })();
+  step(
+    'task-exports',
+    taskExports.htmlUnchecked &&
+      taskExports.htmlChecked &&
+      taskExports.docxBoxes &&
+      taskExports.epubUnchecked &&
+      taskExports.epubChecked,
+    taskExports
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

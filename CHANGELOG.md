@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.41.0
+
+Task lists, from the checkbox to the Word file.
+
+- **Round trip proven**: `- [ ]` / `- [x]` parse into task items, clicking a box writes the new state
+  back to the markdown, and the shape is asserted in the smoke suite.
+- **Word export gained the state.** Task items used to arrive as plain bullets — the ☐/☑ marks were
+  missing entirely. They are now prefixed on the item, since `docx` has no checkbox primitive here.
+  HTML and EPUB already rendered real disabled checkboxes; all three are asserted now.
+- 275 smoke checks (two new: `task-roundtrip`, `task-exports`), 155 unit tests.
+
 ## 1.40.0
 
 Find and replace grew the options every other editor has.

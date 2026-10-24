@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 273 end-to-end checks against a real window
+npm run smoke          # 275 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -207,6 +207,12 @@ Inserted images are decoded with `createImageBitmap`, downscaled to 2200 px on t
 encoded twice (JPEG 0.85 unless the bitmap has alpha, and PNG); the smaller blob wins and the
 original file is kept when neither beats it. JPEG wins on photos, PNG wins on screenshots of text —
 a fixed format choice would have inflated one of the two.
+
+## Task lists
+
+Task state lives on the TaskItem node and serialises to `- [ ]` / `- [x]`. HTML and EPUB exports
+use marked's checkbox rendering; the Word exporter has no checkbox primitive, so it prefixes the
+item text with ☐ or ☑ (`taskPrefix` in `exporters/docx.js`).
 
 ## Find and replace
 

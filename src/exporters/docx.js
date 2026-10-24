@@ -129,7 +129,10 @@ function listParagraphs(token, depth = 0, ctx) {
   const bullet = token.type === 'list' && token.ordered === false;
   let index = Number(token.start || 1);
   for (const item of token.items || []) {
-    const prefix = bullet ? '• ' : `${index++}. `;
+    // Markdown task items carry task/checked on the item; Word has no checkbox primitive here,
+    // so the state travels as a box character that every font can show.
+    const taskPrefix = item.task ? (item.checked ? '☑ ' : '☐ ') : '';
+    const prefix = taskPrefix || (bullet ? '• ' : `${index++}. `);
     const first = item.tokens.find((t) => t.type === 'text' || t.type === 'paragraph');
     if (first) {
       out.push(new Paragraph({

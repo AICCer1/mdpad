@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         273 end-to-end checks (dev or packaged)
+npm run smoke         275 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -68,6 +68,12 @@ The build pipeline can sign: set `CSC_LINK` and `CSC_KEY_PASSWORD` (or run
 installer and uninstaller, then *fails the build* if an artifact lost its signature. The
 difference between "signed" and "trusted by Windows" is reported separately — a self-signed
 signature is real but SmartScreen still warns. See [docs/RELEASING.md](docs/RELEASING.md).
+
+## Task lists
+
+`- [ ]` and `- [x]` round-trip through the editor, clicking a box writes the new state back to the
+markdown, and exports keep it: HTML and EPUB render real checkboxes, Word gets ☐ / ☑ because it has
+no checkbox primitive here.
 
 ## Find and replace
 

@@ -101,6 +101,12 @@ Images are saved next to the document in `assets/`. Size and alignment are store
 the markdown link title (`![alt](src "w=50%;align=center")`), so they survive a round
 trip through any markdown tool.
 
+## Task lists
+
+Type `- [ ] ` or use **Insert a block → Task list**. Clicking a box toggles it, and the change is
+written back to the markdown as `- [x]` on the next save. Exports keep the state: HTML and EPUB
+render real disabled checkboxes, Word shows ☐ and ☑.
+
 ## Find and replace
 
 **Ctrl+F** searches, **Ctrl+H** opens the same bar in the **Replace with** field, **Enter** jumps to
@@ -258,6 +264,7 @@ raises the "changed on disk" banner rather than overwriting.
 | Images | embedded | embedded | embedded | embedded |
 | Maths | yes | yes | plain text | yes |
 | Code highlighting | yes | yes | plain text | yes |
+| Task boxes | checkbox | checkbox | ☐ / ☑ | checkbox |
 | Mermaid diagrams | SVG | SVG | source code | SVG |
 
 EPUB splits chapters at `#` headings and keeps the heading as the chapter title on the page.
