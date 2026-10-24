@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.34.0
+
+An Advanced section for the things that previously meant editing files by hand.
+
+- **Settings → Advanced**: export preferences to JSON (the AI key never leaves safeStorage), import
+  them back, open the data folder, clear recovery drafts with a count in the confirmation, and reset
+  every preference to its default. Documents, backups and drafts stay on disk; the reset says so.
+- Export and import reuse the existing dialog paths; the smoke suite passes an explicit path
+  through the existing `settingsExportTo` / `settingsImportFrom` hooks instead of answering dialogs.
+- 262 smoke checks (four new: `settings-transfer-export`, `settings-transfer-import`,
+  `settings-reset-all` — which also proves a reset does not delete a draft — and `advanced-ui`),
+  155 unit tests.
+
 ## 1.33.0
 
 Two windows can no longer destroy each other's work silently.

@@ -4896,6 +4896,13 @@ window.__mdpad = {
   }),
   relativeAge: (iso) => relativeAge(iso, lang),
   saveState: () => (saveStateEl ? saveStateEl.textContent : ''),
+  advancedState: () => ({
+    nav: Boolean(document.querySelector('#settings-modal [data-goto="advanced"]')),
+    exportButton: Boolean(document.querySelector('#set-export-settings')),
+    importButton: Boolean(document.querySelector('#set-import-settings')),
+    resetButton: Boolean(document.querySelector('#set-reset')),
+    clearButton: Boolean(document.querySelector('#set-clear-drafts')),
+  }),
   saveNow: () => saveDocument(),
   conflictState: () => {
     const modal = document.querySelector('#tree-confirm');

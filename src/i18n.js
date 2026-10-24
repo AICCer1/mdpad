@@ -1029,6 +1029,46 @@ Object.assign(DICT.zh, {
   'menu.welcome': '欢迎引导',
 });
 
+Object.assign(DICT.en, {
+  'settings.navAdvanced': 'Advanced',
+  'settings.exportSettings': 'Export settings…',
+  'settings.importSettings': 'Import settings…',
+  'settings.exportHint': 'A JSON file with your preferences. The AI key is never included.',
+  'settings.exported': 'Settings written to {name}',
+  'settings.imported': 'Imported {count} settings ({ignored} ignored)',
+  'settings.openData': 'Open data folder',
+  'settings.clearDrafts': 'Clear recovery drafts',
+  'settings.clear': 'Clear',
+  'settings.clearDraftsText': 'Delete all {count} recovery drafts? Unsaved text from closed tabs will be lost.',
+  'settings.draftsCleared': 'Deleted {count} drafts',
+  'settings.noDrafts': 'No recovery drafts to clear',
+  'settings.reset': 'Reset all settings…',
+  'settings.resetHint': 'Resets preferences only. Files, backups and drafts on disk are not touched.',
+  'settings.resetText': 'Reset every preference to its default? Your documents, backups and drafts stay on disk.',
+  'settings.resetConfirm': 'Reset',
+  'settings.resetDone': 'Settings reset',
+});
+
+Object.assign(DICT.zh, {
+  'settings.navAdvanced': '高级',
+  'settings.exportSettings': '导出设置…',
+  'settings.importSettings': '导入设置…',
+  'settings.exportHint': '包含偏好的 JSON 文件。AI 密钥不会写入。',
+  'settings.exported': '设置已写入 {name}',
+  'settings.imported': '已导入 {count} 项设置（忽略 {ignored} 项）',
+  'settings.openData': '打开数据文件夹',
+  'settings.clearDrafts': '清空恢复草稿',
+  'settings.clear': '清空',
+  'settings.clearDraftsText': '删除全部 {count} 份恢复草稿？已关闭标签页中的未保存内容将会丢失。',
+  'settings.draftsCleared': '已删除 {count} 份草稿',
+  'settings.noDrafts': '没有可清理的恢复草稿',
+  'settings.reset': '重置全部设置…',
+  'settings.resetHint': '只重置偏好，磁盘上的文件、备份和草稿不受影响。',
+  'settings.resetText': '将所有偏好恢复默认？文件、备份和草稿仍保留在磁盘上。',
+  'settings.resetConfirm': '重置',
+  'settings.resetDone': '设置已重置',
+});
+
 module.exports = { t, normalizeLang, LANGS, DICT };
 
 Object.assign(DICT.en, {

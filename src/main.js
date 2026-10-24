@@ -1840,6 +1840,49 @@ function registerIpc() {
     });
   }
 
+  ipcMain.handle('settings:reset', () => {
+    writeSettings({
+      ...readSettings(),
+      theme: 'light',
+      language: currentLang(),
+      exportTemplate: 'default',
+      exportCss: '',
+      exportNameTemplate: '{title}',
+      editorFont: 'serif',
+      lineWidth: 'normal',
+      accent: 'blue',
+      spellcheck: true,
+      zoomLevel: 0,
+      aiSystemPrompt: '',
+      aiContextScope: '',
+      aiConfirmOverTokens: DEFAULT_CONFIRM_TOKENS,
+      filesCollapsed: false,
+      collapsedSections: {},
+      focusMode: false,
+    });
+    buildMenu();
+    return { reset: true, settings: publicSettings() };
+  });
+
+  ipcMain.handle('data:openFolder', async () => {
+    await shell.openPath(userDir());
+    return { opened: true };
+  });
+
+  ipcMain.handle('data:clearDrafts', () => {
+    let removed = 0;
+    try {
+      for (const name of fs.readdirSync(draftsDir())) {
+        if (!name.endsWith('.json')) continue;
+        fs.unlinkSync(path.join(draftsDir(), name));
+        removed += 1;
+      }
+    } catch {
+      /* no drafts directory */
+    }
+    return { removed };
+  });
+
   ipcMain.handle('log:error', (_e, payload) => {
     const text = typeof payload === 'string' ? payload : JSON.stringify(payload);
     logLine('renderer', String(text).slice(0, 4000));
@@ -8634,6 +8677,103 @@ async function runSmoke() {
     'open-existing-tab',
     reopen.matching === 1 && reopen.activeIsFile === true && reopen.after === reopen.before,
     reopen
+  );
+
+  // 108a. settings export writes a JSON file without secrets
+  const transferExport = await (async () => {
+    const out = path.join(dir, 'settings-export.json');
+    const result = await win.webContents.executeJavaScript(
+      `window.api.settingsExportTo(${JSON.stringify(out)})`
+    );
+    const text = fs.readFileSync(out, 'utf8');
+    const parsed = JSON.parse(text);
+    return {
+      exported: Boolean(result && result.exported),
+      app: parsed.app,
+      version: parsed.version,
+      hasTheme: typeof parsed.settings.theme === 'string',
+      leaksKey: /"key"|sk-[a-z0-9]/i.test(text),
+    };
+  })();
+  step(
+    'settings-transfer-export',
+    transferExport.exported &&
+      transferExport.app === 'mdpad' &&
+      transferExport.version === app.getVersion() &&
+      transferExport.hasTheme &&
+      transferExport.leaksKey === false,
+    transferExport
+  );
+
+  // 108b. import applies a settings file through the same path the dialog uses
+  const transferImport = await (async () => {
+    const file = path.join(dir, 'settings-import.json');
+    fs.writeFileSync(
+      file,
+      JSON.stringify({ app: 'mdpad', settings: { theme: 'dark', exportTemplate: 'toc' } }),
+      'utf8'
+    );
+    const result = await win.webContents.executeJavaScript(
+      `window.api.settingsImportFrom(${JSON.stringify(file)})`
+    );
+    const after = await win.webContents.executeJavaScript('window.api.getSettings()');
+    return {
+      imported: result && result.imported,
+      theme: after.theme,
+      template: after.exportTemplate,
+    };
+  })();
+  step(
+    'settings-transfer-import',
+    transferImport.imported === true &&
+      transferImport.theme === 'dark' &&
+      transferImport.template === 'toc',
+    transferImport
+  );
+
+  // 108c. reset restores defaults but leaves drafts on disk; clearing drafts removes them
+  const transferReset = await (async () => {
+    const draftFile = path.join(dir, 'reset-draft.md');
+    fs.writeFileSync(draftFile, '# kept' + String.fromCharCode(10), 'utf8');
+    storage.writeDraft(draftFile, '# kept' + String.fromCharCode(10) + String.fromCharCode(10) + 'unsaved', draftsDir());
+    const before = storage.readDraft(draftFile, draftsDir());
+    const result = await win.webContents.executeJavaScript('window.api.resetSettings()');
+    const after = await win.webContents.executeJavaScript('window.api.getSettings()');
+    const draftAfterReset = storage.readDraft(draftFile, draftsDir());
+    const cleared = await win.webContents.executeJavaScript('window.api.clearDrafts()');
+    const draftsAfterClear = await win.webContents.executeJavaScript('window.api.listDrafts()');
+    return {
+      reset: result && result.reset,
+      theme: after.theme,
+      accent: after.accent,
+      draftBefore: Boolean(before),
+      draftAfterReset: Boolean(draftAfterReset),
+      removed: cleared && cleared.removed,
+      draftsAfterClear: draftsAfterClear.length,
+    };
+  })();
+  step(
+    'settings-reset-all',
+    transferReset.reset === true &&
+      transferReset.theme === 'light' &&
+      transferReset.accent === 'blue' &&
+      transferReset.draftBefore &&
+      transferReset.draftAfterReset &&
+      transferReset.removed >= 1 &&
+      transferReset.draftsAfterClear === 0,
+    transferReset
+  );
+
+  // 108d. the advanced section renders its controls
+  const advancedUi = await win.webContents.executeJavaScript('window.__mdpad.advancedState()');
+  step(
+    'advanced-ui',
+    advancedUi.nav &&
+      advancedUi.exportButton &&
+      advancedUi.importButton &&
+      advancedUi.resetButton &&
+      advancedUi.clearButton,
+    advancedUi
   );
 
   // 30k. the settings filter narrows the visible fields

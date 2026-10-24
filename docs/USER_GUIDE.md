@@ -226,6 +226,17 @@ keystroke back.
 If you switch tabs while a change is in flight, the change is written to the tab it came from —
 never to the tab you just switched to.
 
+## Advanced settings
+
+**Settings → Advanced**:
+
+- **Export settings…** writes a JSON file with your preferences. The AI key is never included.
+- **Import settings…** applies that file (theme, language, autosave, export defaults, AI endpoint).
+- **Open data folder** shows settings, logs, backups and drafts.
+- **Clear recovery drafts** deletes unpublished drafts after showing how many there are.
+- **Reset all settings…** restores every preference to its default. Documents, backups and drafts
+  stay exactly where they are.
+
 ## Reporting a problem
 
 **Help → Copy diagnostics** (or Settings → Diagnostics) copies the app version, Electron and

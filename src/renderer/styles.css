@@ -2196,3 +2196,6 @@ textarea:focus-visible,
   color: var(--text);
 }
 .empty-card .empty-step:hover { background: color-mix(in srgb, var(--accent) 8%, var(--bg)); color: var(--text); }
+
+.danger-outline { color: #c0392b; border-color: color-mix(in srgb, #c0392b 40%, var(--line)); }
+.danger-outline:hover { background: color-mix(in srgb, #c0392b 10%, transparent); }
