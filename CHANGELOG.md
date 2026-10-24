@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.48.0
+
+Exported links tell the truth about where they point.
+
+- **HTML**: a relative link to a file that exists is left alone; a link to a missing file gets
+  `data-link-missing` plus a "File not found" tooltip and a wavy underline, instead of looking
+  identical to a working link. The export needs the document folder (`baseDir`) to resolve targets.
+- **EPUB**: relative `.md` links are always marked "Not included in this EPUB" — the container
+  never carries the target — while `#anchor` links keep matching heading ids inside the chapter.
+- **Word**: absolute URLs are now real `<w:hyperlink>` elements. Relative `.md` paths keep the blue
+  underline but are not clickable, because such a path means nothing inside a `.docx`.
+- Before this round the Word export had **no hyperlinks at all** and broken HTML links were
+  indistinguishable from working ones.
+- 288 smoke checks (one new: `export-links` covering marked, kept, anchor and external links in
+  all three formats), 155 unit tests.
+
 ## 1.47.0
 
 Links between files finally do something.

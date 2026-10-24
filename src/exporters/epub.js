@@ -7,6 +7,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const JSZip = require('jszip');
 const { renderHtml, katexCss, highlightThemeCss } = require('../markdown');
+const { markLinkTargets } = require('./links');
 
 const MIME_BY_EXT = {
   '.png': 'image/png',
@@ -126,7 +127,11 @@ async function toEpub(
   const images = new Map();
   chapters.forEach((chapter, index) => {
     const name = `chap${index + 1}.xhtml`;
-    const html = embedImages(renderHtml(chapter.lines.join('\n'), { diagrams }), baseDir, images);
+    const html = markLinkTargets(
+    embedImages(renderHtml(chapter.lines.join('\n'), { diagrams }), baseDir, images),
+    baseDir,
+    { epub: true }
+  );
     oebps.file(name, chapterXhtmlHtml(chapter.title, html, chapter.hasTitle));
     manifest.push(`<item id="chap${index + 1}" href="${name}" media-type="application/xhtml+xml"/>`);
     spine.push(`<itemref idref="chap${index + 1}"/>`);

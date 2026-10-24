@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 287 end-to-end checks against a real window
+npm run smoke          # 288 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -207,6 +207,13 @@ Inserted images are decoded with `createImageBitmap`, downscaled to 2200 px on t
 encoded twice (JPEG 0.85 unless the bitmap has alpha, and PNG); the smaller blob wins and the
 original file is kept when neither beats it. JPEG wins on photos, PNG wins on screenshots of text —
 a fixed format choice would have inflated one of the two.
+
+## Exported links
+
+`src/exporters/links.js` marks relative anchors in exported HTML/EPUB: a missing target gets
+`data-link-missing="1"` plus a title, so the reader sees why nothing happens. The HTML export
+needs `baseDir` (the document folder) to resolve targets; EPUB marks every relative `.md` link
+because the container never carries the file. Word gets `ExternalHyperlink` for http/mailto.
 
 ## Links
 

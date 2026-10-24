@@ -112,6 +112,16 @@ A click on a link never navigates the app window:
 - **`https://…`** — a plain click only places the caret; **Ctrl+click** (or middle click) opens the
   URL in your browser.
 
+### Links in exported files
+
+- **HTML**: a relative link to a file that exists is kept as written (the file is not copied, so
+  the exported HTML only works next to that folder). A link to a missing file is marked with a
+  wavy underline and a "File not found" tooltip instead of failing silently.
+- **EPUB**: relative `.md` links cannot resolve inside the container, so they are always marked
+  ("Not included in this EPUB"); `#anchor` links keep working within the chapter.
+- **Word**: absolute URLs become clickable hyperlinks. Relative paths keep the link styling but
+  are not clickable, because a `.md` path means nothing inside a `.docx`.
+
 ## Recent files
 
 **File → Show all recent files…** (or type "recent" in the palette) opens the list: newest

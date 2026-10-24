@@ -1048,6 +1048,7 @@ class Session {
         diagrams,
         font: exportFontStack(),
         margin: readSettings().exportMargin || 'normal',
+        baseDir: this.file ? path.dirname(this.file) : null,
       }),
       'utf8'
     );
@@ -10115,6 +10116,65 @@ async function runSmoke() {
       linkEdgeCases.clicked === true &&
       linkEdgeCases.focus.caret === 'Second Heading',
     linkEdgeCases
+  );
+
+  // 122. exported links: working ones kept, missing ones flagged, URLs clickable in Word
+  const exportLinks = await (async () => {
+    const JSZip = require('jszip');
+    const nl = String.fromCharCode(10);
+    const good = path.join(dir, 'linked-good.md');
+    fs.writeFileSync(good, '# Good target' + nl, 'utf8');
+    const source = path.join(dir, 'link-source.md');
+    fs.writeFileSync(
+      source,
+      [
+        '# Link export',
+        '',
+        '[good](linked-good.md) and [missing](linked-gone.md) and [anchor](#second-heading) and [web](https://example.com)',
+        '',
+        '## Second Heading',
+      ].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(source);
+    await sleep(700);
+    session.contents = fs.readFileSync(source, 'utf8');
+    const htmlPath = path.join(dir, 'links.html');
+    const docxPath = path.join(dir, 'links.docx');
+    const epubPath = path.join(dir, 'links.epub');
+    await session.exportTo(htmlPath, 'html');
+    await session.exportTo(docxPath, 'docx');
+    await session.exportTo(epubPath, 'epub');
+
+    const html = fs.readFileSync(htmlPath, 'utf8');
+    const htmlBody = html.slice(html.indexOf('<body'));
+    const docxZip = await JSZip.loadAsync(fs.readFileSync(docxPath));
+    const docxXml = await docxZip.file('word/document.xml').async('string');
+    const epubZip = await JSZip.loadAsync(fs.readFileSync(epubPath));
+    const chapter = await epubZip.file(Object.keys(epubZip.files).find((name) => /\.xhtml$/.test(name))).async('string');
+    return {
+      htmlGoodKept: /href="linked-good\.md"/.test(htmlBody) && !/href="linked-good\.md"[^>]*data-link-missing/.test(htmlBody),
+      htmlMissingFlagged: /href="linked-gone\.md"[^>]*data-link-missing="1"/.test(htmlBody),
+      htmlMissingTitle: /File not found: linked-gone\.md/.test(htmlBody),
+      htmlAnchor: /href="#second-heading"/.test(htmlBody) && /<h2 id="second-heading">/.test(htmlBody),
+      htmlExternal: /href="https:\/\/example\.com"/.test(htmlBody),
+      epubFlagged: /data-link-missing="1"/.test(chapter),
+      epubExternal: /href="https:\/\/example\.com"/.test(chapter),
+      docxHyperlinks: (docxXml.match(/<w:hyperlink/g) || []).length,
+    };
+  })();
+  step(
+    'export-links',
+    exportLinks.htmlGoodKept &&
+      exportLinks.htmlMissingFlagged &&
+      exportLinks.htmlMissingTitle &&
+      exportLinks.htmlAnchor &&
+      exportLinks.htmlExternal &&
+      exportLinks.epubFlagged &&
+      exportLinks.epubExternal &&
+      exportLinks.docxHyperlinks >= 1,
+    exportLinks
   );
 
   // 30k. the settings filter narrows the visible fields

@@ -5,7 +5,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { Document, Packer, Paragraph, TextRun, HeadingLevel, ImageRun, Table, TableRow, TableCell, WidthType, BorderStyle } = require('docx');
+const { Document, Packer, Paragraph, TextRun, HeadingLevel, ImageRun, Table, TableRow, TableCell, WidthType, BorderStyle, ExternalHyperlink } = require('docx');
 const { marked } = require('marked');
 
 const MAX_IMAGE_WIDTH = 440;
@@ -107,9 +107,18 @@ function runs(tokens, base = {}, ctx) {
       case 'text':
         out.push(new TextRun({ ...base, text: token.text }));
         break;
-      case 'link':
-        out.push(...runs(token.tokens, { ...base, color: '0B67C2', underline: {} }, ctx));
+      case 'link': {
+        const href = String(token.href || '');
+        const children = runs(token.tokens, { ...base, color: '0B67C2', underline: {} }, ctx);
+        // Absolute URLs become clickable; a relative .md path has no meaning inside a .docx, so it
+        // keeps the styling without pretending to work.
+        if (/^(?:https?:|mailto:)/i.test(href)) {
+          out.push(new ExternalHyperlink({ children, link: href }));
+        } else {
+          out.push(...children);
+        }
         break;
+      }
       case 'image':
         out.push(imageRun(token.href, ctx, base));
         break;

@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { BrowserWindow } = require('electron');
 const { renderHtml, katexCss, highlightThemeCss, outline } = require('./markdown');
+const { markLinkTargets } = require('./exporters/links');
 
 const DOCUMENT_CSS = `
 :root { color-scheme: light; }
@@ -88,10 +89,10 @@ function sanitizeCss(css) {
 function toHtmlDocument(
   markdown,
   title = 'Untitled',
-  { template = 'default', css = '', stats = null, diagrams = null, font = '', margin = 'normal' } = {}
+  { template = 'default', css = '', stats = null, diagrams = null, font = '', margin = 'normal', baseDir = null } = {}
 ) {
   const withToc = template === 'toc' ? tocHtml(markdown) : '';
-  return `<!doctype html>
+  const html = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -118,6 +119,7 @@ ${stats ? `<footer class="export-stats">${escapeHtml(stats.line)}</footer>` : ''
 </body>
 </html>
 `;
+  return markLinkTargets(html, baseDir);
 }
 
 async function toPdf(
