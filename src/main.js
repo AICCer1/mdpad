@@ -9840,6 +9840,78 @@ async function runSmoke() {
     outlineScroll
   );
 
+  // 119a. outline jumps are reversible with Alt+Left / Alt+Right
+  const navOutline = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const nl = String.fromCharCode(10);
+    window.__mdpad.setMarkdown('## Alpha' + nl + nl + 'alpha text' + nl + nl + '## Beta' + nl + nl + 'beta text' + nl + nl + '## Gamma' + nl + nl + 'gamma text');
+    await sleep(700);
+    window.__mdpad.editor.commands.focus('start');
+    await sleep(200);
+    const start = window.__mdpad.navState();
+    const items = [...document.querySelectorAll('#outline-list .outline-item')];
+    items[2].click();
+    await sleep(400);
+    const jumped = window.__mdpad.navState();
+    return { start, jumped };
+  })()`);
+  win.focus();
+  win.webContents.focus();
+  win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Left', modifiers: ['alt'] });
+  win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Left', modifiers: ['alt'] });
+  await sleep(400);
+  const afterBack = await win.webContents.executeJavaScript('window.__mdpad.navState()');
+  win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Right', modifiers: ['alt'] });
+  win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Right', modifiers: ['alt'] });
+  await sleep(400);
+  const afterForward = await win.webContents.executeJavaScript('window.__mdpad.navState()');
+  step(
+    'nav-outline',
+    navOutline.start.caret === 'Alpha' &&
+      navOutline.jumped.caret === 'Gamma' &&
+      navOutline.jumped.back >= 1 &&
+      afterBack.caret === 'Alpha' &&
+      afterBack.forward >= 1 &&
+      afterForward.caret === 'Gamma',
+    { start: navOutline.start, jumped: navOutline.jumped, afterBack, afterForward }
+  );
+
+  // 119b. a new jump truncates the forward history, and find navigation is recorded too
+  const navTruncate = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    // currently at Gamma with a forward entry available; jump elsewhere resets it
+    const items = [...document.querySelectorAll('#outline-list .outline-item')];
+    items[1].click();
+    await sleep(350);
+    const afterNewJump = window.__mdpad.navState();
+    // find jump: search Beta, press Enter in the find bar
+    window.api.setSettings({}); // no-op to keep the promise chain explicit
+    document.querySelector('[data-action="find"]').click();
+    await sleep(250);
+    const input = document.querySelector('#find-input');
+    input.value = 'gamma text';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(300);
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await sleep(400);
+    const afterFind = window.__mdpad.navState();
+    document.querySelector('#find-close').click();
+    await sleep(150);
+    return { afterNewJump, afterFind };
+  })()`);
+  win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Left', modifiers: ['alt'] });
+  win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Left', modifiers: ['alt'] });
+  await sleep(400);
+  const afterFindBack = await win.webContents.executeJavaScript('window.__mdpad.navState()');
+  step(
+    'nav-truncate-and-find',
+    navTruncate.afterNewJump.forward === 0 &&
+      navTruncate.afterFind.caret === 'gamma text' &&
+      navTruncate.afterFind.back >= 1 &&
+      afterFindBack.caret === 'Beta',
+    { afterNewJump: navTruncate.afterNewJump, afterFind: navTruncate.afterFind, afterFindBack }
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -2102,7 +2102,8 @@ function renderOutline() {
     link.className = 'outline-item depth-' + item.depth;
     link.textContent = item.text;
     link.addEventListener('click', () => {
-      editor.commands.focus(item.pos);
+      recordJump();
+      editor.commands.focus(item.pos + 1);
       const dom = editor.view.nodeDOM(item.pos);
       if (dom && dom.scrollIntoView) dom.scrollIntoView({ block: 'start', behavior: 'smooth' });
     });
@@ -2161,6 +2162,83 @@ if (outlineScrollPane) outlineScrollPane.addEventListener('scroll', syncOutlineT
 editor.view.dom.addEventListener('click', handleLinkClick);
 editor.view.dom.addEventListener('auxclick', handleLinkClick);
 editor.view.dom.addEventListener('click', openMathAtClick);
+
+// ---- jump history ----------------------------------------------------------
+// Alt+Left / Alt+Right walk the places you jumped from, so a jump into a long document is always
+// reversible. History is per tab and a new jump truncates the forward stack.
+
+const navHistory = new Map();
+
+function navKey() {
+  return activeTabId || 'untitled';
+}
+
+function navStacks() {
+  const key = navKey();
+  if (!navHistory.has(key)) navHistory.set(key, { back: [], forward: [] });
+  return navHistory.get(key);
+}
+
+function pushNav(pos) {
+  if (!Number.isFinite(pos)) return;
+  const stacks = navStacks();
+  if (stacks.back[stacks.back.length - 1] !== pos) stacks.back.push(pos);
+  if (stacks.back.length > 100) stacks.back.shift();
+  stacks.forward.length = 0;
+}
+
+function recordJump() {
+  pushNav(editor.state.selection.from);
+}
+
+function scrollToPos(pos) {
+  try {
+    const coords = editor.view.coordsAtPos(pos);
+    const pane = document.querySelector('.editor-pane');
+    if (!pane || !coords) return;
+    const paneRect = pane.getBoundingClientRect();
+    if (coords.top < paneRect.top + 20 || coords.top > paneRect.bottom - 60) {
+      pane.scrollTop += coords.top - paneRect.top - paneRect.height / 3;
+    }
+  } catch {
+    /* the position may be gone */
+  }
+}
+
+function navTo(pos) {
+  if (!Number.isFinite(pos)) return false;
+  editor.commands.setTextSelection(Math.max(1, Math.min(pos, editor.state.doc.content.size - 1)));
+  scrollToPos(pos);
+  editor.commands.focus();
+  return true;
+}
+
+function navBack() {
+  const stacks = navStacks();
+  if (!stacks.back.length) return false;
+  const pos = stacks.back.pop();
+  stacks.forward.push(editor.state.selection.from);
+  return navTo(pos);
+}
+
+function navForward() {
+  const stacks = navStacks();
+  if (!stacks.forward.length) return false;
+  const pos = stacks.forward.pop();
+  stacks.back.push(editor.state.selection.from);
+  return navTo(pos);
+}
+
+document.addEventListener('keydown', (event) => {
+  if (!event.altKey || event.ctrlKey || event.metaKey) return;
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault();
+    navBack();
+  } else if (event.key === 'ArrowRight') {
+    event.preventDefault();
+    navForward();
+  }
+});
 
 let outlineTimer = null;
 
@@ -2353,7 +2431,10 @@ function closeFind() {
 
 function stepFind(dir) {
   if (!matches.length) return;
+  const from = editor.state.selection.from;
   matchIndex = (matchIndex + dir + matches.length) % matches.length;
+  const target = matches[matchIndex];
+  if (target && target.from !== from) pushNav(from);
   focusMatch();
 }
 
@@ -2461,8 +2542,10 @@ let findTimer = null;
 findInput.addEventListener('input', () => {
   clearTimeout(findTimer);
   findTimer = setTimeout(() => {
+    const from = editor.state.selection.from;
     collectMatches();
     matchIndex = matches.length ? 0 : -1;
+    if (matches.length && matches[0].from !== from) pushNav(from);
     focusMatch();
   }, 120);
 });
@@ -5534,6 +5617,21 @@ window.__mdpad = {
   },
   moveBlockAt: (index, delta) => moveBlockAt(editor.view, index, delta),
   caretText: () => editor.state.selection.$from.parent.textContent,
+  navJump: (pos) => {
+    recordJump();
+    return navTo(pos);
+  },
+  navBack: () => navBack(),
+  navForward: () => navForward(),
+  navState: () => {
+    const stacks = navStacks();
+    return {
+      back: stacks.back.length,
+      forward: stacks.forward.length,
+      pos: editor.state.selection.from,
+      caret: editor.state.selection.$from.parent.textContent.slice(0, 40),
+    };
+  },
   outlineState: () => ({
     rows: [...document.querySelectorAll('#outline-list .outline-row')].length,
     items: [...document.querySelectorAll('#outline-list .outline-item')].map((a) => a.textContent),

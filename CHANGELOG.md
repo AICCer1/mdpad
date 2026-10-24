@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.45.0
+
+You can go back now.
+
+- **Alt+Left / Alt+Right** walk the jump history per tab: outline clicks and find steps are jumps, a
+  new jump truncates the forward stack, and the caret plus scroll position return where they were.
+- **Positions are recorded before the selection moves.** The first version recorded after the jump,
+  so Alt+Left popped the destination and appeared to do nothing; the find bar also moved the caret
+  as soon as a query matched, which had to be captured the same way.
+- **Outline clicks now focus `pos + 1`**, inside the heading. Focusing at the node boundary put the
+  caret in the document node, which made "which section am I in" checks read the whole document.
+- 283 smoke checks (two new: `nav-outline` with real Alt+arrows, `nav-truncate-and-find`),
+  155 unit tests.
+
 ## 1.44.0
 
 The outline became a map you can fold.

@@ -101,6 +101,12 @@ Images are saved next to the document in `assets/`. Size and alignment are store
 the markdown link title (`![alt](src "w=50%;align=center")`), so they survive a round
 trip through any markdown tool.
 
+## Moving through a document
+
+**Alt+Left** returns to where you were before the last jump, **Alt+Right** goes forward again. Jumps
+include clicking a heading in the outline and stepping through find results; each tab keeps its own
+history, and jumping somewhere new clears the forward stack.
+
 ## Outline
 
 The outline lists every heading. Click one to jump to it. Headings with children get a **▾ twisty**
