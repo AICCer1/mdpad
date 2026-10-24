@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.38.0
+
+One document, four formats, checked block by block.
+
+- **EPUB chapters gained a visible title.** `splitChapters` removed the `#` heading and used it only
+  for `<title>` and the table of contents, so a reader opened a chapter with no heading on the
+  page. The chapter now starts with an `<h1 class="chapter-title">`.
+- **A consistency matrix is asserted**: heading, bold text, table, image, maths, code and diagram
+  survive HTML, PDF, Word and EPUB — in the same order. The PDF is checked structurally (header,
+  embedded image XObject, fonts) because its text is compressed.
+- **`npm run export-probe`** does the HTML/Word/EPUB half in plain Node for quick checks; the smoke
+  test `export-consistency` runs all four inside the app with a real Mermaid diagram.
+- Two of my own assertions were wrong before the product was: I expected the table before the
+  paragraph (it is after) and searched for `const answer = 42;` in highlighted code, where the text
+  is split across spans.
+
 ## 1.37.0
 
 Old documents can shed their embedded images.

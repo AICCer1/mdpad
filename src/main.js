@@ -9181,6 +9181,153 @@ async function runSmoke() {
     extractDirty
   );
 
+  // 112. one document, four formats: the same blocks survive, in the same order
+  const exportMatrix = await (async () => {
+    const JSZip = require('jszip');
+    const nl = String.fromCharCode(10);
+    const fence = String.fromCharCode(96, 96, 96);
+    const png =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    const diagram = 'graph LR;' + nl + '  draft-->export;';
+    const markdown = [
+      '# Matrix check',
+      '',
+      'Body with **bold words** and `inline`.',
+      '',
+      '| Left | Right |',
+      '| --- | --- |',
+      '| alpha | beta |',
+      '',
+      '![pixel](data:image/png;base64,' + png + ')',
+      '',
+      'Inline math $a^2 + b^2 = c^2$ here.',
+      '',
+      '$$',
+      'a + b = c',
+      '$$',
+      '',
+      fence + 'js',
+      'const answer = 42;',
+      fence,
+      '',
+      fence + 'mermaid',
+      diagram,
+      fence,
+    ].join(nl);
+
+    const session = sessions.get(win.webContents.id);
+    const matrixFile = path.join(dir, 'matrix.md');
+    fs.writeFileSync(matrixFile, markdown, 'utf8');
+    await session.loadDocument(matrixFile);
+    await sleep(900);
+    await win.webContents.executeJavaScript('window.__mdpad.exportDiagramCount()');
+    session.contents = markdown;
+
+    const htmlPath = path.join(dir, 'matrix.html');
+    const pdfPath = path.join(dir, 'matrix.pdf');
+    const docxPath = path.join(dir, 'matrix.docx');
+    const epubPath = path.join(dir, 'matrix.epub');
+    await session.exportTo(htmlPath, 'html');
+    await session.exportTo(pdfPath, 'pdf');
+    await session.exportTo(docxPath, 'docx');
+    await session.exportTo(epubPath, 'epub');
+
+    const html = fs.readFileSync(htmlPath, 'utf8');
+    const htmlBody = html.slice(html.indexOf('<body'));
+    const htmlOrder = ['Matrix check', 'bold words', 'Left', 'pixel'].map((needle) => htmlBody.indexOf(needle));
+
+    const docxZip = await JSZip.loadAsync(fs.readFileSync(docxPath));
+    const docxXml = await docxZip.file('word/document.xml').async('string');
+    const docxText = docxXml
+      .replace(/<w:p[ >]/g, nl + '<w:p ')
+      .replace(/<[^>]+>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const docxOrder = ['Matrix check', 'bold words', 'Left'].map((needle) => docxText.indexOf(needle));
+
+    const epubZip = await JSZip.loadAsync(fs.readFileSync(epubPath));
+    const chapterName = Object.keys(epubZip.files).find((name) => /\.xhtml$/.test(name));
+    const chapter = chapterName ? await epubZip.file(chapterName).async('string') : '';
+    const epubBody = chapter.slice(chapter.indexOf('<body'));
+    const epubOrder = ['Matrix check', 'bold words', 'Left'].map((needle) => epubBody.indexOf(needle));
+
+    const pdfBytes = fs.readFileSync(pdfPath);
+    const pdfText = pdfBytes.toString('latin1');
+
+    return {
+      html: {
+        heading: /<h1[^>]*>Matrix check<\/h1>/.test(html),
+        bold: /<strong>bold words<\/strong>/.test(html),
+        table: /<table[\s>]/.test(html),
+        image: /<img[^>]+src="data:image\/png/.test(html),
+        math: /class="katex"/.test(html) && /math-display/.test(html),
+        // highlighted code splits the text into spans, so check the anchor word and the block
+        code: /hljs-pre/.test(html) && /answer/.test(html),
+        diagram: /mermaid-figure[\s\S]*<svg/.test(html),
+        order: htmlOrder.every((value, i) => value >= 0 && (i === 0 || value > htmlOrder[i - 1])),
+      },
+      pdf: {
+        header: pdfText.startsWith('%PDF-'),
+        image: /\/Subtype\s*\/Image/.test(pdfText),
+        font: /\/Font/.test(pdfText),
+        bytes: pdfBytes.length,
+      },
+      docx: {
+        heading: /Matrix check/.test(docxText),
+        bold: /bold words/.test(docxText),
+        table: /Left/.test(docxText) && /beta/.test(docxText),
+        image: Object.keys(docxZip.files).some((name) => /^word\/media\//.test(name)),
+        math: /a\^2|a2 \+ b2|c2/.test(docxText),
+        code: /const answer = 42;/.test(docxText),
+        // Word export keeps the Mermaid source as a code block; it has no diagram rasteriser.
+        diagramSource: /graph LR|draft/.test(docxText),
+        order: docxOrder.every((value, i) => value >= 0 && (i === 0 || value > docxOrder[i - 1])),
+      },
+      epub: {
+        heading: /<h1[^>]*>Matrix check<\/h1>/.test(chapter),
+        bold: /<strong>bold words<\/strong>/.test(chapter),
+        table: /<table[\s>]/.test(chapter),
+        image: Object.keys(epubZip.files).some((name) => /^OEBPS\/images\//.test(name)),
+        math: /class="katex"/.test(chapter),
+        diagram: /mermaid-figure[\s\S]*<svg/.test(chapter),
+        code: /hljs|hljs-pre|<code/.test(chapter) && /answer/.test(chapter),
+        order: epubOrder.every((value, i) => value >= 0 && (i === 0 || value > epubOrder[i - 1])),
+      },
+    };
+  })();
+  step(
+    'export-consistency',
+    exportMatrix.html.heading &&
+      exportMatrix.html.bold &&
+      exportMatrix.html.table &&
+      exportMatrix.html.image &&
+      exportMatrix.html.math &&
+      exportMatrix.html.code &&
+      exportMatrix.html.diagram &&
+      exportMatrix.html.order &&
+      exportMatrix.pdf.header &&
+      exportMatrix.pdf.image &&
+      exportMatrix.pdf.font &&
+      exportMatrix.pdf.bytes > 30000 &&
+      exportMatrix.docx.heading &&
+      exportMatrix.docx.bold &&
+      exportMatrix.docx.table &&
+      exportMatrix.docx.image &&
+      exportMatrix.docx.math &&
+      exportMatrix.docx.code &&
+      exportMatrix.docx.diagramSource &&
+      exportMatrix.docx.order &&
+      exportMatrix.epub.heading &&
+      exportMatrix.epub.bold &&
+      exportMatrix.epub.table &&
+      exportMatrix.epub.image &&
+      exportMatrix.epub.math &&
+      exportMatrix.epub.diagram &&
+      exportMatrix.epub.code &&
+      exportMatrix.epub.order,
+    exportMatrix
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

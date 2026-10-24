@@ -216,6 +216,20 @@ dialog: **Overwrite** replaces the disk version with yours, and closing it keeps
 editor (still unsaved) so you can copy it or save under another name. Autosave stays dirty and
 raises the "changed on disk" banner rather than overwriting.
 
+## What each format keeps
+
+| | HTML | PDF | Word | EPUB |
+| --- | --- | --- | --- | --- |
+| Headings, bold, lists | yes | yes | yes | yes |
+| Tables | yes | yes | yes | yes |
+| Images | embedded | embedded | embedded | embedded |
+| Maths | yes | yes | plain text | yes |
+| Code highlighting | yes | yes | plain text | yes |
+| Mermaid diagrams | SVG | SVG | source code | SVG |
+
+EPUB splits chapters at `#` headings and keeps the heading as the chapter title on the page.
+Word has no diagram renderer, so a Mermaid block arrives as its source in a code block.
+
 ## Images
 
 Drag, drop, paste or insert an image and it is **optimised before it is written**: the long edge is

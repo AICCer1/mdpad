@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         267 end-to-end checks (dev or packaged)
+npm run smoke         268 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -68,6 +68,13 @@ The build pipeline can sign: set `CSC_LINK` and `CSC_KEY_PASSWORD` (or run
 installer and uninstaller, then *fails the build* if an artifact lost its signature. The
 difference between "signed" and "trusted by Windows" is reported separately — a self-signed
 signature is real but SmartScreen still warns. See [docs/RELEASING.md](docs/RELEASING.md).
+
+## Export consistency
+
+One document exported to HTML, PDF, Word and EPUB is checked block by block — heading, bold text,
+table, image, maths, code and diagram — plus the order they appear in. EPUB chapters now carry a
+visible `<h1>` (the title used to live only in `<title>`), and Word keeps a Mermaid block as its
+source, which is stated in the known limitations instead of being papered over.
 
 ## Images
 

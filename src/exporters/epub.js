@@ -65,7 +65,7 @@ img { max-width: 100%; }
 function splitChapters(markdown) {
   const lines = String(markdown || '').split('\n');
   const chapters = [];
-  let current = { title: 'Chapter 1', lines: [] };
+  let current = { title: 'Chapter 1', hasTitle: false, lines: [] };
   let fence = null;
   for (const line of lines) {
     const fenceMatch = /^\s*(```+|~~~+)/.exec(line);
@@ -78,7 +78,7 @@ function splitChapters(markdown) {
     const h1 = fence === null && /^#\s+(.*)$/.exec(line);
     if (h1) {
       if (current.lines.some((l) => l.trim())) chapters.push(current);
-      current = { title: h1[1].replace(/[*_`~]/g, '').trim(), lines: [] };
+      current = { title: h1[1].replace(/[*_`~]/g, '').trim(), hasTitle: true, lines: [] };
       continue;
     }
     current.lines.push(line);
@@ -87,14 +87,17 @@ function splitChapters(markdown) {
   return chapters;
 }
 
-function chapterXhtmlHtml(title, htmlBody) {
+function chapterXhtmlHtml(title, htmlBody, hasTitle = false) {
+  // The chapter title was removed from the body by splitChapters; put it back as a visible
+  // heading, otherwise an EPUB reader shows a chapter with no title on the page.
+  const heading = hasTitle ? '<h1 class="chapter-title">' + escapeXml(title) + '</h1>' + String.fromCharCode(10) : '';
   return `<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head><meta charset="utf-8"><title>${escapeXml(title)}</title>
 <link rel="stylesheet" type="text/css" href="style.css"/></head>
 <body>
-${htmlBody}
+${heading}${htmlBody}
 </body>
 </html>
 `;
@@ -124,7 +127,7 @@ async function toEpub(
   chapters.forEach((chapter, index) => {
     const name = `chap${index + 1}.xhtml`;
     const html = embedImages(renderHtml(chapter.lines.join('\n'), { diagrams }), baseDir, images);
-    oebps.file(name, chapterXhtmlHtml(chapter.title, html));
+    oebps.file(name, chapterXhtmlHtml(chapter.title, html, chapter.hasTitle));
     manifest.push(`<item id="chap${index + 1}" href="${name}" media-type="application/xhtml+xml"/>`);
     spine.push(`<itemref idref="chap${index + 1}"/>`);
   });
