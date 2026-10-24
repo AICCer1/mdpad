@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.44.0
+
+The outline became a map you can fold.
+
+- **Sections fold**: any heading with children gets a twisty; folding hides its descendants until the
+  next heading of the same or a shallower level. The key is `level:text`, so a fold survives a
+  re-render.
+- **The highlight follows scrolling**, not just the caret: the heading at the top of the viewport is
+  marked with `posAtCoords` inside a `requestAnimationFrame`, so dragging the scrollbar updates the
+  map without moving the insertion point.
+- 281 smoke checks (two new: `outline-fold`, `outline-scroll` — which scrolls to section 20 and
+  asserts the caret is still in section 0), 155 unit tests.
+
 ## 1.43.0
 
 A block handle, and a bug it uncovered.

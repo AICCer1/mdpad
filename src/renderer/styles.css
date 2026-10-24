@@ -2240,3 +2240,23 @@ textarea:focus-visible,
   opacity: 0.55;
 }
 .block-grip:hover { opacity: 1; color: var(--text); background: color-mix(in srgb, var(--text) 8%, transparent); }
+
+/* ---- outline rows and folding ---- */
+.outline-row { display: flex; align-items: center; gap: 2px; }
+.outline-twisty {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.7;
+}
+.outline-twisty:hover { opacity: 1; color: var(--text); }
+.outline-twisty.is-folded { transform: rotate(-90deg); }
+.outline-twisty.is-empty { visibility: hidden; }
+.outline-row .outline-item { flex: 1 1 auto; min-width: 0; }

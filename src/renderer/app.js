@@ -2036,10 +2036,10 @@ let lastOutlineMs = 0;
 
 // The heading that owns the caret is the one worth marking; it also tells the user where they
 // are in a long document without reading the text.
-function markCurrentOutline() {
+function markCurrentOutline(at = editor.state.selection.from) {
   const items = outlineItems();
   if (!items.length) return;
-  const caret = editor.state.selection.from;
+  const caret = at;
   let index = -1;
   for (let i = 0; i < items.length; i += 1) {
     if (items[i].pos <= caret) index = i;
@@ -2057,20 +2057,57 @@ function markCurrentOutline() {
   }
 }
 
+const collapsedHeadings = new Set();
+
 function renderOutline() {
   const startedAt = performance.now();
   const items = outlineItems();
   outlineList.textContent = '';
-  for (const item of items) {
+  // Sections fold: a heading with children gets a twisty; folding hides everything until the next
+  // heading of the same or a shallower level.
+  let skipDeeperThan = Infinity;
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index];
+    if (item.depth > skipDeeperThan) continue;
+    skipDeeperThan = Infinity;
+
+    const next = items[index + 1];
+    const hasChildren = Boolean(next && next.depth > item.depth);
+    const key = item.depth + ':' + item.text;
+    const folded = collapsedHeadings.has(key);
+    if (folded && hasChildren) skipDeeperThan = item.depth;
+
+    const row = document.createElement('div');
+    row.className = 'outline-row';
+    row.dataset.pos = String(item.pos);
+    const twisty = document.createElement('button');
+    twisty.type = 'button';
+    twisty.className = 'outline-twisty' + (folded ? ' is-folded' : '') + (hasChildren ? '' : ' is-empty');
+    twisty.setAttribute('aria-expanded', folded ? 'false' : 'true');
+    twisty.title = folded ? 'Expand section' : 'Collapse section';
+    twisty.textContent = '▾';
+    if (hasChildren) {
+      twisty.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (folded) collapsedHeadings.delete(key);
+        else collapsedHeadings.add(key);
+        renderOutline();
+      });
+    } else {
+      twisty.tabIndex = -1;
+    }
+    row.appendChild(twisty);
+
     const link = document.createElement('a');
-    link.className = `outline-item depth-${item.depth}`;
+    link.className = 'outline-item depth-' + item.depth;
     link.textContent = item.text;
     link.addEventListener('click', () => {
       editor.commands.focus(item.pos);
       const dom = editor.view.nodeDOM(item.pos);
       if (dom && dom.scrollIntoView) dom.scrollIntoView({ block: 'start', behavior: 'smooth' });
     });
-    outlineList.appendChild(link);
+    row.appendChild(link);
+    outlineList.appendChild(row);
   }
   outlineList.hidden = items.length === 0;
   const outlineEmpty = document.querySelector('#outline-empty');
@@ -2106,6 +2143,20 @@ function handleLinkClick(event) {
   window.api.openExternal(anchor.getAttribute('href')).catch(() => {});
   return true;
 }
+
+let outlineScrollFrame = 0;
+function syncOutlineToScroll() {
+  if (outlineScrollFrame) return;
+  outlineScrollFrame = requestAnimationFrame(() => {
+    outlineScrollFrame = 0;
+    const rect = blockPane ? blockPane.getBoundingClientRect() : null;
+    if (!rect) return;
+    const coords = editor.view.posAtCoords({ left: rect.left + 40, top: rect.top + 16 });
+    if (coords) markCurrentOutline(coords.pos);
+  });
+}
+const outlineScrollPane = document.querySelector('.editor-pane');
+if (outlineScrollPane) outlineScrollPane.addEventListener('scroll', syncOutlineToScroll, { passive: true });
 
 editor.view.dom.addEventListener('click', handleLinkClick);
 editor.view.dom.addEventListener('auxclick', handleLinkClick);
@@ -5483,6 +5534,31 @@ window.__mdpad = {
   },
   moveBlockAt: (index, delta) => moveBlockAt(editor.view, index, delta),
   caretText: () => editor.state.selection.$from.parent.textContent,
+  outlineState: () => ({
+    rows: [...document.querySelectorAll('#outline-list .outline-row')].length,
+    items: [...document.querySelectorAll('#outline-list .outline-item')].map((a) => a.textContent),
+    folded: [...document.querySelectorAll('#outline-list .outline-twisty.is-folded')].length,
+    current: (document.querySelector('#outline-list .outline-item.is-current') || {}).textContent || '',
+  }),
+  toggleOutlineFold: (text) => {
+    const rows = [...document.querySelectorAll('#outline-list .outline-row')];
+    for (const row of rows) {
+      const link = row.querySelector('.outline-item');
+      if (link && link.textContent === text) {
+        const twisty = row.querySelector('.outline-twisty:not(.is-empty)');
+        if (twisty) {
+          twisty.click();
+          return true;
+        }
+      }
+    }
+    return false;
+  },
+  scrollEditor: (top) => {
+    const pane = document.querySelector('.editor-pane');
+    pane.scrollTop = top;
+    return pane.scrollTop;
+  },
   quoteDepth: () => {
     const { $from } = editor.state.selection;
     let depth = 0;

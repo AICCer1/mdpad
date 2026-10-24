@@ -101,6 +101,13 @@ Images are saved next to the document in `assets/`. Size and alignment are store
 the markdown link title (`![alt](src "w=50%;align=center")`), so they survive a round
 trip through any markdown tool.
 
+## Outline
+
+The outline lists every heading. Click one to jump to it. Headings with children get a **▾ twisty**
+to fold and unfold the section, which keeps a long document's map short. While you scroll, the
+heading at the top of the window is highlighted, so the outline tells you where you are even when
+the caret is elsewhere.
+
 ## Block handle
 
 Move the pointer over a paragraph, heading, list or quote and a small **⣿ handle** appears in the

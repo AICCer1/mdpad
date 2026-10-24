@@ -9768,6 +9768,78 @@ async function runSmoke() {
     blockKeyTest
   );
 
+  // 118a. outline sections fold and unfold
+  const outlineFold = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const nl = String.fromCharCode(10);
+    window.__mdpad.setMarkdown(
+      '## Alpha' + nl + nl + 'text' + nl + nl +
+      '### Alpha child' + nl + nl + 'text' + nl + nl +
+      '### Alpha child two' + nl + nl + 'text' + nl + nl +
+      '## Beta' + nl + nl + 'text' + nl + nl +
+      '### Beta child'
+    );
+    await sleep(700);
+    const expanded = window.__mdpad.outlineState();
+    const toggled = window.__mdpad.toggleOutlineFold('Alpha');
+    await sleep(300);
+    const folded = window.__mdpad.outlineState();
+    window.__mdpad.toggleOutlineFold('Alpha');
+    await sleep(300);
+    const restored = window.__mdpad.outlineState();
+    return { expanded, toggled, folded, restored };
+  })()`);
+  step(
+    'outline-fold',
+    outlineFold.expanded.items.length === 5 &&
+      outlineFold.expanded.folded === 0 &&
+      outlineFold.toggled === true &&
+      outlineFold.folded.items.length === 3 &&
+      outlineFold.folded.folded === 1 &&
+      outlineFold.folded.items.includes('Beta child') &&
+      !outlineFold.folded.items.includes('Alpha child') &&
+      outlineFold.restored.items.length === 5,
+    outlineFold
+  );
+
+  // 118b. scrolling marks the heading at the top even when the caret does not move
+  const outlineScroll = await win.webContents.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const nl = String.fromCharCode(10);
+    const parts = [];
+    for (let s = 0; s < 30; s += 1) {
+      parts.push('## Section ' + s, '');
+      for (let p = 0; p < 8; p += 1) {
+        parts.push('Paragraph ' + p + ' of section ' + s + ' with enough words to take space.');
+      }
+      parts.push('');
+    }
+    window.__mdpad.setMarkdown(parts.join(nl));
+    await sleep(900);
+    window.__mdpad.editor.commands.focus('start');
+    await sleep(200);
+    const before = window.__mdpad.outlineState().current;
+
+    const headings = [...document.querySelectorAll('.tiptap h2')];
+    const target = headings[20];
+    const pane = document.querySelector('.editor-pane');
+    const paneRect = pane.getBoundingClientRect();
+    const offset = target.getBoundingClientRect().top - paneRect.top + pane.scrollTop;
+    pane.scrollTop = offset - 4;
+    await sleep(700);
+    const after = window.__mdpad.outlineState().current;
+    const caret = window.__mdpad.caretText().slice(0, 30);
+    return { before, after, caret, scrolled: pane.scrollTop };
+  })()`);
+  step(
+    'outline-scroll',
+    outlineScroll.before === 'Section 0' &&
+      /^Section (19|20|21)$/.test(outlineScroll.after) &&
+      outlineScroll.scrolled > 100 &&
+      /Section 0/.test(outlineScroll.caret),
+    outlineScroll
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
