@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.51.0
+
+A broken backups folder no longer blocks saving.
+
+- **The backup is optional, the text is not.** `storage.saveDocument` used to call `backupFile(...)`
+  before the atomic write without a guard, so an unwritable `backups/` made every save fail with the
+  user's changes still only in memory. A failing rotation now returns `backupError` and the write
+  proceeds.
+- **The app says backups are off**: a banner with the reason and a shortcut to the data folder,
+  cleared by the next save that rotates successfully.
+- **`listBackups` returns `[]` for a non-directory path.** Reporting a successful save used to throw
+  `ENOTDIR` from the backup listing, turning a good save into a failed IPC call.
+- **Ordering matters**: the backup warning is sent *after* the `saved` status; sending it first let
+  the save handler hide the banner it had just raised (the test caught the banner missing).
+- 292 smoke checks (one new: `backup-failure-degrades` — a real file replacing `backups/`, save must
+  succeed and warn, restore and the warning clears), 155 unit tests.
+
 ## 1.50.0
 
 Crash protection now admits when it is off.

@@ -389,6 +389,9 @@ Nothing is uploaded: diagnostics only fill the clipboard.
   with defaults. Your documents, backups and drafts are unaffected.
 - **A save fails** (read-only file, no permission): the editor stays dirty, the file is not
   touched, and the banner explains what happened — the text is never dropped.
+- **The backups folder cannot be written** (permissions, another program holding it): the save
+  still happens and the file is written, but a banner says "Backups are off" — you keep your text,
+  you just lose the previous-version safety net until the folder works again.
 - **The drafts folder cannot be written** (disk full, permissions): a persistent banner says
   "Recovery drafts are off" with the reason and a shortcut to the data folder. Editing continues,
   and the banner disappears by itself once a draft write succeeds again.

@@ -902,6 +902,7 @@ document.addEventListener('keydown', (event) => {
 // ---- state plumbing --------------------------------------------------------
 
 let draftBannerShown = false;
+let backupBannerShown = false;
 let changeTimer = null;
 let applying = false;
 
@@ -5447,6 +5448,21 @@ window.api.onStatus((payload) => {
   } else if (payload.draftOk) {
     if (draftBannerShown) {
       draftBannerShown = false;
+      banner.hidden = true;
+    }
+  }
+  if (payload.backupError) {
+    backupBannerShown = true;
+    showBanner(
+      'Backups are off: ' + payload.backupError + '. Saving still works, but there is no previous version to go back to.',
+      'Open folder',
+      () => window.api.openDataFolder(),
+      'Dismiss',
+      () => {}
+    );
+  } else if (payload.backupOk) {
+    if (backupBannerShown) {
+      backupBannerShown = false;
       banner.hidden = true;
     }
   }

@@ -77,14 +77,25 @@ function backupBasename(file) {
 function listBackups(file, backupsDir) {
   if (!fs.existsSync(backupsDir)) return [];
   const prefix = path.basename(backupBasename(file), path.extname(file)) + '.';
-  return fs
-    .readdirSync(backupsDir)
+  let names = [];
+  try {
+    names = fs.readdirSync(backupsDir);
+  } catch {
+    // A backups path that is not a readable directory means "no backups", not a save failure.
+    return [];
+  }
+  return names
     .filter((name) => name.startsWith(prefix) && name.endsWith(path.extname(file)))
     .map((name) => {
       const full = path.join(backupsDir, name);
-      const stat = fs.statSync(full);
-      return { name, path: full, mtime: stat.mtimeMs, size: stat.size };
+      try {
+        const stat = fs.statSync(full);
+        return { name, path: full, mtime: stat.mtimeMs, size: stat.size };
+      } catch {
+        return null;
+      }
     })
+    .filter(Boolean)
     .sort((a, b) => b.mtime - a.mtime || b.name.localeCompare(a.name));
 }
 
@@ -121,9 +132,19 @@ function saveDocument(file, contents, { backupsDir, keep = DEFAULT_BACKUP_KEEP }
   if (previous === contents) {
     return { changed: false, backup: null };
   }
-  const backup = previous !== null && backupsDir ? backupFile(file, backupsDir, { keep }) : null;
+  // A backup is protection, not a precondition: if the backups folder is unwritable the text
+  // still has to reach disk. Report the failure so the UI can say backups are off.
+  let backup = null;
+  let backupError = null;
+  if (previous !== null && backupsDir) {
+    try {
+      backup = backupFile(file, backupsDir, { keep });
+    } catch (err) {
+      backupError = err.message;
+    }
+  }
   atomicWrite(file, contents);
-  return { changed: true, backup };
+  return { changed: true, backup, backupError };
 }
 
 // ---- crash drafts -----------------------------------------------------------

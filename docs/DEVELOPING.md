@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 291 end-to-end checks against a real window
+npm run smoke          # 292 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -272,6 +272,12 @@ guard (`looksLikeMarkdown`) parses a pasted block only on a strong signal, so pr
 stay literal.
 
 ## Failure paths
+
+`storage.saveDocument` treats the backup as optional: a failing rotation returns
+`backupError` and the atomic write still runs. `listBackups` returns `[]` for a non-directory
+path instead of throwing, because it is called while reporting a save that already succeeded.
+The backup warning is sent **after** the `saved` status — sending it before let the save handler
+hide the banner it had just raised.
 
 `writeDraftNow` catches its own storage errors: the first failure sets `draftBroken` and sends
 `draftError` once; the next successful write sends `draftOk`. The renderer turns that into a

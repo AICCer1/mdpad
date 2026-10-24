@@ -580,6 +580,7 @@ class Session {
     this.draftTimer = null;
     this.lastDraftAt = 0;
     this.draftBroken = false;
+    this.backupBroken = false;
     this.fileWatcher = null;
     this.treeWatcher = null;
     this.treeRoot = null;
@@ -972,6 +973,17 @@ class Session {
       this.sendStatus(backupState);
     } else {
       this.sendStatus({ saved: result.changed, backup: result.backup, ...backupState });
+    }
+    // Sent after the "saved" status so the banner it raises is not hidden by the save itself.
+    if (result.backupError) {
+      if (!this.backupBroken) {
+        this.backupBroken = true;
+        logLine('backup', 'rotation failed: ' + result.backupError);
+        this.sendStatus({ backupError: result.backupError, backupsDir: backupsDir() });
+      }
+    } else if (this.backupBroken) {
+      this.backupBroken = false;
+      this.sendStatus({ backupOk: true });
     }
     return result;
   }
@@ -10316,6 +10328,84 @@ async function runSmoke() {
       draftFailure.recovered.visible === false &&
       draftFailure.draftsNow >= 1,
     draftFailure
+  );
+
+  // 125. a broken backups folder degrades to "no backup" instead of blocking the save
+  const backupFailure = await (async () => {
+    const backups = backupsDir();
+    const doc = path.join(dir, 'backup-failure.md');
+    fs.writeFileSync(doc, '# backup failure' + String.fromCharCode(10) + String.fromCharCode(10) + 'first', 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    await sleep(700);
+    // Turn the backups directory into a file so rotating the previous version fails. A rename
+    // first: removing a directory can fail while a scanner or the previous run still holds it.
+    for (let attempt = 0; attempt < 5 && fs.existsSync(backups); attempt += 1) {
+      try {
+        fs.rmSync(backups, { recursive: true, force: true });
+      } catch {
+        await sleep(200);
+      }
+    }
+    if (fs.existsSync(backups)) {
+      fs.renameSync(backups, backups + '-moved-' + Date.now());
+    }
+    fs.writeFileSync(backups, 'blocked', 'utf8');
+
+    const brokenSave = await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      window.__mdpad.applyMarkdown('# backup failure' + String.fromCharCode(10) + String.fromCharCode(10) + 'second');
+      await sleep(500);
+      const result = await window.api.save({ force: true });
+      await sleep(500);
+      const banner = document.querySelector('#banner');
+      return {
+        saved: result && result.saved !== false,
+        changed: result && result.changed,
+        bannerVisible: !banner.hidden,
+        bannerText: document.querySelector('#banner-text').textContent,
+        onDisk: null,
+      };
+    })()`);
+    const onDisk = fs.readFileSync(doc, 'utf8');
+
+    // restore the directory: the next saved change brings backups back and clears the banner
+    try {
+      fs.unlinkSync(backups);
+    } catch {
+      /* already gone */
+    }
+    fs.mkdirSync(backups, { recursive: true });
+    const recovered = await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      window.__mdpad.applyMarkdown('# backup failure' + String.fromCharCode(10) + String.fromCharCode(10) + 'third');
+      await sleep(500);
+      const result = await window.api.save({ force: true });
+      await sleep(600);
+      const banner = document.querySelector('#banner');
+      return {
+        saved: result && result.saved !== false,
+        bannerVisible: !banner.hidden,
+        backup: result && result.backup ? true : false,
+      };
+    })()`);
+    const backupsAfter = await win.webContents.executeJavaScript(
+      `window.api.backupInfo()`
+    );
+    return { brokenSave, onDisk: /second/.test(onDisk), recovered, backupCount: backupsAfter.count };
+  })();
+  step(
+    'backup-failure-degrades',
+    backupFailure.brokenSave.saved === true &&
+      backupFailure.brokenSave.changed === true &&
+      backupFailure.onDisk === true &&
+      backupFailure.brokenSave.bannerVisible === true &&
+      /Backups are off/.test(backupFailure.brokenSave.bannerText) &&
+      backupFailure.recovered.saved === true &&
+      backupFailure.recovered.bannerVisible === false &&
+      backupFailure.recovered.backup === true &&
+      backupFailure.backupCount >= 1,
+    backupFailure
   );
 
   // 30k. the settings filter narrows the visible fields
