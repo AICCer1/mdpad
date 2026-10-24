@@ -5185,6 +5185,22 @@ function showBanner(text, primaryLabel, primaryFn, secondaryLabel, secondaryFn) 
   banner.hidden = false;
 }
 
+// A change made in another window arrives here; apply everything the shell renders from settings.
+function applyRemoteSettings(settings) {
+  if (!settings) return;
+  readThemeSetting = settings.theme || 'light';
+  applyTheme(settings.theme || 'light');
+  if (settings.language) {
+    applyI18n(settings.language);
+    applyStaticIcons();
+  }
+  applyAppearance(settings);
+  applyFilesCollapsed(Boolean(settings.filesCollapsed));
+  applyFindOptions?.();
+}
+
+window.api.onSettingsApplied(applyRemoteSettings);
+
 window.api.onLoadDraft(({ contents }) => {
   setMarkdown(contents);
   scheduleChange();

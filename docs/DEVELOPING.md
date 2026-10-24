@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 294 end-to-end checks against a real window
+npm run smoke          # 295 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -270,6 +270,12 @@ ProseMirror merges it into the typing batch and one undo removes both.
 pattern carries a negative lookbehind so it does not swallow the closing `**` of bold. The paste
 guard (`looksLikeMarkdown`) parses a pasted block only on a strong signal, so prose and `#tag`
 stay literal.
+
+## Multiple windows
+
+`broadcastSettings()` sends `settings:applied` to **all** windows after a settings write (the
+sender included: a programmatic change must not leave the origin window stale). The renderer
+applies theme, language, typography, file-tree state and find options in `applyRemoteSettings`.
 
 ## Recovery paths
 

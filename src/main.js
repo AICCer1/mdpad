@@ -1392,6 +1392,21 @@ function diagnosticsReport() {
 }
 
 function registerIpc() {
+  // Other windows should follow a settings change at once: same theme, same language, same
+  // typography. The window that made the change already applied it, so it is skipped.
+  function broadcastSettings(exceptId) {
+    const settings = publicSettings();
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (win.isDestroyed()) continue;
+      if (exceptId !== undefined && win.webContents.id === exceptId) continue;
+      try {
+        win.webContents.send('settings:applied', settings);
+      } catch {
+        /* closing */
+      }
+    }
+  }
+
   ipcMain.handle('app:openPath', async (_e, { path: target } = {}) => {
     const file = String(target || '');
     if (!file || !fs.existsSync(file)) return { opened: false, reason: 'missing' };
@@ -1770,7 +1785,7 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
   });
 
   ipcMain.handle('settings:get', () => publicSettings());
-  ipcMain.handle('settings:set', (_e, patch = {}) => {
+  ipcMain.handle('settings:set', (event, patch = {}) => {
     const next = {};
     if (THEMES.has(patch.theme)) next.theme = patch.theme;
     if (patch.autosaveMs !== undefined) next.autosaveMs = clampAutosave(patch.autosaveMs);
@@ -1822,6 +1837,7 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
     }
     writeSettings(next);
     if (next.language) buildMenu();
+    broadcastSettings();
     // The checker lives on the session, so a settings change has to reach every open window.
     if (patch.spellcheck !== undefined) {
       for (const openWin of BrowserWindow.getAllWindows()) {
@@ -10510,6 +10526,49 @@ async function runSmoke() {
       backupRestore.onDisk &&
       backupRestore.newestBackup,
     backupRestore
+  );
+
+  // 127. settings changed in one window reach the others, and closing a window leaves the rest healthy
+  const multiWindow = await (async () => {
+    const second = createWindow({ show: false });
+    await new Promise((resolve) => second.webContents.once('did-finish-load', resolve));
+    await sleep(700);
+    const before = await second.webContents.executeJavaScript(
+      `({ theme: document.documentElement.dataset.theme, lang: document.documentElement.lang })`
+    );
+    await win.webContents.executeJavaScript(
+      `window.api.setSettings({ theme: 'dark', language: 'zh', accent: 'violet' })`
+    );
+    await sleep(900);
+    const after = await second.webContents.executeJavaScript(
+      `({ theme: document.documentElement.dataset.theme, lang: document.documentElement.lang, accent: document.documentElement.dataset.accent })`
+    );
+    // the window that made the change keeps working and reflects it too
+    await sleep(200);
+    const firstWindow = await win.webContents.executeJavaScript(
+      `({ theme: document.documentElement.dataset.theme, lang: document.documentElement.lang })`
+    );
+    second.close();
+    await sleep(600);
+    const stillAlive = await win.webContents.executeJavaScript('window.__mdpad.getMarkdown().slice(0, 8)');
+    // restore a neutral state for the rest of the suite
+    await win.webContents.executeJavaScript(
+      `window.api.setSettings({ theme: 'light', language: 'en', accent: 'blue' })`
+    );
+    await sleep(300);
+    return { before, after, firstWindow, stillAlive };
+  })();
+  step(
+    'multi-window-settings',
+    multiWindow.before.theme === 'light' &&
+      multiWindow.before.lang === 'en' &&
+      multiWindow.after.theme === 'dark' &&
+      multiWindow.after.lang === 'zh-CN' &&
+      multiWindow.after.accent === 'violet' &&
+      multiWindow.firstWindow.theme === 'dark' &&
+      multiWindow.firstWindow.lang === 'zh-CN' &&
+      typeof multiWindow.stillAlive === 'string',
+    multiWindow
   );
 
   // 30k. the settings filter narrows the visible fields

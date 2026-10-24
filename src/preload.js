@@ -52,6 +52,7 @@ contextBridge.exposeInMainWorld('api', {
   onOutline: (cb) => ipcRenderer.on('outline:update', (_e, items) => cb(items)),
   onTabs: (cb) => ipcRenderer.on('tabs:update', (_e, list) => cb(list)),
   onSaveState: (cb) => ipcRenderer.on('save:state', (_e, payload) => cb(payload)),
+  onSettingsApplied: (cb) => ipcRenderer.on('settings:applied', (_e, payload) => cb(payload)),
   onTreeRoot: (cb) => ipcRenderer.on('tree:root', (_e, info) => cb(info)),
   reportError: (payload) => ipcRenderer.invoke('log:error', payload),
   logPath: () => ipcRenderer.invoke('log:path'),

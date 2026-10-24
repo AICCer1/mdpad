@@ -310,6 +310,12 @@ them. Right-click a tab for **Close**, **Close others**, **Close to the right**,
 Every dialog closes with **Esc** (settings, export, drafts, statistics, shortcuts and the name
 prompts), and the keyboard goes back to the editor when it does.
 
+## Windows follow each other
+
+Change the theme, language, accent or typography in any window and every other window updates
+immediately — no restart, no second visit to Settings. Closing one window never affects the
+others: each keeps its own tabs, caret and scroll position.
+
 ## Two windows, one file
 
 Opening a file that is already open in another mdpad window brings that window forward instead of

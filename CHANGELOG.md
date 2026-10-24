@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.53.0
+
+Windows follow each other.
+
+- **A settings change now reaches every open window**: theme, language, accent, typography, hidden
+  file tree and find options are applied immediately in each one. Before this, a second window kept
+  its old theme and language until restart.
+- **The change is broadcast to all windows, including the origin.** The first version skipped the
+  sender, which meant a programmatic change (`window.api.setSettings`) left the very window that
+  made it stale — the test caught the origin still light while the other window went dark.
+- **Closing a window leaves the rest healthy**: the test closes the second window and keeps using
+  the first, whose tab content is still there.
+- Two scoping mistakes on the way: the helper was inserted outside `registerIpc` (ReferenceError at
+  runtime), and the settings handler's parameter was `_e` so `event.sender.id` did not exist.
+- 295 smoke checks (one new: `multi-window-settings`, a real second window, a real theme/language/
+  accent change, then a close), 155 unit tests.
+
 ## 1.52.0
 
 Recovery paths are verified, and one of them was wrong.
