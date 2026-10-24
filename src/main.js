@@ -8051,7 +8051,7 @@ async function runSmoke() {
   step(
     'table-cell-menu',
     tableMenu.opened.hidden === false &&
-      tableMenu.opened.items === 10 &&
+      tableMenu.opened.items === 12 &&
       tableMenu.afterMove.join(',') === 'A,r2,r1' &&
       tableMenu.menuClosed === true &&
       tableMenu.beforeHeader !== tableMenu.afterHeader,
@@ -11069,6 +11069,62 @@ async function runSmoke() {
       largeTyping.measured.avg < 25 &&
       largeTyping.measured.max < 60,
     largeTyping
+  );
+
+  // 135. table rows and columns can be reordered from the table menu
+  const tableMove = await (async () => {
+    const nl = String.fromCharCode(10);
+    const source = path.join(dir, 'table-move.md');
+    fs.writeFileSync(
+      source,
+      [
+        '# Table move',
+        '',
+        '| A | B | C |',
+        '| --- | --- | --- |',
+        '| a1 | b1 | c1 |',
+        '| a2 | b2 | c2 |',
+        '',
+      ].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(source);
+    await sleep(800);
+    // put the caret in the first body cell of the second body row (a2)
+    const placed = await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      let target = null;
+      window.__mdpad.editor.state.doc.descendants((node, pos) => {
+        if (target !== null) return false;
+        if (node.type.name === 'tableCell' && node.textContent === 'a2') {
+          target = pos + 2;
+          return false;
+        }
+        return true;
+      });
+      if (target === null) return false;
+      window.__mdpad.editor.commands.setTextSelection(target);
+      await sleep(50);
+      return true;
+    })()`);
+    const movedUp = await win.webContents.executeJavaScript('window.__mdpad.tableMoveRow(-1)');
+    await sleep(300);
+    const afterRow = await win.webContents.executeJavaScript('window.__mdpad.getMarkdown()');
+    // now move the second column right (caret is still in the table)
+    const movedCol = await win.webContents.executeJavaScript('window.__mdpad.tableMove(1)');
+    await sleep(300);
+    const afterColumn = await win.webContents.executeJavaScript('window.__mdpad.getMarkdown()');
+    return { placed, movedUp, movedCol, afterRow, afterColumn };
+  })();
+  step(
+    'table-move',
+    tableMove.placed === true &&
+      tableMove.movedUp === true &&
+      /\\| a2 \\| b2 \\| c2 \\|\\n\\| a1 \\| b1 \\| c1 \\|/.test(tableMove.afterRow) &&
+      tableMove.movedCol === true &&
+      /\\| b2 \\| a2 \\| c2 \\|/.test(tableMove.afterColumn),
+    tableMove
   );
 
   // 30k. the settings filter narrows the visible fields

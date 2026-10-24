@@ -1179,3 +1179,16 @@ Object.assign(DICT.zh, { 'editor.label': '文档编辑区' });
 
 Object.assign(DICT.en, { 'tabs.label': 'Open documents' });
 Object.assign(DICT.zh, { 'tabs.label': '打开的文档' });
+
+Object.assign(DICT.en, {
+  'table.moveRowUp': 'Move row up',
+  'table.moveRowDown': 'Move row down',
+  'table.moveColLeft': 'Move column left',
+  'table.moveColRight': 'Move column right',
+});
+Object.assign(DICT.zh, {
+  'table.moveRowUp': '上移一行',
+  'table.moveRowDown': '下移一行',
+  'table.moveColLeft': '左移一列',
+  'table.moveColRight': '右移一列',
+});

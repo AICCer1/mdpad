@@ -157,6 +157,13 @@ left margin. Click it for a menu:
 **Ctrl+Shift+↑ / ↓** does the same from the keyboard, and the caret stays where it was inside the
 block as it moves.
 
+## Tables
+
+Right-click inside a table for the cell menu. Besides adding and deleting rows and columns, it
+can **reorder**: move a row up or down, move a column left or right. Reordering a table with
+merged cells is refused (the columns would no longer line up), with a message instead of a
+silent no-op.
+
 ## Quotes and indentation
 
 **Ctrl+Shift+Q** or the toolbar turns the selected block(s) into a quote — select several

@@ -1368,6 +1368,8 @@ document.querySelectorAll('#table-menu [data-tm]').forEach((button) => {
     closeTableMenu();
     if (action === 'moveRowUp') return moveTableRow(-1);
     if (action === 'moveRowDown') return moveTableRow(1);
+    if (action === 'moveColumnLeft') return moveTableColumn(-1);
+    if (action === 'moveColumnRight') return moveTableColumn(1);
     const chain = editor.chain().focus();
     if (action === 'deleteTable') chain.deleteTable().run();
     else if (typeof chain[action] === 'function') chain[action]().run();
@@ -1406,6 +1408,54 @@ function moveRowTo(from, to) {
   const tableStart = $from.before(tableDepth);
   const replacement = table.type.create(table.attrs, rows);
   editor.view.dispatch(state.tr.replaceWith(tableStart, tableStart + table.nodeSize, replacement));
+  return true;
+}
+
+// Columns move by rebuilding every row with its cells reordered. Merged cells make "the same
+// column" ambiguous, so the operation is refused instead of guessing.
+function moveTableColumn(direction) {
+  const { state } = editor;
+  const { $from } = state.selection;
+  let tableDepth = -1;
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    if ($from.node(depth).type.name === 'table') {
+      tableDepth = depth;
+      break;
+    }
+  }
+  if (tableDepth < 0) return false;
+  const table = $from.node(tableDepth);
+  const column = $from.index(tableDepth + 1);
+  const rows = [];
+  let merged = false;
+  table.content.forEach((row) => {
+    const cells = [];
+    row.content.forEach((cell) => {
+      if ((cell.attrs.colspan || 1) > 1 || (cell.attrs.rowspan || 1) > 1) merged = true;
+      cells.push(cell);
+    });
+    rows.push({ row, cells });
+  });
+  if (merged) {
+    flash('Column moves are not available with merged cells');
+    return false;
+  }
+  const target = column + direction;
+  if (target < 0 || rows.some((entry) => target >= entry.cells.length)) return false;
+  const tableStart = $from.before(tableDepth);
+  const newRows = rows.map(({ row, cells }) => {
+    const next = cells.slice();
+    [next[column], next[target]] = [next[target], next[column]];
+    return row.type.create(row.attrs, next);
+  });
+  const replacement = table.type.create(table.attrs, newRows);
+  const tr = state.tr.replaceWith(tableStart, tableStart + table.nodeSize, replacement);
+  editor.view.dispatch(tr);
+  try {
+    editor.commands.setTextSelection(Math.min(tableStart + 2, editor.state.doc.content.size));
+  } catch {
+    /* cosmetic */
+  }
   return true;
 }
 
@@ -6203,6 +6253,8 @@ window.__mdpad = {
       markdownChars: md.length,
     };
   },
+  tableMove: (direction) => moveTableColumn(direction),
+  tableMoveRow: (direction) => moveTableRow(direction),
   measureTyping: (count = 20) => {
     const times = [];
     for (let index = 0; index < count; index += 1) {

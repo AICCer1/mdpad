@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.62.0
+
+Tables can be reordered, not just edited.
+
+- **Right-click a cell → move row up/down, move column left/right.** Rows already moved before this
+  round; columns did not exist.
+- **Columns are rebuilt row by row in one transaction**, never by arithmetic on positions inside the
+  table. **Merged cells refuse the move** with a message, because "the same column" is undefined
+  through a colspan — a silent no-op would be worse.
+- Menu labels are localised (`table.moveRowUp`, `table.moveColLeft`, …).
+- The existing `table-cell-menu` check asserted the menu had exactly 10 items and failed when the
+  two new buttons arrived — updated to 12, which is the point of asserting the count.
+- 304 smoke checks (one new: `table-move`, a real row move followed by a real column move asserted
+  against the resulting markdown), 160 unit tests.
+
 ## 1.61.0
 
 Typing in a large document: 50 ms per keystroke → 4 ms.

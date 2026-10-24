@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 303 end-to-end checks against a real window
+npm run smoke          # 304 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -380,3 +380,10 @@ applies `content-visibility: auto` to top-level blocks. `scheduleChange` skips t
 sync for those documents. `large-doc-typing` inserts 18 characters through the real editor and
 asserts average under 25 ms and worst under 60 ms — the numbers regressed badly once, so they are
 guarded.
+
+## Table reordering
+
+`moveTableRow` and `moveTableColumn` rebuild the table node and replace it in one transaction —
+never by position arithmetic inside the table. Columns are rebuilt per row; a merged cell aborts
+the move with a message, because column identity is undefined there. `table-move` asserts the
+resulting markdown after a real row move and column move.
