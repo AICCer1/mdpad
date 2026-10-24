@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.60.0
+
+Large documents open in half the time — and the number is measured.
+
+- **The markdown-to-ProseMirror path is quadratic**, proven by measurement rather than guessed:
+  256 KB 353 ms, 512 KB 1.1 s, 1 MB 4.1 s, 2 MB 16.0 s. Parsing the same text to HTML takes 2.5 s,
+  so the cost is the conversion, not the parser.
+- **`setMarkdownProgressive`** splits files above 128 KB at paragraph boundaries and inserts one
+  chunk per task: a 2 MB document now opens in **7.2 s** and the window keeps painting between
+  chunks instead of freezing for sixteen seconds.
+- **`npm run perf-open`** reproduces the measurement (read/IPC/render split, plus `--kb` and
+  `--file`), appending to `docs/perf-open.csv`.
+- **A chunking bug would silently lose blocks**, so `large-doc-open` opens an 800 KB file with 1200
+  sections and asserts the last section is present and the outline has all 1201 headings.
+- The first test was wrong three times before it was useful: too small a file, an assertion on a
+  stale timing event (an empty tab reports after the real load), and a markdown read taken
+  mid-load. It now waits for the timing entry whose `chars` matches the file and for the last
+  section to appear.
+- 302 smoke checks, 160 unit tests.
+
 ## 1.59.0
 
 Performance now has a memory.

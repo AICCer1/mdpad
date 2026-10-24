@@ -61,6 +61,24 @@ npm run perf
 
 Prints one JSON object and writes `%TEMP%\mdpad-perf.json`, `mdpad-perf.pdf`, `mdpad-perf.html`.
 
+## Large documents
+
+`editor.commands.setContent(markdown, { contentType: "markdown" })` is **quadratic** in document
+size — measured, not assumed:
+
+| size | nodes | render |
+| --- | --- | --- |
+| 256 KB | 2.7k | 353 ms |
+| 512 KB | 5.3k | 1130 ms |
+| 1 MB | 10.7k | 4093 ms |
+| 2 MB | 21.3k | 15998 ms |
+
+The same text parsed to HTML takes 2.5 s at 2 MB, so the cost is in the markdown-to-ProseMirror
+conversion, not in parsing. `setMarkdownProgressive` splits documents above 128 KB at paragraph
+boundaries and inserts one chunk per task, which cut the 2 MB case to **7.2 s** and keeps the
+window painting between chunks. `npm run perf-open` reproduces the numbers and appends them to
+[perf-open.csv](perf-open.csv); `--kb 4096` or `--file some.md` change the input.
+
 ## Trend log
 
 `npm run perf-trend` runs the perf report and appends one row per run to

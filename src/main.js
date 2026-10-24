@@ -2933,6 +2933,87 @@ async function runPerfReport() {
   app.exit(0);
 }
 
+// Opening a large file is the moment a writing app feels slow. This measures the three phases
+// separately (read, IPC, renderer parse+layout) instead of one opaque number.
+async function runBenchLoad() {
+  const target = process.env.MDPAD_PERF_OPEN;
+  const text = fs.readFileSync(target, 'utf8');
+  const win = createWindow({ show: false, width: 1180, height: 900 });
+  await new Promise((resolve) => win.webContents.once('did-finish-load', resolve));
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  const markdownMs = await win.webContents.executeJavaScript(
+    'window.__mdpad.benchLoad(' + JSON.stringify(text) + ", 'markdown')"
+  );
+  const { renderHtml } = require('./markdown');
+  const html = renderHtml(text);
+  const htmlMs = await win.webContents.executeJavaScript(
+    'window.__mdpad.benchLoad(' + JSON.stringify(html) + ", 'html')"
+  );
+  const half = text.slice(0, Math.floor(text.length / 2));
+  const halfMs = await win.webContents.executeJavaScript(
+    'window.__mdpad.benchLoad(' + JSON.stringify(half) + ", 'markdown')"
+  );
+  const progressive = await win.webContents
+    .executeJavaScript('window.__mdpad.loadLarge(' + JSON.stringify(text) + ')')
+    .catch((err) => ({ error: err.message }));
+  console.log('BENCH_LOAD ' + JSON.stringify({ markdownMs, htmlMs, halfMs, progressive, bytes: text.length }));
+  app.exit(0);
+}
+
+async function runPerfOpen() {
+  const target = process.env.MDPAD_PERF_OPEN;
+  if (!target) {
+    console.log('PERF_OPEN_ERROR missing MDPAD_PERF_OPEN');
+    app.exit(1);
+    return;
+  }
+  const started = Date.now();
+  const win = createWindow({ show: false, width: 1180, height: 900 });
+  await new Promise((resolve) => win.webContents.once('did-finish-load', resolve));
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  const session = sessions.get(win.webContents.id);
+  const readStarted = Date.now();
+  const bytes = fs.statSync(target).size;
+  const ipcStarted = Date.now();
+  if (process.env.MDPAD_PERF_OPEN_NOSPELL) {
+    await win.webContents.executeJavaScript("document.querySelector('.tiptap').spellcheck = false");
+  }
+  await win.webContents.executeJavaScript('window.__mdpad.resetLoadTiming()');
+  await session.loadDocument(target);
+  const ipcMs = Date.now() - ipcStarted;
+  let timing = null;
+  for (let attempt = 0; attempt < 240; attempt += 1) {
+    timing = await win.webContents.executeJavaScript('window.__mdpad && window.__mdpad.loadTiming && window.__mdpad.loadTiming()');
+    if (timing) break;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  const probe = await win.webContents
+    .executeJavaScript("({ api: typeof window.__mdpad, editor: Boolean(document.querySelector('.tiptap')), title: document.title })")
+    .catch((err) => ({ error: err.message }));
+  const report = {
+    app: app.getVersion(),
+    at: new Date().toISOString(),
+    probe,
+    file: target,
+    bytes,
+    lines: 0,
+    readMs: ipcStarted - readStarted,
+    ipcMs,
+    renderMs: timing ? timing.renderMs : null,
+    nodes: timing ? timing.nodes : null,
+    chars: timing ? timing.chars : null,
+    phases: timing ? timing.phases : null,
+    totalMs: Date.now() - started,
+  };
+  try {
+    report.lines = (fs.readFileSync(target, 'utf8').match(/\n/g) || []).length + 1;
+  } catch {
+    report.lines = 0;
+  }
+  console.log('PERF_OPEN ' + JSON.stringify(report));
+  app.exit(0);
+}
+
 async function runSmoke() {
   const out = [];
   const dir = path.join(app.getPath('temp'), `mdpad-smoke-${Date.now()}`);
@@ -10886,6 +10967,62 @@ async function runSmoke() {
     a11yTabs
   );
 
+  // 133. a large document opens in bounded time with every block intact
+  const largeLoad = await (async () => {
+    const nl = String.fromCharCode(10);
+    const parts = ['# Large document'];
+    for (let section = 1; section <= 1200; section += 1) {
+      parts.push('', '## Section ' + section, '');
+      parts.push('A paragraph with **bold**, *italic* and `code` that repeats to make the file big. '.repeat(8));
+    }
+    const large = path.join(dir, 'large-open.md');
+    const text = parts.join(nl);
+    fs.writeFileSync(large, text, 'utf8');
+    const session = sessions.get(win.webContents.id);
+    const startedAt = Date.now();
+    await session.loadDocument(large);
+    const expected = Buffer.byteLength(text, 'utf8');
+    let timing = null;
+    for (let attempt = 0; attempt < 240; attempt += 1) {
+      await sleep(50);
+      timing = await win.webContents.executeJavaScript('window.__mdpad.loadTiming()');
+      if (timing && timing.chars === expected) break;
+    }
+    let markdown = '';
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+      markdown = await win.webContents.executeJavaScript('window.__mdpad.getMarkdown()');
+      if (markdown.includes('## Section 1200')) break;
+      await sleep(100);
+    }
+    const elapsed = Date.now() - startedAt;
+    let outline = { count: 0 };
+    for (let attempt = 0; attempt < 120 && !outline.count; attempt += 1) {
+      await sleep(100);
+      outline = await win.webContents.executeJavaScript('window.__mdpad.a11yOutline()');
+    }
+    return {
+      bytes: Buffer.byteLength(text, 'utf8'),
+      elapsed,
+      timing,
+      hasFirst: markdown.includes('## Section 1'),
+      hasLast: markdown.includes('## Section 1200'),
+      headings: outline.count,
+      ratio: markdown.length / text.length,
+    };
+  })();
+  step(
+    'large-doc-open',
+    largeLoad.bytes > 500000 &&
+      largeLoad.elapsed < 12000 &&
+      largeLoad.timing &&
+      largeLoad.timing.nodes > 1000 &&
+      largeLoad.hasFirst &&
+      largeLoad.hasLast &&
+      largeLoad.headings === 1201 &&
+      largeLoad.ratio > 0.9,
+    largeLoad
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -11650,6 +11787,14 @@ app.whenReady().then(async () => {
   }
   if (process.argv.includes('--perf-report')) {
     await runPerfReport();
+    return;
+  }
+  if (process.argv.includes('--bench-load')) {
+    await runBenchLoad();
+    return;
+  }
+  if (process.argv.includes('--perf-open')) {
+    await runPerfOpen();
     return;
   }
   if (CRASH_PHASE === 'write') {

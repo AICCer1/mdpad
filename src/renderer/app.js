@@ -938,6 +938,8 @@ document.addEventListener('keydown', (event) => {
 // ---- state plumbing --------------------------------------------------------
 
 let draftBannerShown = false;
+let lastLoadTiming = null;
+let lastSetMarkdownPhases = null;
 let backupBannerShown = false;
 let changeTimer = null;
 let applying = false;
@@ -1103,12 +1105,70 @@ document.addEventListener('visibilitychange', () => {
 
 function setMarkdown(markdown) {
   applying = true;
+  const phaseStart = performance.now();
   editor.commands.setContent(markdown || '', { contentType: 'markdown' });
+  const contentMs = performance.now() - phaseStart;
   promoteInlineImages();
+  const promoteMs = performance.now() - phaseStart - contentMs;
   applying = false;
+  const statsStart = performance.now();
+  updateStats();
+  const statsMs = performance.now() - statsStart;
+  syncToolbar();
+  lastSetMarkdownPhases = {
+    contentMs: Math.round(contentMs),
+    promoteMs: Math.round(promoteMs),
+    statsMs: Math.round(statsMs),
+    toolbarMs: Math.round(performance.now() - phaseStart - contentMs - promoteMs - statsMs),
+  };
+}
+
+// Tiptap's markdown parser gets quadratic with document size: 2 MB took 15.5 s in one setContent
+// call, while the same text in 128 KB chunks takes well under a second each. Split at paragraph
+// boundaries so no block is cut in half, and yield between chunks so the window stays alive.
+function splitMarkdownChunks(markdown, targetSize) {
+  const chunks = [];
+  let start = 0;
+  while (start < markdown.length) {
+    let end = Math.min(markdown.length, start + targetSize);
+    if (end < markdown.length) {
+      const nextBreak = markdown.indexOf('\n\n', end);
+      const previousBreak = markdown.lastIndexOf('\n\n', end);
+      if (previousBreak > start + targetSize / 2) end = previousBreak + 2;
+      else if (nextBreak !== -1) end = nextBreak + 2;
+    }
+    chunks.push(markdown.slice(start, end));
+    start = end;
+  }
+  return chunks;
+}
+
+async function setMarkdownProgressive(markdown) {
+  const text = markdown || '';
+  const CHUNK = 128 * 1024;
+  if (text.length <= CHUNK) {
+    setMarkdown(text);
+    return;
+  }
+  const chunks = splitMarkdownChunks(text, CHUNK);
+  applying = true;
+  try {
+    editor.commands.setContent(chunks[0], { contentType: 'markdown', emitUpdate: false });
+    for (let index = 1; index < chunks.length; index += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      editor.commands.insertContentAt(editor.state.doc.content.size, chunks[index], {
+        contentType: 'markdown',
+        emitUpdate: false,
+      });
+    }
+    promoteInlineImages();
+  } finally {
+    applying = false;
+  }
   updateStats();
   syncToolbar();
 }
+
 
 // The markdown parser leaves ![alt](src "title") as literal text; turn those
 // matches into real image nodes so they render and serialize back correctly.
@@ -5397,7 +5457,7 @@ function applyRemoteSettings(settings) {
 window.api.onSettingsApplied(applyRemoteSettings);
 
 window.api.onLoadDraft(({ contents }) => {
-  setMarkdown(contents);
+    setMarkdown(contents);
   scheduleChange();
 });
 
@@ -5421,7 +5481,7 @@ function cacheActiveEditorState() {
   }
 }
 
-window.api.onLoaded(({ id, file, contents, draft }) => {
+window.api.onLoaded(async ({ id, file, contents, draft }) => {
   const nextId = id || null;
   activeIsUntitled = !file;
   if (activeTabId && activeTabId !== nextId) cacheActiveEditorState();
@@ -5434,7 +5494,21 @@ window.api.onLoaded(({ id, file, contents, draft }) => {
     syncToolbar();
     renderOutline();
   } else {
-    setMarkdown(contents);
+    const loadStartedAt = performance.now();
+    await setMarkdownProgressive(contents);
+    lastLoadTiming = {
+      renderMs: Math.round(performance.now() - loadStartedAt),
+      chars: contents.length,
+      nodes: editor.state.doc.nodeCount || editor.state.doc.childCount,
+      phases: lastSetMarkdownPhases,
+    };
+    lastLoadTiming = {
+      renderMs: Math.round(performance.now() - loadStartedAt),
+      chars: contents.length,
+      nodes: editor.state.doc.nodeCount || editor.state.doc.childCount,
+      textLen: editor.getText().length,
+      phases: lastSetMarkdownPhases,
+    };
   }
   activeTabId = nextId;
   syncEmptyHint();
@@ -6091,6 +6165,22 @@ window.__mdpad = {
       expanded: twisties.map((node) => node.getAttribute('aria-expanded')),
     };
   },
+  loadTiming: () => lastLoadTiming,
+  loadLarge: async (markdown) => {
+    const startedAt = performance.now();
+    await setMarkdownProgressive(markdown);
+    return {
+      ms: Math.round(performance.now() - startedAt),
+      chars: editor.getText().length,
+      headings: window.__mdpad.outlineCount ? window.__mdpad.outlineCount() : null,
+    };
+  },
+  benchLoad: (text, kind) => {
+    const startedAt = performance.now();
+    editor.commands.setContent(text, { contentType: kind, emitUpdate: false });
+    return Math.round(performance.now() - startedAt);
+  },
+  resetLoadTiming: () => { lastLoadTiming = null; },
   a11yTabs: () => {
     const tabs = [...document.querySelectorAll('#tabs .tab')];
     return {

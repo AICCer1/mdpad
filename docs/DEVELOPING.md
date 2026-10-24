@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 301 end-to-end checks against a real window
+npm run smoke          # 302 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -364,3 +364,11 @@ that folding flips `aria-expanded` to `false`.
 Delete. `renderTabs` remembers which tab had focus (`focusedTabId`) and restores it after the
 rebuild — without that, every tab switch dropped focus to the document and the keyboard model
 silently stopped working.
+
+## Large documents
+
+`setMarkdown` stays the synchronous path for small content (tabs, drafts, AI apply). Files above
+128 KB go through `setMarkdownProgressive`, which splits at `\n\n` boundaries, inserts one chunk
+per `setTimeout(0)` and suppresses change emission with `applying`. The smoke check
+`large-doc-open` opens an 800 KB file, waits for the last section and asserts the outline has all
+1201 headings — chunking must never drop a block.
