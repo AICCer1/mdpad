@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, dialog, Menu, shell, safeStorage, screen, clipboard, nativeTheme } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, shell, safeStorage, screen, clipboard, nativeTheme, powerMonitor } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
@@ -562,6 +562,7 @@ class Session {
     this.untitledSeq = 0;
     this.autosaveTimer = null;
     this.draftTimer = null;
+    this.lastDraftAt = 0;
     this.fileWatcher = null;
     this.treeWatcher = null;
     this.treeRoot = null;
@@ -774,8 +775,22 @@ class Session {
   }
 
   scheduleDraft() {
+    // Leading edge first: the first change after an idle period is written immediately, so a
+    // crash right after typing loses nothing. Later changes are coalesced on the trailing edge.
+    const now = Date.now();
+    const idle = !this.lastDraftAt || now - this.lastDraftAt >= DRAFT_MS;
     clearTimeout(this.draftTimer);
+    if (idle && this.file) {
+      this.lastDraftAt = now;
+      try {
+        this.writeDraftNow();
+      } catch (err) {
+        this.sendStatus({ error: `draft: ${err.message}` });
+      }
+      return;
+    }
     this.draftTimer = setTimeout(() => {
+      this.lastDraftAt = Date.now();
       try {
         this.writeDraftNow();
       } catch (err) {
@@ -1377,10 +1392,30 @@ function registerIpc() {
 
   ipcMain.handle('app:lastExternal', () => lastExternalUrl);
 
-  ipcMain.handle('doc:syncChange', (event, { contents }) => {
+  ipcMain.handle('doc:flushDraft', (event, { tabId } = {}) => {
     const s = sessionFor(event);
+    if (tabId && s.activeId && tabId !== s.activeId) return { written: false, ignored: true };
+    const written = s.writeDraftNow();
+    return { written: Boolean(written) };
+  });
+
+  ipcMain.handle('doc:syncChange', (event, { contents, tabId } = {}) => {
+    const s = sessionFor(event);
+    // The renderer applies a tab switch asynchronously, so a change can arrive for the document
+    // that is no longer active. Write it to the tab it belongs to instead of dropping it or
+    // letting it overwrite the newly active document.
+    const tab = tabId ? s.tabs.get(tabId) : null;
+    if (tabId && !tab) return { ignored: true, dirty: s.isDirty() };
+    const text = s.relativizeMarkdown(String(contents ?? ''));
+    if (tab && tab.id !== s.activeId) {
+      // Store into its own tab and stop: stashing here would write the active buffer over the
+      // tab the switch just activated.
+      tab.contents = text;
+      s.broadcastTabs();
+      return { ignored: true, stored: true, dirty: s.isDirty() };
+    }
     s.send('save:state', { state: 'dirty', savedAt: s.savedAt || null });
-    s.contents = s.relativizeMarkdown(String(contents ?? ''));
+    s.contents = text;
     s.scheduleDraft();
     s.scheduleAutosave();
     s.stashActive();
@@ -2594,7 +2629,21 @@ async function runSmoke() {
   s.loadDocument(docPath);
   await sleep(400);
   // 4. draft cleared after a clean save
-  step('draft-cleared', storage.readDraft(docPath, draftsDir()) === null);
+  {
+    // Own file and own draft: "saving clears the draft" should not depend on what other tests
+    // typed into the shared smoke document.
+    const clearFile = path.join(dir, 'draft-clear.md');
+    fs.writeFileSync(clearFile, '# clear me\n', 'utf8');
+    s.loadDocument(clearFile);
+    await sleep(500);
+    storage.writeDraft(clearFile, '# clear me\n\nunsaved\n', draftsDir());
+    s.contents = '# clear me\n\nunsaved\n';
+    s.saveCurrent({ silent: true });
+    const leftover = storage.readDraft(clearFile, draftsDir());
+    step('draft-cleared', leftover === null, {
+      leftover: leftover ? leftover.contents.slice(0, 80) : null,
+    });
+  }
 
   // 5. a pasted image is written next to the document
   const png =
@@ -2657,7 +2706,12 @@ async function runSmoke() {
   })()`);
   step('image-size', imgSize.markdown.includes('w=50%') && imgSize.styled, imgSize);
 
-  // 5d. Word and EPUB exports
+  // 5d. Word and EPUB exports. Use a dedicated document so the check does not depend on the
+  // content earlier toolbar tests left in the editor.
+  const docxSource = path.join(dir, 'docx-source.md');
+  fs.writeFileSync(docxSource, '# Smoke export\n\nWord body text\n', 'utf8');
+  s.loadDocument(docxSource);
+  await sleep(500);
   const docxOut = await s.exportTo(path.join(dir, 'note.docx'), 'docx');
   step('export-docx', fs.readFileSync(docxOut.path).subarray(0, 2).toString('latin1') === 'PK', { bytes: docxOut.bytes });
 
@@ -2667,7 +2721,8 @@ async function runSmoke() {
     const zip = await JSZip.loadAsync(fs.readFileSync(docxOut.path));
     const documentXml = await zip.file('word/document.xml').async('string');
     const stylesXml = zip.file('word/styles.xml') ? await zip.file('word/styles.xml').async('string') : '';
-    step('export-docx-content', /Smoke|first version|second tab|Untitled/i.test(documentXml) && documentXml.length > 400, {
+    step('export-docx-content', /Smoke export/i.test(documentXml) && /Word body text/i.test(documentXml) && documentXml.length > 400, {
+      snippet: documentXml.replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').slice(0, 160),
       docBytes: documentXml.length,
       hasStyles: Boolean(stylesXml),
     });
@@ -2729,6 +2784,7 @@ async function runSmoke() {
   const tabsFlow = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const before = await window.api.listTabs();
+    const activeBefore = before.find((tab) => tab.active) || before[0];
     const beforeMd = window.__mdpad.getMarkdown();
     await window.api.syncChange(beforeMd);
     await window.api.newDoc();
@@ -2736,17 +2792,22 @@ async function runSmoke() {
     window.__mdpad.setMarkdown('# second tab\\n\\nother document');
     await window.api.syncChange('# second tab\\n\\nother document');
     const afterNew = await window.api.listTabs();
-    await window.api.activateTab(before[0].id);
+    await window.api.activateTab(activeBefore.id);
     await sleep(350);
     const restored = window.__mdpad.getMarkdown();
     return {
       beforeCount: before.length,
       afterCount: afterNew.length,
+      beforeMd,
+      restored,
       restoredOk: restored.trim() === beforeMd.trim(),
     };
   })()`);
   step('tabs-create', tabsFlow.afterCount === tabsFlow.beforeCount + 1, { count: tabsFlow.afterCount });
-  step('tabs-switch', tabsFlow.restoredOk);
+  step('tabs-switch', tabsFlow.restoredOk, {
+    before: String(tabsFlow.beforeMd || '').slice(0, 60),
+    restored: String(tabsFlow.restored || '').slice(0, 60),
+  });
 
   // 9. file tree
   const treeDir = path.join(dir, 'notes');
@@ -8333,6 +8394,41 @@ async function runSmoke() {
     diagnostics
   );
 
+  // 105. a keystroke reaches the draft immediately, and a blur flushes it without waiting
+  const draftFlush = await (async () => {
+    const file = path.join(dir, 'draft-flush.md');
+    fs.writeFileSync(file, '# start\n', 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(file);
+    await sleep(500);
+    // The first change of a burst goes out immediately; wait less than the draft debounce so a
+    // pass can only come from the leading edge.
+    const typed = await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      window.__mdpad.applyMarkdown('# start\\n\\nDEBOUNCE-PROBE-1');
+      await sleep(180);
+      return window.api.listDrafts();
+    })()`);
+    const leading = typed.find((draft) => draft.name === 'draft-flush.md');
+    const leadingText = leading ? fs.readFileSync(leading.path, 'utf8') : '';
+    // now change again mid-burst and blur: the flush must land even though the debounce is longer
+    const flushed = await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      window.__mdpad.applyMarkdown('# start\\n\\nDEBOUNCE-PROBE-2');
+      window.dispatchEvent(new Event('blur'));
+      await sleep(200);
+      return window.api.listDrafts();
+    })()`);
+    const flushedEntry = flushed.find((draft) => draft.name === 'draft-flush.md');
+    const flushedText = flushedEntry ? fs.readFileSync(flushedEntry.path, 'utf8') : '';
+    storage.clearDraft(file, draftsDir());
+    return {
+      leadingHasProbe: /DEBOUNCE-PROBE-1/.test(leadingText),
+      flushHasProbe: /DEBOUNCE-PROBE-2/.test(flushedText),
+    };
+  })();
+  step('draft-flush', draftFlush.leadingHasProbe && draftFlush.flushHasProbe, draftFlush);
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -8763,6 +8859,41 @@ async function runScreenshots(dir) {
 
 // Crash-recovery harness: phase "write" edits, waits for the draft, then kills the
 // process without cleanup; phase "verify" restarts and checks the draft is offered.
+
+// Fast-crash harness: type and die immediately, without an explicit draft write. This is the case
+// a leading-edge draft exists for: the edit must be on disk before the process is killed.
+async function runCrashFastWrite() {
+  const win = createWindow({ show: false });
+  const session = sessions.get(win.webContents.id);
+  await new Promise((resolve) => win.webContents.once('did-finish-load', resolve));
+  await sleep(200);
+  session.loadDocument(CRASH_FILE);
+  await sleep(400);
+  const token = 'FAST-CRASH-' + Date.now();
+  const waitMs = Number(process.env.MDPAD_FAST_KILL_MS || 120);
+  await win.webContents.executeJavaScript(
+    'window.__mdpad.applyMarkdown(' + JSON.stringify('# crash target\n\n' + token) + ')'
+  );
+  await sleep(waitMs);
+  const draft = storage.readDraft(CRASH_FILE, draftsDir());
+  const kept = Boolean(draft && draft.contents.includes(token));
+  console.log('CRASH_FAST ' + JSON.stringify({ token, kept, bytes: draft ? draft.contents.length : 0 }));
+  process.kill(process.pid, 'SIGKILL');
+}
+
+async function runCrashFastVerify() {
+  const draft = storage.readDraft(CRASH_FILE, draftsDir());
+  console.log(
+    'CRASH_FAST_VERIFY ' +
+      JSON.stringify({
+        hasDraft: Boolean(draft),
+        kept: Boolean(draft && /FAST-CRASH-/.test(draft.contents)),
+        bytes: draft ? draft.contents.length : 0,
+      })
+  );
+  app.exit(0);
+}
+
 async function runCrashWrite() {
   const win = createWindow({ show: false });
   const session = sessions.get(win.webContents.id);
@@ -9052,6 +9183,14 @@ app.whenReady().then(async () => {
     logLine('menu', String(err && err.stack ? err.stack : err));
   }
 
+  if (CRASH_PHASE === 'fast') {
+    await runCrashFastWrite();
+    return;
+  }
+  if (CRASH_PHASE === 'fast-verify') {
+    await runCrashFastVerify();
+    return;
+  }
   if (CRASH_PHASE === 'write') {
     await runCrashWrite();
     return;
@@ -9146,7 +9285,22 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
+function flushAllDrafts() {
+  for (const session of sessions.values()) {
+    try {
+      session.writeDraftNow();
+    } catch (err) {
+      logLine('draft', 'flush failed: ' + err.message);
+    }
+  }
+}
+
+powerMonitor.on('suspend', () => {
+  flushAllDrafts();
+});
+
 app.on('before-quit', () => {
+  flushAllDrafts();
   saveSession();
   writeCrashStreak(0);
   clearRunning();

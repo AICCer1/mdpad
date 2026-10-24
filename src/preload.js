@@ -3,7 +3,8 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
-  syncChange: (contents) => ipcRenderer.invoke('doc:syncChange', { contents }),
+  syncChange: (contents, tabId) => ipcRenderer.invoke('doc:syncChange', { contents, tabId }),
+  flushDraft: (tabId) => ipcRenderer.invoke('doc:flushDraft', { tabId }),
   listTabs: () => ipcRenderer.invoke('tabs:list'),
   activateTab: (id) => ipcRenderer.invoke('doc:activate', { id }),
   closeTab: (id) => ipcRenderer.invoke('doc:close', { id }),

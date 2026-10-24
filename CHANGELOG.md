@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.31.0
+
+Crash safety down to the first keystroke.
+
+- **The first change of a burst is written to the draft immediately** (leading edge), instead of
+  waiting for a debounce; later changes are still coalesced. Blur, hidden tab, quit and
+  `powerMonitor` suspend flush the buffer, so Alt-F4 and sleep no longer wait for a timer.
+- **A change that belongs to a background tab is written into that tab.** With the immediate send,
+  a switch could otherwise land the old document's text in the newly active one — or, if dropped,
+  lose real typing. Neither happens now.
+- **New crash scenario in `npm run crash`**: type, then SIGKILL 120 ms later with no explicit draft
+  write. The edit is recovered on the next start (`CRASH_FAST {"kept":true}`).
+- **Three smoke checks were silently order-dependent** and were rebuilt around their own documents:
+  the draft-clear check, the Word export content check, and the tab-switch check (which restored
+  "the first tab" in the list rather than the tab that was active).
+- 255 smoke checks (one new `draft-flush`), 155 unit tests.
+
 ## 1.30.0
 
 The update path is verified past the check.

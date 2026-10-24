@@ -191,6 +191,16 @@ them. Right-click a tab for **Close**, **Close others**, **Close to the right**,
 Every dialog closes with **Esc** (settings, export, drafts, statistics, shortcuts and the name
 prompts), and the keyboard goes back to the editor when it does.
 
+## Crash safety
+
+Typing is written to a recovery draft on the **first change of a burst** (not after a delay), and
+the draft is flushed when the window loses focus, when the app quits and when the machine goes to
+sleep. If the process is killed 100 ms after a keystroke, the next start still offers that
+keystroke back.
+
+If you switch tabs while a change is in flight, the change is written to the tab it came from —
+never to the tab you just switched to.
+
 ## Reporting a problem
 
 **Help → Copy diagnostics** (or Settings → Diagnostics) copies the app version, Electron and

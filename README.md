@@ -1,7 +1,7 @@
 # mdpad
 
 A WYSIWYG markdown editor for Windows, built on Tiptap (ProseMirror) with a
-crash-safe save pipeline: atomic writes, timestamped backup rotation, debounced
+crash-safe save pipeline: atomic writes with a leading-edge draft (the first change of a burst hits disk immediately, plus flushes on blur, quit and sleep), timestamped backup rotation, debounced
 autosave, crash-draft recovery, tabs, a file tree, and AI writing.
 
 - [User guide](docs/USER_GUIDE.md) — editing, exports, AI setup, shortcuts, troubleshooting
@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         254 end-to-end checks (dev or packaged)
+npm run smoke         255 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable

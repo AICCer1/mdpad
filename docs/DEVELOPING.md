@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 254 end-to-end checks against a real window
+npm run smoke          # 255 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -144,6 +144,11 @@ opening/closing the settings panel flips it between `flex` and `none`.
   already passed and produced "no SMOKE_RESULT" with no failure listed.
 - `process.exit()` right after the result line can truncate piped stdout on Windows; the runner
   sets `process.exitCode` and exits a tick later instead.
+- Draft writes have a leading edge: the first change of a burst is written synchronously in
+  `doc:syncChange`, later ones are coalesced. Blur, visibility change, `before-quit` and
+  `powerMonitor` suspend flush the buffer, so an Alt-F4 or a sleep does not wait for a debounce.
+  A change that arrives for a background tab is stored in that tab; it is never dropped and never
+  written over the newly active document.
 - `clipboard.readText()` returns a promise in this Electron version; a synchronous call yields
   a pending Promise, not a string.
 - `nativeTheme` must be imported from `electron`: referencing it without the import throws

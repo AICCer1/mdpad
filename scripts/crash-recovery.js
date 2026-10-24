@@ -67,7 +67,20 @@ function run(phase, timeoutMs) {
   console.log(`crash: verify phase exit=${verify.code} restored=${verified}`);
   console.log(verify.out.split('\n').filter((l) => l.includes('CRASH_VERIFY')).join('\n'));
 
+  // Second scenario: type and die 120 ms later, with no explicit draft write and no wait for the
+  // debounce. The leading-edge draft must have reached the disk already.
+  const fastWrite = await run('fast', 30000);
+  const fastKept = /CRASH_FAST \{"token":"[^"]+","kept":true/.test(fastWrite.out);
+  console.log(`crash: fast phase exit=${fastWrite.code} signal=${fastWrite.signal} kept=${fastKept}`);
+  console.log(fastWrite.out.split('\n').filter((l) => l.includes('CRASH_FAST')).join('\n'));
+
+  const fastVerify = await run('fast-verify', 30000);
+  const fastVerified = /CRASH_FAST_VERIFY \{"hasDraft":true,"kept":true/.test(fastVerify.out);
+  console.log(`crash: fast-verify kept=${fastVerified}`);
+  console.log(fastVerify.out.split('\n').filter((l) => l.includes('CRASH_FAST_VERIFY')).join('\n'));
+
   fs.rmSync(work, { recursive: true, force: true });
-  console.log(verified ? 'crash: ok' : 'crash: FAIL');
-  process.exit(verified ? 0 : 1);
+  const allOk = verified && fastKept && fastVerified;
+  console.log(allOk ? 'crash: ok' : 'crash: FAIL');
+  process.exit(allOk ? 0 : 1);
 })();

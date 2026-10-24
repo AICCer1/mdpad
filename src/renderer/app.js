@@ -740,14 +740,42 @@ function currentMarkdown() {
   }
 }
 
+let lastSyncAt = 0;
+let pendingChange = false;
+
+function pushChange() {
+  lastSyncAt = Date.now();
+  pendingChange = false;
+  return window.api.syncChange(currentMarkdown(), activeTabId).then((res) => {
+    if (!res.ignored) setDirty(res.dirty);
+    return res;
+  });
+}
+
 function scheduleChange() {
   if (applying) return;
   updateStats();
   clearTimeout(changeTimer);
-  changeTimer = setTimeout(() => {
-    window.api.syncChange(currentMarkdown()).then((res) => setDirty(res.dirty));
-  }, 300);
+  // Send the first change in a burst immediately, then coalesce the rest: a crash a few
+  // milliseconds after a keystroke should not lose that keystroke.
+  pendingChange = true;
+  if (Date.now() - lastSyncAt > 300) pushChange();
+  changeTimer = setTimeout(pushChange, 300);
 }
+
+// Leaving the window (alt-tab, another app) and hidden tabs flush the draft right away.
+window.addEventListener('blur', () => {
+  if (applying || !pendingChange) return;
+  clearTimeout(changeTimer);
+  pushChange().catch(() => {});
+  window.api.flushDraft(activeTabId).catch(() => {});
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'hidden' || applying || !pendingChange) return;
+  clearTimeout(changeTimer);
+  pushChange().catch(() => {});
+  window.api.flushDraft().catch(() => {});
+});
 
 function setMarkdown(markdown) {
   applying = true;
