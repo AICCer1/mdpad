@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         300 end-to-end checks (dev or packaged)
+npm run smoke         301 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -183,7 +183,7 @@ save. Saving is never silent about losing someone else's work.
 
 ## Keyboard and screen readers
 
-The editor is a named textbox (`role="textbox"`, `aria-multiline`, a localised label) and the outline marks the section containing the caret with `aria-current="location"`, with `aria-expanded` on every foldable heading. Dialogs are real dialogs: `role="dialog"`, `aria-modal`, labelled by their title, and **Tab is
+The tab strip is a tablist: arrow keys move and activate, Home/End jump, Delete closes, and exactly one tab is selected with a roving `tabindex`. Re-rendering the strip no longer drops the keyboard back to the page. The editor is a named textbox (`role="textbox"`, `aria-multiline`, a localised label) and the outline marks the section containing the caret with `aria-current="location"`, with `aria-expanded` on every foldable heading. Dialogs are real dialogs: `role="dialog"`, `aria-modal`, labelled by their title, and **Tab is
 trapped inside** while one is open; Escape returns focus to the editor. Toolbar toggles expose
 `aria-pressed`, and every icon button gets an accessible name from its tooltip.
 

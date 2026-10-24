@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.58.0
+
+Tabs work without a mouse.
+
+- **The strip is a real tablist**: `role="tablist"` with a localised label, `role="tab"` and
+  `aria-selected` on each tab, and a roving `tabindex` so exactly one tab is in the Tab order.
+- **Arrow keys move and activate** (Left/Right), Home/End jump to the ends, **Delete** closes the
+  focused tab, and focus stays on the strip across switches.
+- **Rendering the strip used to drop focus to the page**: every tab switch rebuilt the DOM and the
+  keyboard model quietly stopped working after one press. `renderTabs` now remembers `focusedTabId`
+  and restores it after the rebuild.
+- The test caught two mistakes: the accessibility hook read `#tabs` instead of `#tab-list` (so the
+  role looked missing), and the first Delete assertion failed for the same focus-loss reason the fix
+  addresses.
+- 301 smoke checks (one new: `a11y-tabs`, real arrow keys and a real close), 155 unit tests.
+
 ## 1.57.0
 
 The document explains itself.

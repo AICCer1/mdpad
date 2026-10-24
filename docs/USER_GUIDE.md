@@ -617,6 +617,12 @@ level adapts to the theme (32% light, 38% sepia, 45% dark) so faded text stays r
 The ▤ button in the AI panel (or "Open AI usage log" in the palette) jumps straight to the
 usage section of Settings, expanding it if it was folded.
 
+## Tabs from the keyboard
+
+Focus a tab and use **Left/Right** to move between documents (each move activates the tab),
+**Home/End** for the first and last, and **Delete** to close the focused one. Switching tabs
+keeps the focus on the strip so a series of arrow presses works without touching the mouse.
+
 ## The outline knows where you are
 
 Screen readers hear the editing area as "Document editor" and, while you move through the

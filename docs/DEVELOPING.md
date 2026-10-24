@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 300 end-to-end checks against a real window
+npm run smoke          # 301 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -356,3 +356,11 @@ name (re-applied by `applyI18n`). `markCurrentOutline` sets `aria-current="locat
 active heading and clears it elsewhere; twisties already carried `aria-expanded`. One smoke check
 (`a11y-document`) asserts the editor attributes, the current section after a real caret move, and
 that folding flips `aria-expanded` to `false`.
+
+## Tabs
+
+`#tab-list` carries `role="tablist"`; each tab gets `role="tab"`, `aria-selected` and a roving
+`tabindex` (active 0, others -1). `moveTabFocus` handles Left/Right, the strip handles Home/End and
+Delete. `renderTabs` remembers which tab had focus (`focusedTabId`) and restores it after the
+rebuild — without that, every tab switch dropped focus to the document and the keyboard model
+silently stopped working.

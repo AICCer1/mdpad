@@ -10849,6 +10849,43 @@ async function runSmoke() {
     a11yDocument
   );
 
+  // 132. the tab strip is a tablist: arrow keys switch, Delete closes, one tab stays selected
+  const a11yTabs = await (async () => {
+    const nl = String.fromCharCode(10);
+    await win.webContents.executeJavaScript(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      await window.api.newDoc();
+      await sleep(300);
+      await window.api.newDoc();
+      await sleep(500);
+    })()`);
+    const opened = await win.webContents.executeJavaScript('window.__mdpad.a11yTabs()');
+    await win.webContents.executeJavaScript(`document.querySelectorAll('#tabs .tab')[0].focus()`);
+    await sleep(150);
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Right' });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Right' });
+    await sleep(600);
+    const afterRight = await win.webContents.executeJavaScript('window.__mdpad.a11yTabs()');
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Delete' });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Delete' });
+    await sleep(800);
+    const afterDelete = await win.webContents.executeJavaScript('window.__mdpad.a11yTabs()');
+    return { opened, afterRight, afterDelete };
+  })();
+  step(
+    'a11y-tabs',
+    a11yTabs.opened.role === 'tablist' &&
+      a11yTabs.opened.label === 'Open documents' &&
+      a11yTabs.opened.count >= 3 &&
+      a11yTabs.opened.selected.length === 1 &&
+      a11yTabs.opened.tabindex.filter((value) => value === 0).length === 1 &&
+      a11yTabs.afterRight.focused === 1 &&
+      a11yTabs.afterRight.selected.length === 1 &&
+      a11yTabs.afterDelete.count === a11yTabs.opened.count - 1 &&
+      a11yTabs.afterDelete.selected.length === 1,
+    a11yTabs
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

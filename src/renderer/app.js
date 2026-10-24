@@ -4119,12 +4119,22 @@ function renderTabs(list) {
   for (const key of [...editorStateCache.keys()]) {
     if (!tabsState.some((tab) => tab.id === key)) editorStateCache.delete(key);
   }
+  tabList.setAttribute('role', 'tablist');
+  tabList.setAttribute('aria-label', t('tabs.label', lang));
+  // Remember the focused tab: re-rendering must not drop the keyboard somewhere else.
+  const focusedTabId = document.activeElement && document.activeElement.closest('#tabs')
+    ? document.activeElement.dataset.id
+    : null;
   tabList.textContent = '';
   for (const tab of list) {
     const el = document.createElement('div');
     el.className = `tab${tab.active ? ' active' : ''}`;
     el.dataset.id = tab.id;
     el.draggable = true;
+    // A tab strip is a tablist: the active tab is selected, the rest are reachable with arrows.
+    el.setAttribute('role', 'tab');
+    el.setAttribute('aria-selected', tab.active ? 'true' : 'false');
+    el.tabIndex = tab.active ? 0 : -1;
     el.addEventListener('dragstart', (event) => {
       dragTabId = tab.id;
       event.dataTransfer.effectAllowed = 'move';
@@ -4167,6 +4177,7 @@ function renderTabs(list) {
     close.className = 'tab-close';
     close.textContent = '×';
     close.title = 'Close tab';
+      close.setAttribute('aria-label', 'Close tab: ' + tab.name);
     close.addEventListener('click', async (event) => {
       event.stopPropagation();
       await flushChange();
@@ -4187,10 +4198,56 @@ function renderTabs(list) {
 
     tabList.appendChild(el);
   }
+  if (focusedTabId) {
+    const again = [...tabList.querySelectorAll('.tab')].find((tab) => tab.dataset.id === focusedTabId);
+    if (again) again.focus();
+  }
   updateTabScroll();
   const active = tabList.querySelector('.tab.active');
   if (active) active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
+
+// Arrow keys move between tabs, Home/End jump, Delete closes the focused tab — the usual tablist
+// keyboard model, which a <div> strip otherwise does not provide.
+async function moveTabFocus(offset) {
+  const tabs = [...tabList.querySelectorAll('.tab')];
+  if (!tabs.length) return;
+  let index = tabs.indexOf(document.activeElement);
+  if (index < 0) index = tabs.findIndex((tab) => tab.classList.contains('active'));
+  const next = tabs[(index + offset + tabs.length) % tabs.length];
+  next.focus();
+  if (!next.classList.contains('active')) {
+    await flushChange();
+    await window.api.activateTab(next.dataset.id);
+  }
+}
+
+tabList.addEventListener('keydown', async (event) => {
+  const tabs = [...tabList.querySelectorAll('.tab')];
+  const index = tabs.indexOf(document.activeElement);
+  if (index < 0) return;
+  if (event.key === 'ArrowRight') {
+    event.preventDefault();
+    await moveTabFocus(1);
+  } else if (event.key === 'ArrowLeft') {
+    event.preventDefault();
+    await moveTabFocus(-1);
+  } else if (event.key === 'Home' || event.key === 'End') {
+    event.preventDefault();
+    const next = event.key === 'Home' ? tabs[0] : tabs[tabs.length - 1];
+    next.focus();
+    if (!next.classList.contains('active')) {
+      await flushChange();
+      await window.api.activateTab(next.dataset.id);
+    }
+  } else if (event.key === 'Delete') {
+    event.preventDefault();
+    const id = tabs[index].dataset.id;
+    tabs[index].focus();
+    await flushChange();
+    await window.api.closeTab(id);
+  }
+});
 
 // Show the scroll arrows only when the tab strip actually overflows.
 const tabLeft = $('#tab-left');
@@ -6032,6 +6089,17 @@ window.__mdpad = {
       count: rows.length,
       current: current.map((node) => node.textContent),
       expanded: twisties.map((node) => node.getAttribute('aria-expanded')),
+    };
+  },
+  a11yTabs: () => {
+    const tabs = [...document.querySelectorAll('#tabs .tab')];
+    return {
+      role: document.querySelector('#tab-list').getAttribute('role'),
+      label: document.querySelector('#tab-list').getAttribute('aria-label'),
+      count: tabs.length,
+      selected: tabs.filter((tab) => tab.getAttribute('aria-selected') === 'true').map((tab) => tab.textContent.trim()),
+      focused: tabs.indexOf(document.activeElement),
+      tabindex: tabs.map((tab) => tab.tabIndex),
     };
   },
   navJump: (pos) => {
