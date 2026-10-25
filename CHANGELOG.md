@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.0.1
+
+Documentation that cannot drift.
+
+- **The README admitted 155 unit tests while the suite had 174** — a number nobody updates. It now
+  names the runner instead of a count, and a test fails if the stated number of smoke checks differs
+  from the number of `step(` calls in the runner.
+- **The image-audit paragraph appeared twice** in the README; removed.
+- **`docs/RELEASE_NOTES-2.0.md`** collects what 2.0 means, how it is verified, the known limitations
+  and how to verify a download.
+- Two more doc tests: the changelog must have an entry for the current version, and the 2.0 notes must
+  name the 2.0.0 installer.
+- 338 smoke checks, 174 unit tests.
+
 ## 2.0.0
 
 The export panel learns to narrow its scope — and a silent watcher failure is fixed.

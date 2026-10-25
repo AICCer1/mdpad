@@ -40,3 +40,24 @@ test('no file in docs has an unrendered escape artifact', () => {
     assert.doesNotMatch(text, /\\n- \*\*/, `${name} contains a literal \\n bullet`);
   }
 });
+
+test('README claims the real number of smoke checks', () => {
+  const main = fs.readFileSync(path.join(root, 'src', 'main.js'), 'utf8');
+  const steps = (main.match(/^\s+step\(/gm) || []).length;
+  const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
+  const claimed = /(\d+) end-to-end checks/.exec(readme);
+  assert.ok(claimed, 'README does not state a smoke-check count');
+  assert.equal(Number(claimed[1]), steps, 'README smoke count differs from the runner');
+});
+
+test('the changelog has an entry for the current version', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const changelog = fs.readFileSync(path.join(root, 'CHANGELOG.md'), 'utf8');
+  assert.ok(changelog.includes('## ' + pkg.version), 'no changelog entry for ' + pkg.version);
+});
+
+test('the 2.0 notes exist and name the 2.0.0 installer', () => {
+  const notes = fs.readFileSync(path.join(root, 'docs', 'RELEASE_NOTES-2.0.md'), 'utf8');
+  assert.match(notes, /^# mdpad 2\.0/m);
+  assert.ok(notes.includes('mdpad Setup 2.0.0.exe'), 'notes do not name the 2.0.0 installer');
+});
