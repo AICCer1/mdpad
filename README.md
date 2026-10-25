@@ -167,6 +167,12 @@ two or more list items) parses it; prose and a lone `#tag` stay literal.
 Settings → Appearance → **Keep the caret in the middle**: while you type, the view scrolls so the
 caret line sits around 45% of the window, instead of drifting to the bottom edge.
 
+## Crash recovery is tested across tabs
+
+The crash suite now runs three scenarios against a real SIGKILL: an explicit draft write, typing
+120 ms before death, and **two dirty tabs** killed while the second is active — each draft must
+hold its own file's text, not the active buffer.
+
 ## Closing a dirty tab
 
 Closing a tab with unsaved text writes a recovery draft, says so in a toast and offers **Reopen**,

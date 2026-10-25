@@ -505,3 +505,11 @@ three policies and asserts the buffer text and the banner state.
 `reopenTab` rebuilds the tab from `closedTabs[].contents` with `savedContents` taken from disk, so
 the reopened buffer shows as unsaved instead of silently reverting. The smoke check closes a dirty
 tab through the real close button and asserts the toast, the draft and the restored text.
+
+## Crash phases
+
+`scripts/crash-recovery.js` drives phases through `--crash-phase`: `write`/`verify`, `fast`/
+`fast-verify`, and `tabs`/`tabs-verify`. The tabs phase opens two files, edits both, kills the
+process, and the verify phase asserts the two drafts are present, hold their own tokens and are
+different — the regression from round 16 (background tab draft written from the active buffer)
+stays guarded.

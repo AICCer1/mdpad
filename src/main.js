@@ -13060,6 +13060,61 @@ async function runCrashFastVerify() {
   app.exit(0);
 }
 
+// Two tabs, two dirty buffers, killed quickly: each draft must belong to its own file. This was a
+// real bug once — the background tab's draft was written from the active buffer.
+async function runCrashTabsWrite() {
+  const win = createWindow({ show: false });
+  const session = sessions.get(win.webContents.id);
+  await new Promise((resolve) => win.webContents.once('did-finish-load', resolve));
+  await sleep(250);
+  const second = process.env.MDPAD_CRASH_FILE_B;
+  if (!second) {
+    console.log('CRASH_TABS_ERROR no second file');
+    app.exit(2);
+    return;
+  }
+  session.loadDocument(CRASH_FILE);
+  await sleep(350);
+  const tokenA = 'TAB-A-' + Date.now();
+  await win.webContents.executeJavaScript(
+    'window.__mdpad.applyMarkdown(' + JSON.stringify('# A\\n\\n' + tokenA) + ')'
+  );
+  await sleep(400);
+  session.loadDocument(second);
+  await sleep(350);
+  const tokenB = 'TAB-B-' + Date.now();
+  await win.webContents.executeJavaScript(
+    'window.__mdpad.applyMarkdown(' + JSON.stringify('# B\\n\\n' + tokenB) + ')'
+  );
+  await sleep(150);
+  const draftA = storage.readDraft(CRASH_FILE, draftsDir());
+  const draftB = storage.readDraft(second, draftsDir());
+  const result = {
+    tokenA,
+    tokenB,
+    keptA: Boolean(draftA && draftA.contents.includes(tokenA)),
+    keptB: Boolean(draftB && draftB.contents.includes(tokenB)),
+  };
+  fs.writeFileSync(path.join(app.getPath('temp'), 'mdpad-crash-tabs.json'), JSON.stringify(result), 'utf8');
+  console.log('CRASH_TABS ' + JSON.stringify(result));
+  process.kill(process.pid, 'SIGKILL');
+}
+
+async function runCrashTabsVerify() {
+  const second = process.env.MDPAD_CRASH_FILE_B;
+  const draftA = storage.readDraft(CRASH_FILE, draftsDir());
+  const draftB = second ? storage.readDraft(second, draftsDir()) : null;
+  const result = {
+    hasA: Boolean(draftA),
+    hasB: Boolean(draftB),
+    keptA: Boolean(draftA && /TAB-A-/.test(draftA.contents)),
+    keptB: Boolean(draftB && /TAB-B-/.test(draftB.contents)),
+    distinct: Boolean(draftA && draftB && draftA.contents !== draftB.contents),
+  };
+  console.log('CRASH_TABS_VERIFY ' + JSON.stringify(result));
+  app.exit(result.keptA && result.keptB && result.distinct ? 0 : 1);
+}
+
 async function runCrashWrite() {
   const win = createWindow({ show: false });
   const session = sessions.get(win.webContents.id);
@@ -13352,6 +13407,14 @@ app.whenReady().then(async () => {
 
   if (CRASH_PHASE === 'fast') {
     await runCrashFastWrite();
+    return;
+  }
+  if (CRASH_PHASE === 'tabs') {
+    await runCrashTabsWrite();
+    return;
+  }
+  if (CRASH_PHASE === 'tabs-verify') {
+    await runCrashTabsVerify();
     return;
   }
   if (CRASH_PHASE === 'fast-verify') {

@@ -334,6 +334,12 @@ scrolls so the line you are typing stays near the middle of the window instead o
 bottom. It only acts while the caret moves in the editor, so reading and scrolling are untouched;
 turn it off to get the normal behaviour back.
 
+## Crash recovery
+
+If the app is killed, every document with unsaved text has a draft: one per file, not one shared
+buffer, so two open documents both come back on the next start with their own text. The recovery
+panel lists them with their names and ages.
+
 ## Closing unsaved work
 
 Closing a tab with unsaved text is not silent: a recovery draft is written, a toast says so and

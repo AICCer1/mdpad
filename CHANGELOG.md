@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.80.0
+
+Crash recovery is now tested across tabs.
+
+- **A third crash scenario in the real SIGKILL suite**: two files open, both dirty, the process killed
+  while the second tab is active. The verify phase asserts **two drafts** exist, each holds its own
+  token, and they differ — guarding the round-16 regression where the background tab's draft was
+  written from the active buffer.
+- `scripts/crash-recovery.js` gained `tabs` / `tabs-verify` phases and a single `crashEnv()` helper;
+  the previous script passed `MDPAD_CRASH_FILE_B` to only one of its two spawn branches, so the
+  phase silently had no second file.
+- The phase writes its result to a temp JSON **before** the kill, because a SIGKILL can drop buffered
+  stdout; the verify phase reads the drafts themselves, which is the real assertion.
+- Release pipeline now runs three crash scenarios (explicit write, fast typing, two tabs).
+- 321 smoke checks, 167 unit tests.
+
 ## 1.79.0
 
 Closing unsaved work is no longer silent — and Reopen keeps your text.
