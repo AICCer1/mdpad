@@ -1192,3 +1192,6 @@ Object.assign(DICT.zh, {
   'table.moveColLeft': '左移一列',
   'table.moveColRight': '右移一列',
 });
+
+Object.assign(DICT.en, { 'settings.typewriter': 'Keep the caret in the middle' });
+Object.assign(DICT.zh, { 'settings.typewriter': '光标保持居中' });

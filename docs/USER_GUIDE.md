@@ -327,6 +327,13 @@ Light, dark, sepia, or **Follow system** — the last one resolves to dark or li
 switches live when the OS does. The status bar never shows the word "system": the page always has a
 concrete theme class.
 
+## Typewriter mode
+
+Settings → Appearance → **Keep the caret in the middle**. While the editor has focus, the view
+scrolls so the line you are typing stays near the middle of the window instead of sinking to the
+bottom. It only acts while the caret moves in the editor, so reading and scrolling are untouched;
+turn it off to get the normal behaviour back.
+
 ## Zoom and spelling
 
 **Ctrl+=** zooms in, **Ctrl+–** zooms out and **Ctrl+0** resets. While the page is zoomed, a small

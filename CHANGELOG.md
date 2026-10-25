@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.74.0
+
+Typewriter mode.
+
+- **Settings → Appearance → "Keep the caret in the middle"**: while the editor has focus, the view
+  scrolls so the line being typed stays near 45% of the window instead of sinking to the bottom.
+- **It only reacts to caret movement**, in a `requestAnimationFrame`, so reading and manual scrolling
+  are untouched; the boolean lives in settings and reaches other windows through the broadcast.
+- **The test asserts geometry, not a class name**: `typewriter-scroll` focuses "Paragraph 100" in a
+  120-section document and checks the caret's viewport position is between 30% and 62% of the pane,
+  with `scrollTop > 0`; with the mode off it asserts the mode is inactive.
+
+- 316 smoke checks, 160 unit tests.
+
 ## 1.73.0
 
 The report remembers the last one.

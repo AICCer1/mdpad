@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         315 end-to-end checks (dev or packaged)
+npm run smoke         316 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -161,6 +161,11 @@ Typing markdown converts as you go: `# `, `- `, `1. `, `> ` and fences are block
 `**bold**`, `*italic*`, `~~strike~~`, ```code``` become marks on the closing delimiter.
 Pasting **plain text that is clearly markdown** (a fence, a table rule, a heading with a blank line,
 two or more list items) parses it; prose and a lone `#tag` stay literal.
+
+## Typewriter mode
+
+Settings → Appearance → **Keep the caret in the middle**: while you type, the view scrolls so the
+caret line sits around 45% of the window, instead of drifting to the bottom edge.
 
 ## Structure report
 

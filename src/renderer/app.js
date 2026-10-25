@@ -752,7 +752,7 @@ const editor = new Editor({
     },
   },
   onUpdate: () => { scheduleChange(); syncToolbar(); markLargeDocument(); },
-  onSelectionUpdate: () => { updateStats(); syncToolbar(); },
+  onSelectionUpdate: () => { updateStats(); syncToolbar(); requestAnimationFrame(typewriterFollow); },
 });
 
 // ---- block move ------------------------------------------------------------
@@ -4766,6 +4766,9 @@ async function openSettings(section = 'appearance') {
   const aiCfg = await window.api.aiConfig();
   $('#set-theme').value = settings.theme || 'light';
   $('#set-spellcheck').checked = settings.spellcheck !== false;
+  $('#set-typewriter').checked = settings.typewriter === true;
+  typewriterEnabled = settings.typewriter === true;
+  editor.view.dom.classList.toggle('typewriter', typewriterEnabled);
   $('#set-language').value = normalizeLang(settings.language || 'en');
   $('#set-font').value = FONTS.includes(settings.editorFont) ? settings.editorFont : 'serif';
   $('#set-width').value = WIDTHS.includes(settings.lineWidth) ? settings.lineWidth : 'normal';
@@ -4861,6 +4864,7 @@ async function saveSettings() {
     lineWidth,
     accent,
     spellcheck: $('#set-spellcheck').checked,
+    typewriter: $('#set-typewriter').checked,
   });
   aiConfirmThreshold = Number($('#set-ai-confirm').value);
   applyAppearance({ editorFont, lineWidth, accent });
@@ -6376,6 +6380,21 @@ function showBanner(text, primaryLabel, primaryFn, secondaryLabel, secondaryFn) 
 }
 
 // A change made in another window arrives here; apply everything the shell renders from settings.
+// Typewriter scrolling: keep the caret around the middle of the viewport while typing.
+let typewriterEnabled = false;
+
+function typewriterFollow() {
+  if (!typewriterEnabled || !editorPane) return;
+  if (!editor.view.hasFocus || !editor.view.hasFocus()) return;
+  const { from } = editor.state.selection;
+  const coords = editor.view.coordsAtPos(from);
+  const pane = editorPane.getBoundingClientRect();
+  const target = pane.top + pane.height * 0.45;
+  const delta = coords.top - target;
+  if (Math.abs(delta) < 4) return;
+  editorPane.scrollTop += delta;
+}
+
 function applyRemoteSettings(settings) {
   if (!settings) return;
   readThemeSetting = settings.theme || 'light';
@@ -6387,6 +6406,8 @@ function applyRemoteSettings(settings) {
   applyAppearance(settings);
   applyFilesCollapsed(Boolean(settings.filesCollapsed));
   applyFindOptions?.();
+  typewriterEnabled = settings.typewriter === true;
+  editor.view.dom.classList.toggle('typewriter', typewriterEnabled);
 }
 
 window.api.onSettingsApplied(applyRemoteSettings);
@@ -7166,6 +7187,40 @@ window.__mdpad = {
       return true;
     });
     return out;
+  },
+  typewriterState: () => ({
+    enabled: typewriterEnabled,
+    scrollTop: editorPane ? Math.round(editorPane.scrollTop) : 0,
+    caretY: (() => {
+      try {
+        const coords = editor.view.coordsAtPos(editor.state.selection.from);
+        return Math.round(coords.top);
+      } catch {
+        return null;
+      }
+    })(),
+    paneTop: editorPane ? Math.round(editorPane.getBoundingClientRect().top) : 0,
+    paneHeight: editorPane ? Math.round(editorPane.getBoundingClientRect().height) : 0,
+  }),
+  setTypewriter: (on) => {
+    typewriterEnabled = on === true;
+    editor.view.dom.classList.toggle('typewriter', typewriterEnabled);
+    if (typewriterEnabled) typewriterFollow();
+    return typewriterEnabled;
+  },
+  focusText: (text) => {
+    let target = null;
+    editor.state.doc.descendants((node, pos) => {
+      if (target !== null) return false;
+      if (node.isText && node.text.includes(text)) {
+        target = pos + Math.max(0, node.text.indexOf(text));
+        return false;
+      }
+      return true;
+    });
+    if (target === null) return false;
+    editor.commands.focus(target);
+    return true;
   },
   splitParagraph: (snippet) => splitParagraphBySnippet(snippet),
   structureSummaryFor: () => window.api.docStructure().then((report) => structureSummary(report)),

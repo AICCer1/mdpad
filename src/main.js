@@ -2154,6 +2154,7 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
     if (['blue', 'teal', 'violet', 'amber'].includes(patch.accent)) next.accent = patch.accent;
     if (patch.filesCollapsed !== undefined) next.filesCollapsed = patch.filesCollapsed === true;
     if (patch.spellcheck !== undefined) next.spellcheck = patch.spellcheck === true;
+    if (patch.typewriter !== undefined) next.typewriter = patch.typewriter === true;
     if (patch.findOptions && typeof patch.findOptions === 'object') {
       next.findOptions = {
         caseSensitive: patch.findOptions.caseSensitive === true,
@@ -12176,6 +12177,57 @@ async function runSmoke() {
       second: reportHistory.second,
       previous: reportHistory.previous,
       head: reportHistory.secondText.slice(0, 400),
+    }
+  );
+
+  // 147. typewriter mode keeps the caret near the middle of the viewport
+  const typewriter = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const parts = ['# Typewriter'];
+    for (let index = 1; index <= 120; index += 1) {
+      parts.push('', '## Section ' + index, '', 'Paragraph ' + index + ' with enough words to take a line in the editor.');
+    }
+    const doc = path.join(dir, 'typewriter.md');
+    fs.writeFileSync(doc, parts.join(nl), 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 80; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('Section 120')");
+      if (ready === true) break;
+    }
+    await jsOf('window.__mdpad.setTypewriter(true)');
+    await sleep(300);
+    const focused = await jsOf("window.__mdpad.focusText('Paragraph 100')");
+    await sleep(600);
+    const on = await jsOf('window.__mdpad.typewriterState()');
+    await jsOf('window.__mdpad.setTypewriter(false)');
+    await sleep(200);
+    await jsOf("window.__mdpad.focusText('Paragraph 2')");
+    await sleep(500);
+    const off = await jsOf('window.__mdpad.typewriterState()');
+    return { focused, on, off };
+  })();
+  const ratio = (state) =>
+    state && state.paneHeight ? (state.caretY - state.paneTop) / state.paneHeight : null;
+  step(
+    'typewriter-scroll',
+    typewriter.focused === true &&
+      typewriter.on &&
+      typewriter.on.enabled === true &&
+      typewriter.on.scrollTop > 0 &&
+      ratio(typewriter.on) !== null &&
+      ratio(typewriter.on) > 0.3 &&
+      ratio(typewriter.on) < 0.62 &&
+      typewriter.off &&
+      typewriter.off.enabled === false &&
+      ratio(typewriter.off) !== null,
+    {
+      on: typewriter.on,
+      onRatio: ratio(typewriter.on),
+      off: typewriter.off,
+      offRatio: ratio(typewriter.off),
     }
   );
 

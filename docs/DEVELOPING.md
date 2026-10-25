@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 315 end-to-end checks against a real window
+npm run smoke          # 316 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -465,3 +465,10 @@ section and a `- [ ]` checklist, so it reads as a review document rather than a 
 `headings`, `at`). `doc:structure` returns it as `previous`, the panel shows the last issue count
 and the exported checklist gains a "Previous report … now N (−M)" line. The index is written by
 `report:save` / `report:write` from the summary the renderer computes.
+
+## Typewriter scrolling
+
+`typewriterFollow` runs on selection updates (in a `requestAnimationFrame`) and moves `scrollTop`
+by the difference between the caret and 45% of the pane height, so it never fights a user scroll
+— it only acts while the editor has focus. The setting is a plain boolean (`typewriter`) that
+survives restarts and reaches other windows through the settings broadcast.
