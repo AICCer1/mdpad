@@ -4518,6 +4518,8 @@ for (const sub of document.querySelectorAll('#settings-modal .modal-sub')) {
   });
 }
 
+let searchCollapseSnapshot = null;
+
 // Search matches labels and help text; several words all have to be present, so "ai key" narrows
 // rather than widens. Hits are highlighted inside the label without touching the controls.
 function highlightLabel(label, words) {
@@ -4573,6 +4575,9 @@ function filterSettings(query) {
   // All words first (narrowing); a phrase like "writing goal" still finds "Daily word goal" through
   // the fallback instead of showing an empty panel.
   const fields = [...document.querySelectorAll('#settings-modal .field')];
+  // Take one snapshot of the user's folding before search expands anything, and put it back when the
+  // query is cleared: searching must not cost the layout the user chose.
+  if (q && !searchCollapseSnapshot) searchCollapseSnapshot = sectionState();
   const useAny = Boolean(q) && !fields.some((field) => allWords(field.textContent));
   const matches = useAny ? anyWord : allWords;
   let visible = 0;
@@ -4602,10 +4607,16 @@ function filterSettings(query) {
       if (node.classList.contains('field') && !node.hidden) anyVisible = true;
       node = node.nextElementSibling;
     }
+    // A matching field inside a folded section has to be visible, or the search lies.
+    if (q && anyVisible) setSectionCollapsed(sub, false);
     sub.hidden = Boolean(q) && !anyVisible && !headingMatches;
   }
   const empty = document.querySelector('#settings-empty');
   if (empty) empty.hidden = !q || visible > 0;
+  if (!q && searchCollapseSnapshot) {
+    applySectionState(searchCollapseSnapshot);
+    searchCollapseSnapshot = null;
+  }
   return visible;
 }
 
@@ -7418,6 +7429,25 @@ window.__mdpad = {
     };
   },
   settingsSearchAudit: () => settingsSearchAudit(),
+  settingsSection: (name) => {
+    const sub = document.querySelector('#settings-modal .modal-sub[data-section="' + name + '"]');
+    return sub ? { collapsed: sub.classList.contains('collapsed'), hidden: sub.hidden } : null;
+  },
+  collapseSection: (name) => {
+    const sub = document.querySelector('#settings-modal .modal-sub[data-section="' + name + '"]');
+    if (!sub) return false;
+    setSectionCollapsed(sub, true);
+    return true;
+  },
+  sectionOfField: (labelText) => {
+    const field = [...document.querySelectorAll('#settings-modal .field')].find(
+      (candidate) => candidate.textContent.includes(labelText)
+    );
+    if (!field) return null;
+    let node = field.previousElementSibling;
+    while (node && !node.classList.contains('modal-sub')) node = node.previousElementSibling;
+    return node ? node.dataset.section : null;
+  },
   externalState: () => ({
     banner: !document.querySelector('#banner').hidden,
     text: document.querySelector('#banner-text').textContent,

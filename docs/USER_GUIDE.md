@@ -328,6 +328,12 @@ only the matching fields remain, with the matched words highlighted. Several wor
 list; if nothing matches all of them the search falls back to any word, so a remembered phrase
 still finds the field. When nothing matches at all, the panel says so.
 
+## Folding comes back
+
+If a section is folded and the search finds something inside it, the section opens for the result.
+Clearing the search restores exactly the sections you had folded — the panel does not stay
+rearranged after a search.
+
 ## Theme
 
 Light, dark, sepia, or **Follow system** — the last one resolves to dark or light from Windows and

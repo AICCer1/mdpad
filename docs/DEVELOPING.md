@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 325 end-to-end checks against a real window
+npm run smoke          # 326 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -557,3 +557,10 @@ with articles and the brand as stop words.
 matches all, and rebuilds label content as DOM nodes for highlighting (never `innerHTML` with user
 text). `settingsSearchAudit()` types each label and reports fields that hide themselves; the smoke
 check asserts that list is empty, so a new setting without a searchable label fails the suite.
+
+## Search and folding
+
+`filterSettings` snapshots `sectionState()` on the first non-empty query, expands any section that
+contains a visible field (a match inside a folded section must not stay hidden), and restores the
+snapshot when the query is cleared. `settings-search-collapse` folds the AI section, searches for
+"api key", asserts the section opened, clears the query and asserts it is folded again.

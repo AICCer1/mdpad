@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.88.0
+
+Folding survives a search.
+
+- **A section that holds a hit opens for it** — before this, a match inside a folded section stayed
+  hidden, so the search could report a field that the user could not see.
+- **Clearing the query restores the exact folding you had**: one snapshot is taken before the first
+  expanded result and put back afterwards, so the panel never stays rearranged after a search.
+- 326 smoke checks (one new: `settings-search-collapse` folds the AI section, searches "api key",
+  asserts the section opened, clears the query and asserts it is folded again), 171 unit tests.
+- The first version of that test picked "Check spelling", which lives above the first section heading,
+  so `sectionOfField` found nothing; it now targets "API key" inside the AI section.
+
 ## 1.87.0
 
 Settings are findable by their labels.

@@ -12987,6 +12987,40 @@ async function runSmoke() {
     settingsSearch
   );
 
+  // 157. searching settings opens the section it finds and restores folding afterwards
+  const settingsCollapse = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    await jsOf(`document.querySelector('#open-settings').click()`);
+    await sleep(700);
+    const section = await jsOf("window.__mdpad.sectionOfField('API key')");
+    const collapsed = await jsOf(`window.__mdpad.collapseSection(${JSON.stringify(section)})`);
+    const before = await jsOf(`window.__mdpad.settingsSection(${JSON.stringify(section)})`);
+    const during = await jsOf("window.__mdpad.settingsSearch('api key')");
+    const openedNow = await jsOf(`window.__mdpad.settingsSection(${JSON.stringify(section)})`);
+    const after = await jsOf("window.__mdpad.settingsSearch('')");
+    const restored = await jsOf(`window.__mdpad.settingsSection(${JSON.stringify(section)})`);
+    const expandedAgain = await jsOf(`window.__mdpad.collapseSection(${JSON.stringify(section)})`);
+    await jsOf("document.querySelector('#settings-modal').hidden = true");
+    return { section, collapsed, before, during, openedNow, after, restored, expandedAgain };
+  })();
+  step(
+    'settings-search-collapse',
+    typeof settingsCollapse.section === 'string' &&
+      settingsCollapse.section.length > 0 &&
+      settingsCollapse.collapsed === true &&
+      settingsCollapse.before &&
+      settingsCollapse.before.collapsed === true &&
+      settingsCollapse.during &&
+      settingsCollapse.during.visible >= 1 &&
+      settingsCollapse.openedNow &&
+      settingsCollapse.openedNow.collapsed === false &&
+      settingsCollapse.after &&
+      settingsCollapse.after.visible > settingsCollapse.during.visible &&
+      settingsCollapse.restored &&
+      settingsCollapse.restored.collapsed === true,
+    settingsCollapse
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
