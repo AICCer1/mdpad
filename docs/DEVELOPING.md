@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 333 end-to-end checks against a real window
+npm run smoke          # 334 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -613,3 +613,11 @@ can read it back.
 `writing:history`); `stats:save` shows the dialog and `stats:write` writes an explicit path, which is
 what the smoke test drives. Both files come from the same payload as the panels, so the three cannot
 drift apart.
+
+## Heading folds
+
+`HeadingFold` is a decoration plugin: `foldDecorations` walks the document, hides every block after a
+folded heading until a heading of the same or shallower level (`is-folded`), and marks the heading
+itself (`is-folded-heading`). Keys are `level:text:occurrence` so duplicates fold independently and
+the state survives edits elsewhere. `persistFolds` writes `foldedHeadings[file]` through
+`settings:set`; `restoreFoldsFor` reads the cache or fetches settings if the document loads first.

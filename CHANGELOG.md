@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.96.0
+
+Headings fold in the editor.
+
+- **Ctrl+Shift+H** (View menu, palette) folds the heading at the caret: its section hides, the heading
+  gets a `▸` marker and **the markdown is untouched** — folding is a reading aid, not an edit.
+- **Folds are remembered per document** in settings (`foldedHeadings[file]`) and restored when the file
+  is reopened, including on the first document of a session where the settings broadcast has not
+  arrived yet (the restore falls back to fetching them).
+- Keys are `level:text:occurrence`, so two headings with the same title fold independently and edits
+  elsewhere do not move the fold to another section.
+- 334 smoke checks (one new: `heading-fold` folds, asserts hidden blocks and the marker, unfolds,
+  folds again, reloads the document and asserts the fold came back), 171 unit tests.
+
 ## 1.95.0
 
 Statistics can leave the app.

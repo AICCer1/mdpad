@@ -318,6 +318,7 @@ function publicSettings() {
         : { caseSensitive: false, wholeWord: false, regex: false },
     zoomLevel: clampZoom(s.zoomLevel),
     seenHints: s.seenHints && typeof s.seenHints === 'object' ? s.seenHints : {},
+    foldedHeadings: s.foldedHeadings && typeof s.foldedHeadings === 'object' ? s.foldedHeadings : {},
   };
 }
 
@@ -2321,6 +2322,14 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
     if (patch.spellcheck !== undefined) next.spellcheck = patch.spellcheck === true;
     if (patch.typewriter !== undefined) next.typewriter = patch.typewriter === true;
     if (patch.highlightParagraph !== undefined) next.highlightParagraph = patch.highlightParagraph === true;
+    if (patch.foldedHeadings && typeof patch.foldedHeadings === 'object') {
+      const cleaned = {};
+      for (const owner of Object.keys(patch.foldedHeadings).slice(0, 100)) {
+        const list = patch.foldedHeadings[owner];
+        if (Array.isArray(list)) cleaned[owner] = list.filter((key) => typeof key === 'string').slice(0, 200);
+      }
+      next.foldedHeadings = cleaned;
+    }
     if (patch.seenHints && typeof patch.seenHints === 'object') {
       const cleaned = {};
       for (const key of Object.keys(patch.seenHints).slice(0, 50)) {
@@ -3120,6 +3129,7 @@ function buildMenu() {
         { label: tt('menu.find'), accelerator: 'CmdOrCtrl+F', click: () => sendMenuAction('find') },
         { label: tt('menu.outline'), accelerator: 'CmdOrCtrl+Shift+O', click: () => sendMenuAction('toggleOutline') },
     { label: tt('menu.palette'), accelerator: 'CmdOrCtrl+Shift+P', click: () => sendMenuAction('palette') },
+    { label: tt('menu.foldHeading'), accelerator: 'CmdOrCtrl+Shift+H', click: () => sendMenuAction('foldHeading') },
       ],
     },
     {
@@ -13382,6 +13392,65 @@ async function runSmoke() {
       buttons: statsExportTest.buttons,
       csvHead: String(statsExportTest.csv).slice(0, 80),
     }
+  );
+
+  // 165. headings fold inside the editor, and the fold comes back with the document
+  const headingFold = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'fold-heading.md');
+    fs.writeFileSync(
+      doc,
+      ['# Book', '', '## Intro', '', 'intro body', '', '### Detail', '', 'detail body', '', '## Methods', '', 'methods body', ''].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('methods body')");
+      if (ready === true) break;
+    }
+    await sleep(400);
+    // no folds remembered for this fresh file
+    await jsOf(`window.__mdpad.restoreFoldsFor(${JSON.stringify(doc)})`);
+    const before = await jsOf('window.__mdpad.headingFoldState()');
+    const focused = await jsOf("window.__mdpad.focusHeading('Intro')");
+    const folded = await jsOf('window.__mdpad.toggleHeadingFold()');
+    await sleep(300);
+    const foldedState = await jsOf('window.__mdpad.headingFoldState()');
+    const markdownWhileFolded = await jsOf('window.__mdpad.getMarkdown()');
+    const unfolded = await jsOf('window.__mdpad.toggleHeadingFold()');
+    await sleep(200);
+    const unfoldedState = await jsOf('window.__mdpad.headingFoldState()');
+    // fold again and reload the document: the fold must be restored from settings
+    await jsOf('window.__mdpad.toggleHeadingFold()');
+    await sleep(300);
+    const saved = await jsOf('window.api.getSettings().then((s) => s.foldedHeadings)');
+    await sleep(200);
+    await session.loadDocument(doc);
+    await sleep(900);
+    const restored = await jsOf('window.__mdpad.headingFoldState()');
+    return { before, focused, folded, foldedState, markdownWhileFolded, unfolded, unfoldedState, saved, restored };
+  })();
+  step(
+    'heading-fold',
+    headingFold.before &&
+      headingFold.before.folded.length === 0 &&
+      headingFold.focused === true &&
+      headingFold.folded === true &&
+      headingFold.foldedState.folded.length === 1 &&
+      headingFold.foldedState.hidden >= 1 &&
+      headingFold.foldedState.marked === 1 &&
+      /methods body/.test(headingFold.markdownWhileFolded) &&
+      headingFold.unfolded === false &&
+      headingFold.unfoldedState.hidden === 0 &&
+      headingFold.saved &&
+      Object.keys(headingFold.saved || {}).length >= 1 &&
+      headingFold.restored &&
+      headingFold.restored.folded.length === 1 &&
+      headingFold.restored.hidden >= 1,
+    headingFold
   );
 
   // 30k. the settings filter narrows the visible fields

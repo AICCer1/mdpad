@@ -166,6 +166,13 @@ list until you say so.
 include clicking a heading in the outline and stepping through find results; each tab keeps its own
 history, and jumping somewhere new clears the forward stack.
 
+## Folding headings in the editor
+
+Put the caret in a heading and press **Ctrl+Shift+H** (or use the View menu / palette): everything
+under that heading folds away and the heading shows a `▸` marker. Press it again to unfold. Each
+document remembers its own folds across restarts, and the markdown on disk is never changed by
+folding — it is a reading aid, not an edit.
+
 ## Outline
 
 The outline lists every heading. Click one to jump to it. Headings with children get a **▾ twisty**

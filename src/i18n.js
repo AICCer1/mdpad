@@ -1290,3 +1290,6 @@ Object.assign(DICT.zh, {
   'stats.exportMd': '导出 Markdown',
   'stats.saved': '统计已保存',
 });
+
+Object.assign(DICT.en, { 'menu.foldHeading': 'Fold / Unfold Heading' });
+Object.assign(DICT.zh, { 'menu.foldHeading': '折叠 / 展开标题' });

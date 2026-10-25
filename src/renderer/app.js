@@ -604,6 +604,60 @@ const FocusDecoration = Extension.create({
   },
 });
 
+// Folding headings inside the editor: a folded heading hides every block until the next heading of
+// the same or a shallower level. Folds are keyed by level + text so they survive edits elsewhere.
+const foldedHeadings = new Set();
+let foldedOwner = null;
+
+function headingFoldKey(node, index) {
+  return node.attrs.level + ':' + node.textContent.trim() + ':' + index;
+}
+
+function foldDecorations(doc) {
+  if (!foldedHeadings.size) return null;
+  const decorations = [];
+  let foldedUntilLevel = Infinity;
+  let seen = {};
+  doc.descendants((node, pos) => {
+    if (node.type.name === 'heading') {
+      const level = node.attrs.level;
+      const text = node.textContent.trim();
+      const index = (seen[text] = (seen[text] || 0) + 1);
+      const key = level + ':' + text + ':' + index;
+      if (foldedUntilLevel !== Infinity && level > foldedUntilLevel) {
+        decorations.push(Decoration.node(pos, pos + node.nodeSize, { class: 'is-folded' }));
+        return true;
+      }
+      foldedUntilLevel = Infinity;
+      if (foldedHeadings.has(key)) {
+        foldedUntilLevel = level;
+        decorations.push(Decoration.node(pos, pos + node.nodeSize, { class: 'is-folded-heading' }));
+      }
+      return true;
+    }
+    if (foldedUntilLevel !== Infinity) {
+      decorations.push(Decoration.node(pos, pos + node.nodeSize, { class: 'is-folded' }));
+    }
+    return true;
+  });
+  return DecorationSet.create(doc, decorations);
+}
+
+const HeadingFold = Extension.create({
+  name: 'mdpadHeadingFold',
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        props: {
+          decorations(state) {
+            return foldDecorations(state.doc);
+          },
+        },
+      }),
+    ];
+  },
+});
+
 // A soft highlight for the block the caret is in. It steps aside when focus mode is on: that
 // mode already dims everything else, and stacking both would make the text muddy.
 let highlightParagraphEnabled = false;
@@ -684,6 +738,7 @@ const editor = new Editor({
   extensions: [
     FocusDecoration,
       ParagraphHighlight,
+      HeadingFold,
     StarterKit.configure({ codeBlock: false, link: false, heading: { levels: [1, 2, 3, 4, 5, 6] } }),
     // Pasting a URL over a selection should link that selection instead of replacing it.
     Link.configure({ openOnClick: false, autolink: true, linkOnPaste: true }),
@@ -2061,6 +2116,76 @@ document.addEventListener('mousedown', (event) => {
 window.addEventListener('blur', () => closeSlashMenu({ suppress: true }));
 
 // The editable area is a multiline textbox; name it so it is not announced as just "edit".
+function headingKeyAtCursor() {
+  const { $from } = editor.state.selection;
+  for (let depth = $from.depth; depth >= 0; depth -= 1) {
+    const node = $from.node(depth);
+    if (node.type.name === 'heading') {
+      const index = editor.state.doc.textBetween(0, $from.before(depth), '\n', '\n').split('\n')
+        .filter((line) => line.trim()).length;
+      // count earlier headings with the same text so duplicates fold independently
+      let seen = 0;
+      const text = node.textContent.trim();
+      editor.state.doc.descendants((candidate, pos) => {
+        if (pos >= $from.before(depth)) return false;
+        if (candidate.type.name === 'heading' && candidate.textContent.trim() === text) seen += 1;
+        return true;
+      });
+      return node.attrs.level + ':' + text + ':' + (seen + 1);
+    }
+  }
+  return null;
+}
+
+function redrawFolds() {
+  editor.view.dispatch(editor.state.tr.setMeta('mdpadFold', Date.now()));
+}
+
+function toggleHeadingFold() {
+  const key = headingKeyAtCursor();
+  if (!key) {
+    flash('Put the caret in a heading to fold it');
+    return false;
+  }
+  if (foldedHeadings.has(key)) foldedHeadings.delete(key);
+  else foldedHeadings.add(key);
+  redrawFolds();
+  persistFolds();
+  return foldedHeadings.has(key);
+}
+
+function persistFolds() {
+  if (!foldedOwner) return;
+  const current = readSettingsCache && readSettingsCache.foldedHeadings ? readSettingsCache.foldedHeadings : {};
+  const next = { ...current, [foldedOwner]: [...foldedHeadings] };
+  window.api.setSettings({ foldedHeadings: next }).catch(() => {});
+}
+
+function restoreFoldsFor(file) {
+  foldedOwner = file || 'untitled';
+  foldedHeadings.clear();
+  const apply = (settings) => {
+    const all = settings && settings.foldedHeadings && typeof settings.foldedHeadings === 'object' ? settings.foldedHeadings : {};
+    for (const key of all[foldedOwner] || []) foldedHeadings.add(key);
+    if (editor && editor.view) redrawFolds();
+  };
+  if (readSettingsCache) {
+    apply(readSettingsCache);
+    return;
+  }
+  // First document of a session may load before the settings broadcast arrives.
+  window.api
+    .getSettings()
+    .then((settings) => {
+      readSettingsCache = settings;
+      apply(settings);
+    })
+    .catch(() => {});
+}
+
+// A cache of the last settings the shell received, so fold state can be saved without another round trip.
+let readSettingsCache = null;
+
 function labelEditor() {
   const dom = editor && editor.view ? editor.view.dom : null;
   if (!dom) return;
@@ -6843,6 +6968,7 @@ statsModal.addEventListener('click', (event) => {
 
 const actions = {
   palette: () => openPalette(),
+  foldHeading: () => toggleHeadingFold(),
   new: async () => { await flushChange(); return window.api.newDoc(); },
   open: async () => { await flushChange(); return window.api.open(); },
   save: () => saveDocument(),
@@ -6954,6 +7080,7 @@ function applyRemoteSettings(settings) {
   applyAppearance(settings);
   applyFilesCollapsed(Boolean(settings.filesCollapsed));
   applyFindOptions?.();
+  readSettingsCache = settings;
   typewriterEnabled = settings.typewriter === true;
   editor.view.dom.classList.toggle('typewriter', typewriterEnabled);
 }
@@ -7001,6 +7128,7 @@ window.api.onLoaded(async ({ id, file, contents, draft }) => {
     const loadStartedAt = performance.now();
     await setMarkdownProgressive(contents);
     markLargeDocument();
+    restoreFoldsFor(file);
     lastLoadTiming = {
       renderMs: Math.round(performance.now() - loadStartedAt),
       chars: contents.length,
@@ -7770,6 +7898,17 @@ window.__mdpad = {
     } catch (err) {
       return { ok: false, error: err && err.message ? err.message : String(err) };
     }
+  },
+  headingFoldState: () => ({
+    folded: [...foldedHeadings],
+    hidden: document.querySelectorAll('.tiptap .is-folded').length,
+    marked: document.querySelectorAll('.tiptap .is-folded-heading').length,
+    owner: foldedOwner,
+  }),
+  toggleHeadingFold: () => toggleHeadingFold(),
+  restoreFoldsFor: (file) => {
+    restoreFoldsFor(file);
+    return [...foldedHeadings];
   },
   hintState: () => ({
     visible: !document.querySelector('#hint-bar').hidden,
