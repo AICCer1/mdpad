@@ -542,3 +542,11 @@ Because it dispatches before the normal restore, it performs `planRestore` itsel
 phase would report an empty session. `upgrade-check.js` installs, seeds `settings.json`,
 `session.json` and `draftsRecover/<hash>.json`, runs the installed exe, then reinstalls and compares
 profile hashes. It runs in `npm run ship` after the install check.
+
+## Copy audit
+
+`scripts/copy-audit.js` loads `src/i18n.js` in a sandbox, audits both dictionaries and powers
+`test/copy.test.js`. Rules: key parity, placeholder parity, no `...`, no leading/trailing/double
+spaces, no CJK in English (the `presetZh` label excepted), no unexplained Latin prose in Chinese
+(technical terms and placeholders stripped first), and Title Case for short English menu labels
+with articles and the brand as stop words.

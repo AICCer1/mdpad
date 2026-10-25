@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.86.0
+
+The copy is audited now.
+
+- **`npm run copy-audit`** checks both dictionaries: key parity, matching `{placeholders}`, `…` instead
+  of `...`, no stray whitespace, no Latin prose left inside Chinese text, Title Case for short English
+  menu labels (articles and the brand excepted). **Zero problems remain** after fixing what it found.
+- **Nine menu labels were normalised**: "Focus Mode", "Full Screen", "Split into Two Windows", "Merge
+  the Split Windows", "Copy Diagnostics", "Open Log Folder", "Welcome Guide", "Extract Embedded
+  Images…", "Show All Recent Files…".
+- The rules run in `node --test` (four new tests, including one that feeds the audit broken copy to
+  prove it fails), so a missing translation or a mismatched placeholder breaks the build.
+- Two false-positive rounds shaped the rules: placeholders and technical terms (`tokens`, `CSS`,
+  `http://`, font names) were being flagged as "Latin in Chinese", and title-case checking flagged
+  "About mdpad" and "Check for Updates…" until articles and the brand became stop words.
+- 324 smoke checks, 171 unit tests.
+
 ## 1.85.0
 
 Upgrades keep the profile.

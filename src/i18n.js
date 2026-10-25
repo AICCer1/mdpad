@@ -748,7 +748,7 @@ Object.assign(DICT.zh, {
 });
 
 Object.assign(DICT.en, {
-  'menu.focusMode': 'Focus mode',
+  'menu.focusMode': 'Focus Mode',
 });
 
 Object.assign(DICT.zh, {
@@ -812,7 +812,7 @@ Object.assign(DICT.zh, {
 });
 
 Object.assign(DICT.en, {
-  'menu.fullscreen': 'Full screen',
+  'menu.fullscreen': 'Full Screen',
 });
 
 Object.assign(DICT.zh, {
@@ -936,7 +936,7 @@ Object.assign(DICT.zh, {
 });
 
 Object.assign(DICT.en, {
-  'menu.split': 'Split into two windows',
+  'menu.split': 'Split into Two Windows',
   'menu.splitNeedsFile': 'Save the document first, then split it into two windows.',
   'palette.split': 'Split into two windows',
 });
@@ -956,7 +956,7 @@ Object.assign(DICT.zh, {
 });
 
 Object.assign(DICT.en, {
-  'menu.unsplit': 'Merge the split windows',
+  'menu.unsplit': 'Merge the Split Windows',
   'palette.unsplit': 'Merge the split windows',
 });
 
@@ -990,8 +990,8 @@ Object.assign(DICT.zh, {
 });
 
 Object.assign(DICT.en, {
-  'menu.copyDiagnostics': 'Copy diagnostics',
-  'menu.openLogFolder': 'Open log folder',
+  'menu.copyDiagnostics': 'Copy Diagnostics',
+  'menu.openLogFolder': 'Open Log Folder',
   'settings.diagnostics': 'Copy diagnostics',
   'settings.diagnosticsHint': 'Version, paths and the last log lines, for a bug report.',
   'settings.diagnosticsCopied': 'Diagnostics copied to the clipboard',
@@ -1014,7 +1014,7 @@ Object.assign(DICT.en, {
   'empty.export': 'Export',
   'empty.exportHint': 'PDF, Word, HTML, EPUB and images',
   'empty.skip': 'Skip the guide',
-  'menu.welcome': 'Welcome guide',
+  'menu.welcome': 'Welcome Guide',
 });
 
 Object.assign(DICT.zh, {
@@ -1070,7 +1070,7 @@ Object.assign(DICT.zh, {
 });
 
 Object.assign(DICT.en, {
-  'menu.extractImages': 'Extract embedded images…',
+  'menu.extractImages': 'Extract Embedded Images…',
   'dialog.extractTitle': 'Embedded images',
   'dialog.extractNone': 'This document has no embedded images to extract.',
   'dialog.extracted': 'Moved {count} image(s) to assets/',
@@ -1092,7 +1092,7 @@ Object.assign(DICT.en, {
   'recent.clear': 'Clear list',
   'recent.clearConfirm': 'Remove every entry from the recent list? The files stay on disk.',
   'recent.gone': 'That file no longer exists',
-  'menu.recentAll': 'Show all recent files…',
+  'menu.recentAll': 'Show All Recent Files…',
   'palette.recent': 'Recent files…',
 });
 
@@ -1112,7 +1112,7 @@ Object.assign(DICT.zh, {
 module.exports = { t, normalizeLang, LANGS, DICT };
 
 Object.assign(DICT.en, {
-  'menu.fullscreen': 'Full screen',
+  'menu.fullscreen': 'Full Screen',
   'settings.font': 'Editor font',
   'settings.width': 'Text width',
   'settings.accent': 'Accent colour',
