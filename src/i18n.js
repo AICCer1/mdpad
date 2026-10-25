@@ -1308,3 +1308,22 @@ Object.assign(DICT.zh, {
   'export.scopeNoSection': '请把光标放在标题里，才能导出该章节。',
   'export.scopeAt': '只导出「{title}」及其下的内容。',
 });
+
+Object.assign(DICT.en, {
+  'export.copyPath': 'Copy path',
+  'export.copied': 'Path copied',
+  'export.openFailed': 'Could not open the file: {reason}',
+  'export.revealFailed': 'Could not open the folder: {reason}',
+  'export.done': 'Exported {name}',
+  'export.open': 'Open',
+  'export.reveal': 'Show in folder',
+});
+Object.assign(DICT.zh, {
+  'export.copyPath': '复制路径',
+  'export.copied': '路径已复制',
+  'export.openFailed': '无法打开文件：{reason}',
+  'export.revealFailed': '无法打开文件夹：{reason}',
+  'export.done': '已导出 {name}',
+  'export.open': '打开',
+  'export.reveal': '在文件夹中显示',
+});

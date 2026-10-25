@@ -3342,10 +3342,7 @@ async function saveStructureReport(report) {
   const base = audit.file ? audit.file.split(/[\\/]/).pop().replace(/\.[^.]+$/, '') : 'document';
   const result = await window.api.saveReport(built.text, base + '-structure.md', summary);
   if (result && result.ok) {
-    flash('Report saved: ' + (result.path || '').split(/[\\/]/).pop());
-    showToast('Structure report saved', 4000, [
-      { label: 'Show in folder', run: () => window.api.revealExportedFile(result.path) },
-    ]);
+      exportActionToast(result.path, 'Structure report');
   } else if (result && result.error) {
     flash('Could not save the report: ' + result.error);
   }
@@ -3420,9 +3417,7 @@ async function exportStats(kind) {
   const payload = await statsPayload();
   const content = kind === 'md' ? statsMarkdown(payload) : statsCsv(payload);
   const result = await window.api.statsSave(content, statsFileName(kind === 'md' ? 'md' : 'csv'));
-  if (result && result.ok) showToast(t('stats.saved', lang), 4000, [
-    { label: 'Show in folder', run: () => window.api.revealExportedFile(result.path) },
-  ]);
+  if (result && result.ok) exportActionToast(result.path);
   else if (result && result.error) flash(result.error);
   return result;
 }
@@ -3479,9 +3474,7 @@ async function exportSection(format) {
   }
   const result = await window.api.exportSection(section.markdown, format);
   if (result && result.exported) {
-    showToast('Section exported', 4000, [
-      { label: 'Show in folder', run: () => window.api.revealExportedFile(result.path) },
-    ]);
+    exportActionToast(result.path);
   } else if (result && result.reason && result.reason !== 'canceled') {
     flash(result.reason);
   }
@@ -7347,7 +7340,42 @@ function showToast(text, ms = 3800, actions = []) {
   }, ms);
 }
 
-// After an export, offer to open the file or reveal it, the way Typora does.
+// After an export, offer the three things people do next: open, reveal, copy the path.
+// One toast for every finished export, with the three things people actually do next. Each action
+// reports its own failure: a missing file or a locked folder must not look like success.
+async function runExportAction(action, target) {
+  if (action === 'open') {
+    const result = await window.api.openExportedFile(target);
+    if (!result || !result.opened) {
+      const reason = result && result.error ? result.error : result && result.reason === 'missing' ? 'file not found' : 'unknown error';
+      flash(t('export.openFailed', lang, { reason }));
+      return { ok: false, reason };
+    }
+    return { ok: true };
+  }
+  if (action === 'reveal') {
+    const result = await window.api.revealExportedFile(target);
+    if (!result || !result.shown) {
+      const reason = result && result.reason === 'missing' ? 'file not found' : 'unknown error';
+      flash(t('export.revealFailed', lang, { reason }));
+      return { ok: false, reason };
+    }
+    return { ok: true };
+  }
+  await window.api.clipboardWrite(String(target));
+  flash(t('export.copied', lang));
+  return { ok: true };
+}
+
+function exportActionToast(target, name) {
+  const label = name || String(target).split(/[\\/]/).pop();
+  showToast(t('export.done', lang, { name: label }), 9000, [
+    { label: t('export.open', lang), run: () => runExportAction('open', target) },
+    { label: t('export.reveal', lang), run: () => runExportAction('reveal', target) },
+    { label: t('export.copyPath', lang), run: () => runExportAction('copy', target) },
+  ]);
+}
+
 window.api.onExported((payload) => {
   if (!payload || !payload.path) return;
   const name = String(payload.path).split(/[\\/]/).pop();
@@ -8040,6 +8068,14 @@ window.__mdpad = {
     count: (row.querySelector('.outline-words') || {}).textContent || '',
   })),
   sectionMarkdown: () => sectionMarkdown(),
+  exportActions: (target) => ({
+    labels: [...document.querySelectorAll('#toast .toast-action')].map((button) => button.textContent),
+    run: (action) => runExportAction(action, target),
+  }),
+  exportActionToast: (target, name) => {
+    exportActionToast(target, name);
+    return [...document.querySelectorAll('#toast .toast-action')].map((button) => button.textContent);
+  },
   exportScopeState: () => ({
     scope: exportScope,
     hint: (document.querySelector('#export-scope-hint') || {}).textContent || '',

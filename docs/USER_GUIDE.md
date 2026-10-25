@@ -387,6 +387,12 @@ The statistics panel has **Export CSV** and **Export Markdown**. Both include th
 the structure issues and the last fourteen days of writing, so a journal of progress can be kept
 outside the app.
 
+### After an export
+
+The toast that follows an export has three buttons: **Open** (in your default app), **Show in folder**
+and **Copy path**. If the file has been moved or the folder cannot be opened, the status line says so
+instead of silently doing nothing.
+
 ### Choosing what to export
 
 The export panel starts at **Range: Whole document**. Switch to **Current section** to export only the

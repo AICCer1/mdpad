@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 338 end-to-end checks against a real window
+npm run smoke          # 339 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -647,3 +647,9 @@ Both paths share one `handleChange` so the policy rules cannot diverge. `stopWat
 the section button when `sectionMarkdown()` returns null. `runExport` routes section + file formats to
 `exportSection`, which reuses the `export:section` dialog and `contentsOverride` exporter path. Preview
 still renders the whole document — it is a design preview, not a range-aware export.
+
+## Export actions
+
+`exportActionToast(path, name)` is the single toast for every export; `runExportAction` handles open,
+reveal and copy and returns `{ ok, reason }`, flashing a translated message on failure. The smoke check
+calls it against a real file and a missing one, and checks the clipboard.

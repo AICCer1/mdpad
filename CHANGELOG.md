@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.0.2
+
+An export ends with something you can act on.
+
+- **Every finished export offers Open, Show in folder and Copy path** — documents, sections, statistics
+  and structure reports now share one toast instead of four different ones, two of which only offered
+  "Show in folder" and one of which flashed a name and nothing else.
+- **Actions report their own failure**: a moved file says "Could not open the file: file not found", a
+  folder that cannot be revealed says so, instead of the click appearing to work.
+- **The 50k-character edit check no longer measures luck**: it takes the median of five inserts (with a
+  generous ceiling on the slowest), because a single cold insert after an install could read 445 ms on a
+  machine that settles at 240 ms.
+- 339 smoke checks (one new: `export-actions` asserts the three buttons, that Copy puts the real path on
+  the clipboard, that Open works for an existing file and that both failure messages appear), 174 unit
+  tests.
+
 ## 2.0.1
 
 Documentation that cannot drift.
