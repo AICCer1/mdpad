@@ -13701,6 +13701,62 @@ async function runSmoke() {
     }
   );
 
+  // 169. the export panel can narrow the export to the section at the caret
+  const exportScopeTest = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'export-scope.md');
+    fs.writeFileSync(doc, ['# Book', '', '## Intro', '', 'intro text here', '', '## Methods', '', 'methods text here', ''].join(nl), 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('methods text')");
+      if (ready === true) break;
+    }
+    await sleep(400);
+    await jsOf("window.__mdpad.openExportPanel ? window.__mdpad.openExportPanel('html') : document.querySelector('#export-html').click()");
+    await sleep(500);
+    const initial = await jsOf('window.__mdpad.exportScopeState()');
+    await jsOf("window.__mdpad.focusHeading('Intro')");
+    const sectionState = await jsOf("window.__mdpad.setExportScope('section')");
+    const narrowed = await jsOf('window.__mdpad.exportScopeState()');
+    // the hint names the section
+    const hint = narrowed.hint;
+    // and the exported file only contains that section
+    const out = path.join(dir, 'scope-section.html');
+    const exported = await jsOf(
+      `window.api.exportSectionTo(${JSON.stringify(out)}, window.__mdpad.sectionMarkdown().markdown, 'html')`
+    );
+    const html = fs.existsSync(out) ? fs.readFileSync(out, 'utf8') : '';
+    await jsOf("window.__mdpad.setExportScope('document')");
+    const restored = await jsOf('window.__mdpad.exportScopeState()');
+    await jsOf("document.querySelector('#export-modal').hidden = true");
+    return { initial, sectionState, narrowed, hint, exported, html, restored };
+  })();
+  step(
+    'export-scope',
+    exportScopeTest.initial &&
+      exportScopeTest.initial.scope === 'document' &&
+      exportScopeTest.initial.active.join() === 'document' &&
+      exportScopeTest.sectionState === 'section' &&
+      exportScopeTest.narrowed.scope === 'section' &&
+      exportScopeTest.narrowed.active.join() === 'section' &&
+      /Intro/.test(exportScopeTest.hint) &&
+      exportScopeTest.exported &&
+      exportScopeTest.exported.exported === true &&
+      /intro text here/.test(exportScopeTest.html) &&
+      !/methods text here/.test(exportScopeTest.html) &&
+      exportScopeTest.restored.scope === 'document' &&
+      exportScopeTest.restored.active.join() === 'document',
+    {
+      initial: exportScopeTest.initial,
+      narrowed: exportScopeTest.narrowed,
+      hint: exportScopeTest.hint,
+      exported: exportScopeTest.exported,
+    }
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

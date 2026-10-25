@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 337 end-to-end checks against a real window
+npm run smoke          # 338 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -640,3 +640,10 @@ The counts are skipped above ~600k characters.
 `watchDocument` keeps the `fs.watch` handle and adds a two-second `stat` poll of the same file: on
 network drives and after long runs the handle can go quiet, and a clean buffer would then never reload.
 Both paths share one `handleChange` so the policy rules cannot diverge. `stopWatching` closes both.
+
+## Export range
+
+`exportScope` is module state in the panel; `setExportScope` updates the segmented control and disables
+the section button when `sectionMarkdown()` returns null. `runExport` routes section + file formats to
+`exportSection`, which reuses the `export:section` dialog and `contentsOverride` exporter path. Preview
+still renders the whole document — it is a design preview, not a range-aware export.

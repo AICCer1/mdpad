@@ -387,6 +387,12 @@ The statistics panel has **Export CSV** and **Export Markdown**. Both include th
 the structure issues and the last fourteen days of writing, so a journal of progress can be kept
 outside the app.
 
+### Choosing what to export
+
+The export panel starts at **Range: Whole document**. Switch to **Current section** to export only the
+heading at the caret and what is under it; the hint under the switch names that heading, and the
+option says so when the caret is not in one. The new tab shows "Exported" with a path you can open.
+
 ### Exporting one section
 
 Put the caret in a heading, open the palette and pick **Export section as HTML** or **PDF**: that

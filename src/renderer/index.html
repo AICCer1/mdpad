@@ -346,6 +346,14 @@
       <div class="modal-title" data-i18n="export.title">Export</div>
       <div class="export-grid">
         <div class="export-fields">
+            <div class="field">
+              <label data-i18n="export.scope">Range</label>
+              <div class="segmented" id="export-scope" role="group">
+                <button type="button" data-scope="document" class="is-active" data-i18n="export.scopeDocument">Whole document</button>
+                <button type="button" data-scope="section" data-i18n="export.scopeSection">Current section</button>
+              </div>
+              <div id="export-scope-hint" class="name-hint"></div>
+            </div>
           <div class="field">
             <label data-i18n="export.format">Format</label>
             <div class="segmented" id="export-format" role="group">

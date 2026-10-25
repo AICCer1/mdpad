@@ -361,6 +361,28 @@ function setExportFormat(format) {
   refreshExportSummary();
 }
 
+// The panel owns the range so a section export does not have to be remembered from the palette.
+let exportScope = 'document';
+
+function setExportScope(scope) {
+  exportScope = scope === 'section' ? 'section' : 'document';
+  for (const button of document.querySelectorAll('#export-scope button')) {
+    const active = button.dataset.scope === exportScope;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  }
+  const hint = document.querySelector('#export-scope-hint');
+  const section = exportScope === 'section' ? sectionMarkdown() : null;
+  const sectionButton = document.querySelector('#export-scope button[data-scope="section"]');
+  if (sectionButton) sectionButton.disabled = exportScope === 'section' ? false : !sectionMarkdown();
+  if (hint) {
+    if (exportScope === 'section' && section) hint.textContent = t('export.scopeAt', lang, { title: section.title });
+    else if (exportScope === 'section') hint.textContent = t('export.scopeNoSection', lang);
+    else hint.textContent = '';
+  }
+  return exportScope;
+}
+
 async function openExportPanel(format = 'pdf') {
   const settings = await window.api.getSettings();
   document.querySelector('#export-template').value = settings.exportTemplate || 'default';
@@ -397,6 +419,9 @@ async function saveExportPanelSettings() {
 }
 
 async function runExport(kind) {
+  if (exportScope === 'section' && ['html', 'pdf', 'docx', 'epub'].includes(kind)) {
+    return exportSection(kind);
+  }
   await publishExportDiagrams();
   if (kind === 'html') return window.api.exportHtml();
   if (kind === 'pdf') return window.api.exportPdf();
@@ -8015,6 +8040,13 @@ window.__mdpad = {
     count: (row.querySelector('.outline-words') || {}).textContent || '',
   })),
   sectionMarkdown: () => sectionMarkdown(),
+  exportScopeState: () => ({
+    scope: exportScope,
+    hint: (document.querySelector('#export-scope-hint') || {}).textContent || '',
+    active: [...document.querySelectorAll('#export-scope button')].filter((b) => b.classList.contains('is-active')).map((b) => b.dataset.scope),
+    sectionDisabled: (document.querySelector('#export-scope button[data-scope=\"section\"]') || {}).disabled === true,
+  }),
+  setExportScope: (scope) => setExportScope(scope),
   exportSection: (format) => exportSection(format),
   headingFoldState: () => ({
     folded: [...foldedHeadings],

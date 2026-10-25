@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.0.0
+
+The export panel learns to narrow its scope — and a silent watcher failure is fixed.
+
+- **The export panel has a range switch**: whole document or the section at the caret, with the
+  heading named in a hint and the section option politely unavailable outside a heading. Every format
+  follows it; a section export is no longer something only the palette knows about.
+- **External changes are detected even when `fs.watch` goes quiet** (from 1.99.0): a stat poll runs
+  beside the handle and both paths share one handler, so ask/auto/ignore cannot diverge.
+- **Sections export on their own** (1.99.0): fenced code cannot split a section, duplicate titles are
+  matched by occurrence, and the session buffer is untouched.
+- 338 smoke checks, 171 unit tests, and the packaged pipeline still passes crash, first-run, restart,
+  install and upgrade before the installer is published.
+
 ## 1.99.0
 
 Export one section, and never miss an external change.

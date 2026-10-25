@@ -1293,3 +1293,18 @@ Object.assign(DICT.zh, {
 
 Object.assign(DICT.en, { 'menu.foldHeading': 'Fold / Unfold Heading' });
 Object.assign(DICT.zh, { 'menu.foldHeading': '折叠 / 展开标题' });
+
+Object.assign(DICT.en, {
+  'export.scope': 'Range',
+  'export.scopeDocument': 'Whole document',
+  'export.scopeSection': 'Current section',
+  'export.scopeNoSection': 'Put the caret in a heading to export that section.',
+  'export.scopeAt': 'Only “{title}” and what is under it.',
+});
+Object.assign(DICT.zh, {
+  'export.scope': '范围',
+  'export.scopeDocument': '整篇文档',
+  'export.scopeSection': '当前章节',
+  'export.scopeNoSection': '请把光标放在标题里，才能导出该章节。',
+  'export.scopeAt': '只导出「{title}」及其下的内容。',
+});
