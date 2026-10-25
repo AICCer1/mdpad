@@ -341,6 +341,13 @@ Set **Settings → Daily word goal** to a number (0 turns it off). The status ba
 first time it happens that day. Only words you add count: deleting a paragraph does not reduce the
 day's total, so the number reflects writing effort rather than the current size of the file.
 
+## Writing history
+
+Click the "Today … / …" indicator in the status bar (or use the palette) to see the last 14 days
+as bars, with your streak and your best day. Bars turn the accent colour on days that met the
+goal. The streak counts backwards from today — or from yesterday, so writing late at night is not
+punished — and stops at the first day that missed.
+
 ## Current paragraph highlight
 
 Settings → Appearance → **Highlight the current paragraph** gives the block you are editing a faint

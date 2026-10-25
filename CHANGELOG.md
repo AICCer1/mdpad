@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.77.0
+
+Fourteen days of writing, at a glance.
+
+- **Click the goal indicator** (or use the palette) for a bar chart of the last 14 days, with the
+  streak, the best day and the total; bars turn accent-coloured on days that met the goal.
+- **The rules are a pure module** (`src/writing.js`) with seven unit tests: a gap stops the streak, a
+  missing today falls back to yesterday (writing late at night is not punished), junk values are
+  ignored instead of producing `NaN`, and with no goal any day with words counts.
+- 319 smoke checks (one new: `writing-history` records 140 words, opens the panel and asserts 14
+  bars, the summary, the reached colour and the last bar's tooltip), 167 unit tests.
+
 ## 1.76.0
 
 A daily writing goal.

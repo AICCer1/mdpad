@@ -113,6 +113,7 @@ contextBridge.exposeInMainWorld('api', {
   docStructure: () => ipcRenderer.invoke('doc:structure'),
   writingRecord: (key, words) => ipcRenderer.invoke('writing:record', { key, words }),
   writingStats: () => ipcRenderer.invoke('writing:stats'),
+  writingHistory: () => ipcRenderer.invoke('writing:history'),
   writingReset: () => ipcRenderer.invoke('writing:reset'),
   saveReport: (content, suggestedName, summary) => ipcRenderer.invoke('report:save', { content, suggestedName, summary }),
   writeReportTo: (path, content, summary) => ipcRenderer.invoke('report:write', { path, content, summary }),

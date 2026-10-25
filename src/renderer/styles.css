@@ -2375,3 +2375,12 @@ html.table-dragging-column, html.table-dragging-column * { cursor: col-resize !i
 /* ---- daily writing goal ---- */
 #writing-status { color: var(--muted); font-variant-numeric: tabular-nums; }
 #writing-status.is-reached { color: var(--accent); }
+
+/* ---- writing history ---- */
+.writing-history-card { width: 520px; }
+.writing-history-bars { display: flex; align-items: flex-end; gap: 6px; height: 160px; padding: 8px 2px 0; }
+.writing-history-day { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 6px; }
+.writing-history-bar { width: 100%; background: var(--line); border-radius: 3px 3px 0 0; }
+.writing-history-day.is-reached .writing-history-bar { background: var(--accent); }
+.writing-history-label { font-size: 9.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+#writing-status { cursor: pointer; }

@@ -2880,6 +2880,44 @@ editor.on('selectionUpdate', () => {
 editor.on('update', updateActiveBlock);
 
 
+// ---- writing history ---------------------------------------------------------
+
+async function openWritingHistory() {
+  const modal = document.querySelector('#writing-history');
+  const bars = document.querySelector('#writing-history-bars');
+  const summary = document.querySelector('#writing-history-summary');
+  const history = await window.api.writingHistory();
+  const peak = Math.max(1, ...history.days.map((day) => day.words));
+  summary.textContent =
+    history.total + ' words in 14 days · ' + history.streak + ' day streak · best ' + history.best +
+    (history.goal ? ' · goal ' + history.goal : '');
+  bars.textContent = '';
+  for (const day of history.days) {
+    const column = document.createElement('div');
+    column.className = 'writing-history-day' + (day.reached ? ' is-reached' : '');
+    const bar = document.createElement('div');
+    bar.className = 'writing-history-bar';
+    const height = day.words ? Math.max(4, Math.round((day.words / peak) * 100)) : 2;
+    bar.style.height = height + '%';
+    bar.title = day.date + ': ' + day.words + ' words';
+    const label = document.createElement('span');
+    label.className = 'writing-history-label';
+    label.textContent = day.date.slice(5);
+    column.append(bar, label);
+    bars.append(column);
+  }
+  modal.hidden = false;
+}
+
+document.querySelector('#writing-history-close')?.addEventListener('click', () => {
+  document.querySelector('#writing-history').hidden = true;
+});
+
+// clicking the goal indicator opens the history
+document.querySelector('#writing-status')?.addEventListener('click', () => {
+  openWritingHistory();
+});
+
 // ---- structure report --------------------------------------------------------
 
 // Set a heading's level by index, keeping its text and any marks on it.
@@ -7269,6 +7307,16 @@ window.__mdpad = {
     return out;
   },
   writingState: () => window.api.writingStats(),
+  openWritingHistory: () => openWritingHistory().then(() => window.__mdpad.writingHistoryState()),
+  writingHistoryState: () => ({
+    open: !document.querySelector('#writing-history').hidden,
+    summary: document.querySelector('#writing-history-summary').textContent,
+    days: [...document.querySelectorAll('#writing-history-bars .writing-history-day')].map((node) => ({
+      reached: node.classList.contains('is-reached'),
+      height: node.querySelector('.writing-history-bar').style.height,
+      title: node.querySelector('.writing-history-bar').title,
+    })),
+  }),
   recordWritingNow: () => recordWriting(),
   refreshWriting: () => refreshWritingStatus(),
   setParagraphHighlight: (on) => {

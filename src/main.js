@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const storage = require('./storage');
+const { buildHistory: buildWritingHistory } = require('./writing');
 const exporter = require('./exporter');
 const markdown = require('./markdown');
 const { toDocx } = require('./exporters/docx');
@@ -1862,6 +1863,12 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
   });
 
   ipcMain.handle('writing:stats', () => writingSummary(readWriting()));
+
+  ipcMain.handle('writing:history', () => {
+    const data = readWriting();
+    const goal = Number(readSettings().writingGoal) || 0;
+    return buildWritingHistory(data.days, goal);
+  });
 
   ipcMain.handle('writing:reset', () => {
     writeWriting({ days: {}, last: {}, goalDay: null });
@@ -12411,6 +12418,47 @@ async function runSmoke() {
       /Today \d+ \/ 100 words/.test(writingGoal.statusText) &&
       writingGoal.statusText.includes('Today ' + writingGoal.reached.today + ' / 100'),
     writingGoal
+  );
+
+  // 150. writing history shows 14 days and a streak built from the ledger
+  const writingHistory = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    await jsOf('window.api.writingReset()');
+    await jsOf("window.api.setSettings({ writingGoal: 100 })");
+    const doc = path.join(dir, 'writing-history.md');
+    fs.writeFileSync(doc, '# History' + String.fromCharCode(10), 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('History')");
+      if (ready === true) break;
+    }
+    await jsOf('window.__mdpad.recordWritingNow()');
+    const words = Array.from({ length: 140 }, (_, index) => 'w' + index).join(' ');
+    await jsOf(`window.__mdpad.applyMarkdown('# History' + String.fromCharCode(10) + String.fromCharCode(10) + ${JSON.stringify(words)})`);
+    await sleep(400);
+    await jsOf('window.__mdpad.recordWritingNow()');
+    await sleep(300);
+    const panel = await jsOf('window.__mdpad.openWritingHistory()');
+    await jsOf("window.api.setSettings({ writingGoal: 0 })");
+    await jsOf('window.api.writingReset()');
+    await jsOf("document.querySelector('#writing-history').hidden = true");
+    const last = panel && panel.days[panel.days.length - 1];
+    return { panel, last };
+  })();
+  step(
+    'writing-history',
+    writingHistory.panel &&
+      writingHistory.panel.open === true &&
+      writingHistory.panel.days.length === 14 &&
+      /140 words in 14 days/.test(writingHistory.panel.summary) &&
+      /1 day streak/.test(writingHistory.panel.summary) &&
+      writingHistory.last &&
+      writingHistory.last.reached === true &&
+      /140 words/.test(writingHistory.last.title) &&
+      writingHistory.last.height !== '2%',
+    writingHistory
   );
 
   // 30k. the settings filter narrows the visible fields

@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 318 end-to-end checks against a real window
+npm run smoke          # 319 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -485,3 +485,9 @@ recomputed. The plugin returns `null` while `focusModeEnabled`, so the two highl
 `writing:record` computes the delta against `last`, adds only positive deltas to today, prunes to
 30 days and returns `firstReach` once per day. The renderer records on the debounced stats pass
 (1.2 s), so typing does not write a file per keystroke.
+
+## Writing history
+
+`src/writing.js` holds `buildHistory(days, goal, today)`: 14 entries, streak, best, total. It is
+pure and unit-tested (`test/writing.test.js`, 7 cases) — gaps, a missing today, junk values and the
+no-goal rule. `writing:history` feeds it the ledger; the panel only renders.

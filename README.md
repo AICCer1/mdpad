@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         318 end-to-end checks (dev or packaged)
+npm run smoke         319 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -172,6 +172,12 @@ caret line sits around 45% of the window, instead of drifting to the bottom edge
 Settings → **Daily word goal** turns the status bar into `Today 620 / 800 words`. Only **positive**
 word deltas are counted, so deleting text does not take back words already written; crossing the
 goal raises one toast for the day.
+
+## Writing history
+
+Click the goal indicator (or the palette) for a 14-day bar chart with the streak and the best day;
+bars are accent-coloured on days that met the goal. The rules live in `src/writing.js` and are
+unit-tested: a gap stops the streak, a missing today does not punish writing late at night.
 
 ## Current paragraph highlight
 
