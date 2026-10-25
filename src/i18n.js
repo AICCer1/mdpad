@@ -1343,3 +1343,6 @@ Object.assign(DICT.zh, {
 
 Object.assign(DICT.en, { 'export.pageNumbers': 'Page numbers' });
 Object.assign(DICT.zh, { 'export.pageNumbers': '页码' });
+
+Object.assign(DICT.en, { 'settings.highlightSentence': 'Highlight only the current sentence' });
+Object.assign(DICT.zh, { 'settings.highlightSentence': '只高亮当前句子' });

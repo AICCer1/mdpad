@@ -696,3 +696,11 @@ is threaded through `Session.exportTo`.
 window because `toPdf` destroys its print window and `window-all-closed` would quit the app. Results and
 the batching decision are in `docs/PERFORMANCE.md`. Print files are uniquely named per export, and a
 transient `ERR_FAILED` on load is retried once.
+
+## Sentence bounds
+
+`src/sentence.js` is pure: `sentenceBounds(text, offset)` returns `{from, to, text}` for the sentence
+around an offset inside one block. It treats CJK terminators as immediate ends but requires a space
+after `.` `!` `?`, skips abbreviations and initials, and keeps closing quotes inside the sentence.
+`SentenceHighlight` turns that into an inline decoration (`is-current-sentence`), disabled in focus
+mode like the paragraph highlight.

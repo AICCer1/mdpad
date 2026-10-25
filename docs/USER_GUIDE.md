@@ -175,6 +175,11 @@ folding — it is a reading aid, not an edit.
 
 ## Window position
 
+Under **Settings → Appearance** you can ask for a soft highlight of the current paragraph, or of
+**only the current sentence**. Sentence endings for `.` `!` `?` and the CJK `。！？` are understood,
+and `Dr.` or `J. K.` do not cut a sentence in half.
+
+
 The window reopens at its saved size and place when that place still exists. After unplugging a
 monitor or changing resolution, the window is moved or shrunk into a visible area instead of
 reopening off-screen.

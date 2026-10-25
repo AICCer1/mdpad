@@ -4,6 +4,7 @@
 // serialization sent to the main process, so saving/backup/draft are unchanged.
 
 import { Editor, Extension, markInputRule } from '@tiptap/core';
+import { sentenceBounds } from '../sentence.js';
 import { Plugin, PluginKey, Selection } from '@tiptap/pm/state';
 import { wrapIn, lift } from 'prosemirror-commands';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
@@ -747,6 +748,42 @@ const HeadingFold = Extension.create({
 let highlightParagraphEnabled = false;
 const paragraphHighlightKey = new PluginKey('mdpadParagraphHighlight');
 
+// Sentence highlight: the paragraph is a big target; a writer often wants only the sentence under
+// the caret. Same decoration technique as the paragraph soft highlight.
+const sentenceHighlightKey = new PluginKey('mdpadSentenceHighlight');
+let highlightSentenceEnabled = false;
+
+const SentenceHighlight = Extension.create({
+  name: 'mdpadSentenceHighlight',
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: sentenceHighlightKey,
+        props: {
+          decorations(state) {
+            if (!highlightSentenceEnabled || focusModeEnabled) return null;
+            const { $from } = state.selection;
+            if ($from.depth < 1) return null;
+            const node = $from.parent;
+            if (!node || !node.isTextblock) return null;
+            const bounds = sentenceBounds(node.textContent, $from.parentOffset);
+            if (!bounds) return null;
+            try {
+              return DecorationSet.create(state.doc, [
+                Decoration.inline($from.start() + bounds.from, $from.start() + bounds.to, {
+                  class: 'is-current-sentence',
+                }),
+              ]);
+            } catch {
+              return null;
+            }
+          },
+        },
+      }),
+    ];
+  },
+});
+
 const ParagraphHighlight = Extension.create({
   name: 'mdpadParagraphHighlight',
   addProseMirrorPlugins() {
@@ -822,6 +859,7 @@ const editor = new Editor({
   extensions: [
     FocusDecoration,
       ParagraphHighlight,
+      SentenceHighlight,
       HeadingFold,
     StarterKit.configure({ codeBlock: false, link: false, heading: { levels: [1, 2, 3, 4, 5, 6] } }),
     // Pasting a URL over a selection should link that selection instead of replacing it.
@@ -5480,12 +5518,14 @@ async function openSettings(section = 'appearance') {
   $('#set-spellcheck').checked = settings.spellcheck !== false;
   $('#set-typewriter').checked = settings.typewriter === true;
   $('#set-highlight-paragraph').checked = settings.highlightParagraph === true;
+  const sentenceToggle = $('#set-highlight-sentence');
+  if (sentenceToggle) sentenceToggle.checked = settings.highlightSentence === true;
   $('#set-writing-goal').value = String(Number(settings.writingGoal) || 0);
   $('#set-external-policy').value = ['ask', 'auto', 'ignore'].includes(settings.externalPolicy) ? settings.externalPolicy : 'ask';
   refreshPaletteUsageRow();
   setParagraphHighlight(settings.highlightParagraph === true);
+  setSentenceHighlight(settings.highlightSentence === true);
   typewriterEnabled = settings.typewriter === true;
-  setParagraphHighlight(settings.highlightParagraph === true);
   editor.view.dom.classList.toggle('typewriter', typewriterEnabled);
   $('#set-language').value = normalizeLang(settings.language || 'en');
   $('#set-font').value = FONTS.includes(settings.editorFont) ? settings.editorFont : 'serif';
@@ -5584,6 +5624,7 @@ async function saveSettings() {
     spellcheck: $('#set-spellcheck').checked,
     typewriter: $('#set-typewriter').checked,
     highlightParagraph: $('#set-highlight-paragraph').checked,
+      highlightSentence: document.querySelector('#set-highlight-sentence').checked,
     writingGoal: Number($('#set-writing-goal').value) || 0,
     externalPolicy: $('#set-external-policy').value,
   });
@@ -7287,6 +7328,13 @@ function setParagraphHighlight(on) {
   }
 }
 
+function setSentenceHighlight(on) {
+  highlightSentenceEnabled = on === true;
+  if (editor && editor.view) {
+    editor.view.dispatch(editor.state.tr.setMeta('mdpadSentenceHighlight', on));
+  }
+}
+
 function typewriterFollow() {
   if (!typewriterEnabled || !editorPane) return;
   if (!editor.view.hasFocus || !editor.view.hasFocus()) return;
@@ -8198,6 +8246,11 @@ window.__mdpad = {
     labels: [...document.querySelectorAll('#toast .toast-action')].map((button) => button.textContent),
     run: (action) => runExportAction(action, target),
   }),
+  sentenceHighlightState: () => ({
+    enabled: highlightSentenceEnabled,
+    decorated: [...document.querySelectorAll('.tiptap .is-current-sentence')].map((el) => el.textContent),
+  }),
+  setSentenceHighlight: (on) => setSentenceHighlight(on),
   viewStateFor: (id) => ({
     cursor: editor.state.selection.from,
     scroll: tabScroll.get(id) || 0,

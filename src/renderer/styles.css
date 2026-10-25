@@ -2451,3 +2451,11 @@ html.table-dragging-column, html.table-dragging-column * { cursor: col-resize !i
   align-self: flex-start; border: 0; background: transparent; color: var(--muted);
   font-size: 10.5px; padding: 2px 4px; cursor: pointer; text-decoration: underline;
 }
+
+/* ---- sentence highlight ---- */
+.tiptap .is-current-sentence {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-radius: 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}

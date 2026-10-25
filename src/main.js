@@ -1300,6 +1300,7 @@ const splitPairs = new Map();
 const aiRequests = new Map(); // requestId -> AbortController for in-flight streams
 
 function createWindow({ show = true, restore = null, cascade = 0, bounds: explicitBounds = null } = {}) {
+  const debugConsole = process.env.MDPAD_DEBUG_CONSOLE === '1';
   const savedBounds = restore && restore.bounds ? restore.bounds : null;
   const bounds = explicitBounds || (savedBounds ? fitBounds(savedBounds, screen.getAllDisplays()) : null);
   const cascadeOffset = cascade ? 40 + cascade * 28 : null;
@@ -1445,6 +1446,7 @@ function createWindow({ show = true, restore = null, cascade = 0, bounds: explic
     }
   });
 
+  if (debugConsole) win.webContents.on('console-message', (_e, level, message) => console.log('RENDERER ' + level + ' ' + message));
   win.on('closed', () => {
     sessions.delete(sessionId);
     scheduleSessionSave();
@@ -2435,6 +2437,7 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
     if (patch.spellcheck !== undefined) next.spellcheck = patch.spellcheck === true;
     if (patch.typewriter !== undefined) next.typewriter = patch.typewriter === true;
     if (patch.highlightParagraph !== undefined) next.highlightParagraph = patch.highlightParagraph === true;
+    if (patch.highlightSentence !== undefined) next.highlightSentence = patch.highlightSentence === true;
     if (patch.foldedHeadings && typeof patch.foldedHeadings === 'object') {
       const cleaned = {};
       for (const owner of Object.keys(patch.foldedHeadings).slice(0, 100)) {
@@ -14104,6 +14107,60 @@ async function runSmoke() {
       pageNumbersTest.checkbox.present === true &&
       pageNumbersTest.checkbox.checked === false,
     pageNumbersTest
+  );
+
+  // 175. only the sentence under the caret is highlighted, and it can be switched off
+  const sentenceHighlight = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'sentence-highlight.md');
+    fs.writeFileSync(
+      doc,
+      ['# Sentences', '', 'First sentence here. Second one is longer! Third asks a question?', ''].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('Third asks')");
+      if (ready === true) break;
+    }
+    await sleep(400);
+    await jsOf('window.__mdpad.setSentenceHighlight(true)');
+    const placed = await jsOf(`(() => {
+      const ed = window.__mdpad.editor;
+      let target = null;
+      ed.state.doc.descendants((node, pos) => {
+        if (target !== null) return false;
+        if (node.isTextblock && node.textContent.includes('Second one')) {
+          target = pos + 1 + node.textContent.indexOf('Second') + 4;
+          return false;
+        }
+        return true;
+      });
+      if (target === null) return false;
+      ed.commands.setTextSelection(target);
+      return true;
+    })()`);
+    await sleep(300);
+    const on = await jsOf('window.__mdpad.sentenceHighlightState()');
+    await jsOf('window.__mdpad.setSentenceHighlight(false)');
+    await sleep(200);
+    const off = await jsOf('window.__mdpad.sentenceHighlightState()');
+    return { placed, on, off };
+  })();
+  step(
+    'sentence-highlight',
+    sentenceHighlight.placed === true &&
+      sentenceHighlight.on &&
+      sentenceHighlight.on.enabled === true &&
+      sentenceHighlight.on.decorated.length === 1 &&
+      sentenceHighlight.on.decorated[0] === 'Second one is longer!' &&
+      sentenceHighlight.off &&
+      sentenceHighlight.off.enabled === false &&
+      sentenceHighlight.off.decorated.length === 0,
+    sentenceHighlight
   );
 
   // 30k. the settings filter narrows the visible fields

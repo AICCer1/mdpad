@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.7.0
+
+A quieter highlight: only the sentence you are writing.
+
+- **Settings → Appearance → "Highlight only the current sentence"** highlights the sentence under the
+  caret instead of the whole paragraph, as a soft inline background. It steps aside in focus mode, like
+  the paragraph highlight.
+- **Sentence boundaries are a tested pure helper** (`src/sentence.js`): `.` `!` `?` need a following
+  space, `。！？` end immediately (CJK has no space), closing quotes stay inside, and `Dr.` / `J. K.` /
+  `e.g.` do not split a sentence. Eight unit tests.
+- 344 smoke checks (one new: `sentence-highlight` puts the caret inside the second sentence of a
+  paragraph and asserts exactly that sentence is decorated, then switches the feature off), 191 unit
+  tests.
+
 ## 2.6.0
 
 A hypothesis about PDF batching, tested and rejected.
