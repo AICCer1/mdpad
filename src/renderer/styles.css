@@ -2430,3 +2430,8 @@ html.table-dragging-column, html.table-dragging-column * { cursor: col-resize !i
   font-size: 0.8em;
 }
 .tiptap .is-folded-heading { position: relative; }
+
+/* ---- outline word counts ---- */
+.outline-row { display: flex; align-items: center; gap: 6px; }
+.outline-words { margin-left: auto; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.outline-row:hover .outline-words { color: var(--text); }

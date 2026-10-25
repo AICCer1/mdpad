@@ -13518,6 +13518,61 @@ async function runSmoke() {
     foldSync
   );
 
+  // 167. the outline shows the words in each section, and how many a fold hides
+  const outlineWords = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const introWords = 'one two three four five six seven eight';
+    const methodsWords = 'alpha beta gamma delta';
+    const doc = path.join(dir, 'outline-words.md');
+    fs.writeFileSync(
+      doc,
+      ['# Book', '', '## Intro', '', introWords, '', '### Detail', '', 'extra words here', '', '## Methods', '', methodsWords, ''].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('alpha beta')");
+      if (ready === true) break;
+    }
+    await sleep(600);
+    const rows = await jsOf('window.__mdpad.outlineCounts()');
+    // fold Intro from the outline and read the count again
+    await jsOf(`(() => {
+      const row = document.querySelectorAll('#outline-list .outline-row')[1];
+      const twisty = row && row.querySelector('.outline-twisty');
+      if (twisty) twisty.click();
+    })()`);
+    await sleep(500);
+    const folded = await jsOf('window.__mdpad.outlineCounts()');
+    await jsOf(`(() => {
+      const row = document.querySelectorAll('#outline-list .outline-row')[1];
+      const twisty = row && row.querySelector('.outline-twisty');
+      if (twisty) twisty.click();
+    })()`);
+    return { rows, folded };
+  })();
+  const byText = (rows, text) => (rows || []).find((row) => row.text === text);
+  step(
+    'outline-word-counts',
+    Array.isArray(outlineWords.rows) &&
+      outlineWords.rows.length >= 3 &&
+      byText(outlineWords.rows, 'Intro') &&
+      /12/.test(byText(outlineWords.rows, 'Intro').count) &&
+      /4/.test(byText(outlineWords.rows, 'Methods').count) &&
+      byText(outlineWords.rows, 'Detail') &&
+      /3/.test(byText(outlineWords.rows, 'Detail').count) &&
+      Array.isArray(outlineWords.folded) &&
+      byText(outlineWords.folded, 'Intro') &&
+      /\+4/.test(byText(outlineWords.folded, 'Intro').count),
+    {
+      rows: outlineWords.rows,
+      folded: outlineWords.folded,
+    }
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

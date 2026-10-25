@@ -2707,6 +2707,34 @@ document.addEventListener('drop', async (event) => {
 
 // ---- outline ---------------------------------------------------------------
 
+
+// Words under each heading, excluding the heading line itself. Nested sections are counted from
+// their own heading to the next heading at the same or a shallower level.
+function sectionWords(items, doc) {
+  const inclusive = new Array(items.length).fill(0);
+  const ownBody = new Array(items.length).fill(0);
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index];
+    const node = doc.nodeAt(item.pos);
+    if (!node) continue;
+    const start = item.pos + node.nodeSize;
+    let end = doc.content.size;
+    let childStart = end;
+    for (let next = index + 1; next < items.length; next += 1) {
+      if (items[next].depth <= item.depth) {
+        end = items[next].pos;
+        break;
+      }
+      if (items[next].depth > item.depth && childStart === doc.content.size) childStart = Math.min(childStart, items[next].pos);
+    }
+    const count = (from, to) =>
+      (doc.textBetween(from, Math.max(from, to), ' ', ' ').match(/\S+/g) || []).length;
+    inclusive[index] = count(start, end);
+    ownBody[index] = count(start, Math.min(childStart, end));
+  }
+  return { inclusive, ownBody };
+}
+
 function outlineItems() {
   const items = [];
   editor.state.doc.descendants((node, pos) => {
@@ -2753,6 +2781,8 @@ function markCurrentOutline(at = editor.state.selection.from) {
 function renderOutline() {
   const startedAt = performance.now();
   const items = outlineItems();
+  const showWords = editor.state.doc.content.size < 600000;
+  const wordInfo = showWords ? sectionWords(items, editor.state.doc) : null;
   outlineList.textContent = '';
   // Sections fold: a heading with children gets a twisty; folding hides everything until the next
   // heading of the same or a shallower level.
@@ -2770,6 +2800,7 @@ function renderOutline() {
     const key = item.depth + ':' + item.text.trim() + ':' + seenText[item.text];
     const folded = foldedHeadings.has(key);
     if (folded && hasChildren) skipDeeperThan = item.depth;
+    const hiddenWords = folded && showWords ? Math.max(0, wordInfo.inclusive[index] - wordInfo.ownBody[index]) : 0;
 
     const row = document.createElement('div');
     row.className = 'outline-row';
@@ -2804,6 +2835,17 @@ function renderOutline() {
       if (dom && dom.scrollIntoView) dom.scrollIntoView({ block: 'start', behavior: 'smooth' });
     });
     row.appendChild(link);
+    if (showWords) {
+      const count = document.createElement('span');
+      count.className = 'outline-words';
+      count.textContent = wordInfo.inclusive[index].toLocaleString();
+      count.title = wordInfo.inclusive[index] + ' words under this heading';
+      if (hiddenWords > 0) {
+        count.textContent += ' (+' + hiddenWords.toLocaleString() + ')';
+        count.title += '; ' + hiddenWords + ' hidden by the fold';
+      }
+      row.appendChild(count);
+    }
     outlineList.appendChild(row);
   }
   outlineList.hidden = items.length === 0;
@@ -7907,6 +7949,10 @@ window.__mdpad = {
       return { ok: false, error: err && err.message ? err.message : String(err) };
     }
   },
+  outlineCounts: () => [...document.querySelectorAll('#outline-list .outline-row')].map((row) => ({
+    text: row.querySelector('.outline-item').textContent,
+    count: (row.querySelector('.outline-words') || {}).textContent || '',
+  })),
   headingFoldState: () => ({
     folded: [...foldedHeadings],
     hidden: document.querySelectorAll('.tiptap .is-folded').length,

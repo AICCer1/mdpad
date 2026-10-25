@@ -175,16 +175,15 @@ folding — it is a reading aid, not an edit.
 
 ## Outline
 
-Folding works from either side: the twisty in the outline folds the section in the page, and
-**Ctrl+Shift+H** in the editor updates the outline. Folds are per document and survive a restart,
-so a long manuscript reopens the way you left it.
+The outline lists every heading; click one to jump to it. While you scroll, the heading at the top of
+the window is highlighted, so the outline tells you where you are even when the caret is elsewhere.
 
-### Outline
+Each row shows the **word count under that heading**, and a folded row shows how many words the fold
+hides — "is this chapter too long?" needs no scrolling. Counts are skipped for very large documents.
 
-The outline lists every heading. Click one to jump to it. Headings with children get a **▾ twisty**
-to fold and unfold the section, which keeps a long document's map short. While you scroll, the
-heading at the top of the window is highlighted, so the outline tells you where you are even when
-the caret is elsewhere.
+Headings with children get a twisty: folding works from either side, so the twisty folds the section
+in the page and **Ctrl+Shift+H** in the editor updates the outline. Folds are per document and survive
+a restart, so a long manuscript reopens the way you left it.
 
 ## Block handle
 

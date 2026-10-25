@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.98.0
+
+The outline counts words.
+
+- **Every outline row shows the words under that heading**, and a folded row shows how many the fold is
+  hiding: `2,140 (+980)`. Long sections are visible at a glance without selecting them.
+- Counts are **inclusive** of nested sections, so a parent never looks smaller than its children; the
+  hidden total is the section size minus its own body, which avoids double counting.
+- Skipped above roughly 600k characters, where walking ranges would cost more than the number is worth.
+- 336 smoke checks (one new: `outline-word-counts` asserts the per-section counts, the folded `+4`, and
+  that unfolding no longer shows a hidden total), 171 unit tests.
+
 ## 1.97.0
 
 The outline and the editor share one fold state.

@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 335 end-to-end checks against a real window
+npm run smoke          # 336 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -628,3 +628,10 @@ the state survives edits elsewhere. `persistFolds` writes `foldedHeadings[file]`
 so it matches the editor decorations. The outline twisty calls `redrawFolds()` + `persistFolds()` +
 `renderOutline()`, and `toggleHeadingFold` calls `renderOutline()` so the two views agree in both
 directions. `fold-sync` drives the outline first and then the editor command.
+
+## Outline word counts
+
+`sectionWords(items, doc)` walks the outline once and returns `inclusive` (words from a heading to the
+next heading of the same or shallower level) and `ownBody` (words before its first child heading), so
+a folded row can show `inclusive - ownBody` as the hidden total without double counting nested rows.
+The counts are skipped above ~600k characters.
