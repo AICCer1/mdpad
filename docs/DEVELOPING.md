@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 334 end-to-end checks against a real window
+npm run smoke          # 335 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -621,3 +621,10 @@ folded heading until a heading of the same or shallower level (`is-folded`), and
 itself (`is-folded-heading`). Keys are `level:text:occurrence` so duplicates fold independently and
 the state survives edits elsewhere. `persistFolds` writes `foldedHeadings[file]` through
 `settings:set`; `restoreFoldsFor` reads the cache or fetches settings if the document loads first.
+
+## Fold state
+
+`collapsedHeadings` is gone: the outline reads and writes `foldedHeadings`, keyed `level:text:occurrence`
+so it matches the editor decorations. The outline twisty calls `redrawFolds()` + `persistFolds()` +
+`renderOutline()`, and `toggleHeadingFold` calls `renderOutline()` so the two views agree in both
+directions. `fold-sync` drives the outline first and then the editor command.

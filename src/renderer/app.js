@@ -2151,6 +2151,8 @@ function toggleHeadingFold() {
   else foldedHeadings.add(key);
   redrawFolds();
   persistFolds();
+  // keep the outline in step with the editor
+  if (typeof renderOutline === 'function') renderOutline();
   return foldedHeadings.has(key);
 }
 
@@ -2168,6 +2170,7 @@ function restoreFoldsFor(file) {
     const all = settings && settings.foldedHeadings && typeof settings.foldedHeadings === 'object' ? settings.foldedHeadings : {};
     for (const key of all[foldedOwner] || []) foldedHeadings.add(key);
     if (editor && editor.view) redrawFolds();
+    if (typeof renderOutline === 'function') renderOutline();
   };
   if (readSettingsCache) {
     apply(readSettingsCache);
@@ -2745,7 +2748,7 @@ function markCurrentOutline(at = editor.state.selection.from) {
   }
 }
 
-const collapsedHeadings = new Set();
+// Outline folding is the same set the editor decorations use, so the two can never disagree.
 
 function renderOutline() {
   const startedAt = performance.now();
@@ -2754,6 +2757,7 @@ function renderOutline() {
   // Sections fold: a heading with children gets a twisty; folding hides everything until the next
   // heading of the same or a shallower level.
   let skipDeeperThan = Infinity;
+  const seenText = {};
   for (let index = 0; index < items.length; index += 1) {
     const item = items[index];
     if (item.depth > skipDeeperThan) continue;
@@ -2761,8 +2765,10 @@ function renderOutline() {
 
     const next = items[index + 1];
     const hasChildren = Boolean(next && next.depth > item.depth);
-    const key = item.depth + ':' + item.text;
-    const folded = collapsedHeadings.has(key);
+    // Match the editor key: level:text:occurrence (duplicate titles fold independently).
+    seenText[item.text] = (seenText[item.text] || 0) + 1;
+    const key = item.depth + ':' + item.text.trim() + ':' + seenText[item.text];
+    const folded = foldedHeadings.has(key);
     if (folded && hasChildren) skipDeeperThan = item.depth;
 
     const row = document.createElement('div');
@@ -2777,8 +2783,10 @@ function renderOutline() {
     if (hasChildren) {
       twisty.addEventListener('click', (event) => {
         event.stopPropagation();
-        if (folded) collapsedHeadings.delete(key);
-        else collapsedHeadings.add(key);
+        if (folded) foldedHeadings.delete(key);
+        else foldedHeadings.add(key);
+        redrawFolds();
+        persistFolds();
         renderOutline();
       });
     } else {

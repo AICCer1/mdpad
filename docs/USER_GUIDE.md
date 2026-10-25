@@ -175,6 +175,12 @@ folding — it is a reading aid, not an edit.
 
 ## Outline
 
+Folding works from either side: the twisty in the outline folds the section in the page, and
+**Ctrl+Shift+H** in the editor updates the outline. Folds are per document and survive a restart,
+so a long manuscript reopens the way you left it.
+
+### Outline
+
 The outline lists every heading. Click one to jump to it. Headings with children get a **▾ twisty**
 to fold and unfold the section, which keeps a long document's map short. While you scroll, the
 heading at the top of the window is highlighted, so the outline tells you where you are even when

@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.97.0
+
+The outline and the editor share one fold state.
+
+- **Folding from the outline folds the page**, and **Ctrl+Shift+H in the editor updates the outline** —
+  both read and write the same `foldedHeadings` set instead of keeping private copies.
+- **Outline folds now survive a restart**: they use the same per-document persistence as the editor
+  folds, so a long manuscript reopens folded the way it was left.
+- Keys are `level:text:occurrence` in both places, so duplicate titles fold independently in either
+  view.
+- 335 smoke checks (one new: `fold-sync` folds a section from the outline twisty, asserts the editor
+  hides blocks and the outline shrinks, then unfolds with the editor command and asserts both returned),
+  171 unit tests.
+
 ## 1.96.0
 
 Headings fold in the editor.

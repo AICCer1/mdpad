@@ -13453,6 +13453,71 @@ async function runSmoke() {
     headingFold
   );
 
+  // 166. folding from the outline folds the editor too, and the outline remembers
+  const foldSync = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'fold-sync.md');
+    fs.writeFileSync(
+      doc,
+      ['# Book', '', '## Intro', '', 'intro body', '', '### Detail', '', 'detail body', '', '## Methods', '', 'methods body', ''].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('methods body')");
+      if (ready === true) break;
+    }
+    await sleep(500);
+    await jsOf(`window.__mdpad.restoreFoldsFor(${JSON.stringify(doc)})`);
+    await sleep(300);
+    const outlineBefore = await jsOf(`({
+      rows: document.querySelectorAll('#outline-list .outline-row').length,
+      folds: window.__mdpad.headingFoldState().hidden,
+    })`);
+    // fold the first heading from the outline twisty
+    const clicked = await jsOf(`(() => {
+      const row = document.querySelectorAll('#outline-list .outline-row')[1];
+      const twisty = row && row.querySelector('.outline-twisty');
+      if (!twisty) return false;
+      twisty.click();
+      return true;
+    })()`);
+    await sleep(400);
+    const outlineAfter = await jsOf(`({
+      rows: document.querySelectorAll('#outline-list .outline-row').length,
+      folds: window.__mdpad.headingFoldState().hidden,
+      keys: window.__mdpad.headingFoldState().folded,
+    })`);
+    // the editor fold also updates the outline: unfold from the editor command
+    await jsOf("window.__mdpad.focusHeading('Intro')");
+    const toggled = await jsOf('window.__mdpad.toggleHeadingFold()');
+    await sleep(300);
+    const afterEditorToggle = await jsOf(`({
+      rows: document.querySelectorAll('#outline-list .outline-row').length,
+      folds: window.__mdpad.headingFoldState().hidden,
+    })`);
+    return { outlineBefore, clicked, outlineAfter, toggled, afterEditorToggle };
+  })();
+  step(
+    'fold-sync',
+    foldSync.outlineBefore &&
+      foldSync.outlineBefore.rows === 4 &&
+      foldSync.outlineBefore.folds === 0 &&
+      foldSync.clicked === true &&
+      foldSync.outlineAfter &&
+      foldSync.outlineAfter.rows < foldSync.outlineBefore.rows &&
+      foldSync.outlineAfter.folds >= 1 &&
+      foldSync.outlineAfter.keys.length === 1 &&
+      foldSync.toggled === false &&
+      foldSync.afterEditorToggle &&
+      foldSync.afterEditorToggle.rows === foldSync.outlineBefore.rows &&
+      foldSync.afterEditorToggle.folds === 0,
+    foldSync
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
