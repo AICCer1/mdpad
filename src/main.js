@@ -3365,6 +3365,72 @@ async function runPerfReport() {
 
 // Opening a large file is the moment a writing app feels slow. This measures the three phases
 // separately (read, IPC, renderer parse+layout) instead of one opaque number.
+// First-run walkthrough against a genuinely empty profile: what a new user sees, then one document
+// created, saved and exported, with the state checked at each step.
+async function runWalkthrough() {
+  try {
+  const steps = {};
+  const win = createWindow({ show: false, width: 1180, height: 900 });
+  await new Promise((resolve) => win.webContents.once('did-finish-load', resolve));
+  await sleep(900);
+  const js = (code) => win.webContents.executeJavaScript(code);
+
+  steps.firstRun = await js(`({
+    settingsExists: Boolean(window.api.getSettings),
+    welcomeShown: !document.querySelector('#first-run')?.hidden,
+    editorReady: Boolean(document.querySelector('.tiptap')),
+    emptyHint: document.querySelector('#empty-hint')?.textContent?.trim().slice(0, 40) || '',
+  })`);
+  steps.onboarded = await js('window.api.getSettings().then((s) => Boolean(s.onboarded))');
+
+  const file = path.join(app.getPath('temp'), 'walkthrough-' + Date.now() + '.md');
+  fs.writeFileSync(file, '', 'utf8');
+  const session = sessions.get(win.webContents.id);
+  session.loadDocument(file);
+  await sleep(300);
+  await js('window.__mdpad.applyMarkdown("# Walkthrough\\n\\nfirst paragraph written by the test")');
+  await sleep(500);
+  steps.saved = await session.saveCurrent();
+  steps.fileText = fs.readFileSync(file, 'utf8');
+
+  const target = file.replace(/\.md$/, '.html');
+  await session.exportTo(target, 'html');
+  steps.export = { exists: fs.existsSync(target), bytes: fs.statSync(target).size };
+  steps.tabs = await js('window.api.listTabs()');
+  steps.dirty = await js('window.api.saveState ? window.api.saveState() : null');
+
+  const state = await js('window.api.getSettings()');
+  steps.settingsWritten = Boolean(state.theme);
+  const openedTab = (steps.tabs || []).find((tab) => tab.file === file);
+  const ok = Boolean(
+    steps.firstRun.welcomeShown &&
+      steps.firstRun.editorReady &&
+      // a fresh profile has not been through the welcome card yet
+      steps.onboarded === false &&
+      steps.saved &&
+      steps.saved.changed === true &&
+      /first paragraph written by the test/.test(steps.fileText) &&
+      steps.export.exists &&
+      steps.export.bytes > 100 &&
+      openedTab &&
+      openedTab.active === true &&
+      openedTab.dirty === false
+  );
+  steps.ok = ok;
+  console.log('WALKTHROUGH ' + JSON.stringify(steps));
+  try {
+    fs.unlinkSync(file);
+    fs.unlinkSync(target);
+  } catch {
+    /* best effort */
+  }
+  app.exit(ok ? 0 : 1);
+  } catch (err) {
+    console.log('WALKTHROUGH ' + JSON.stringify({ ok: false, error: err.message }));
+    app.exit(1);
+  }
+}
+
 async function runBenchExport() {
   const target = process.env.MDPAD_PERF_OPEN;
   const win = createWindow({ show: false, width: 1180, height: 900 });
@@ -13688,6 +13754,10 @@ app.whenReady().then(async () => {
   }
   if (process.argv.includes('--perf-report')) {
     await runPerfReport();
+    return;
+  }
+  if (process.argv.includes('--walkthrough')) {
+    await runWalkthrough();
     return;
   }
   if (process.argv.includes('--bench-export')) {

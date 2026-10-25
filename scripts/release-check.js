@@ -49,7 +49,10 @@ run('crash recovery against packaged binary', process.execPath, ['scripts/crash-
   env: { ...process.env, MDPAD_CRASH_BIN: unpacked },
 });
 
-run('restart restores windows and tabs', process.execPath, ['scripts/restart-check.js'], {
+run('first run walkthrough', process.execPath, ['scripts/first-run-check.js'], {
+    env: { ...process.env, MDPAD_FIRST_RUN_BIN: unpacked },
+  });
+  run('restart restores windows and tabs', process.execPath, ['scripts/restart-check.js'], {
   env: { ...process.env, MDPAD_RESTART_BIN: unpacked },
 });
 

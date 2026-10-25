@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.84.0
+
+The first minute is a test now.
+
+- **`npm run first-run`** starts the app against an **empty profile** and asserts the first-run path
+  from the rendered state: the welcome card is visible, the editor exists, the profile is not yet
+  onboarded, then a document is created, saved and exported, and the opened tab is active and clean.
+- **It runs inside `npm run ship`** against the packaged binary, next to the crash and restart checks,
+  so a broken first launch cannot be published.
+- The walkthrough hangs if it throws, so the phase now reports `{ok:false,error}` and exits; the first
+  version also tried to open a file that did not exist yet (`cannot read ...`).
+- 324 smoke checks, 167 unit tests.
+
 ## 1.83.0
 
 The formats are checked against each other.

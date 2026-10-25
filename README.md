@@ -173,6 +173,13 @@ All four formats are tested against a path whose parent is a file and against a 
 directory: each answers with an error, creates no file, and a **read-only existing file survives
 the attempted overwrite untouched**. A partial file from a failed attempt is removed.
 
+## First run is a test
+
+`npm run first-run` starts the app against an **empty profile** and walks the first minute: the
+welcome card is visible, the editor exists, the profile is not yet onboarded, then a document is
+created, saved, and exported — all asserted from the rendered state. It runs in `npm run ship`
+against the packaged binary.
+
 ## Crash recovery is tested across tabs
 
 The crash suite now runs three scenarios against a real SIGKILL: an explicit draft write, typing

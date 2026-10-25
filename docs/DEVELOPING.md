@@ -527,3 +527,10 @@ same elements in each output (headings, tables, images, code blocks, list items,
 links) and compares them with the source. DOCX lists are counted by their `• ` prefix because the
 Word writer emits bullet paragraphs rather than numbering; that difference is intentional and
 documented in the user guide.
+
+## First-run walkthrough
+
+`--walkthrough` drives a real window with a fresh profile and reports one JSON line: welcome card
+visible, editor present, `onboarded` still false, a document created, saved (`changed: true`),
+exported, and the opened tab active and clean. `scripts/first-run-check.js` spawns it with an empty
+`MDPAD_USERDATA`; `release-check` runs the same script against the packaged binary.
