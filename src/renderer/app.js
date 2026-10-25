@@ -5970,9 +5970,38 @@ let recentFilesCache = [];
 function recentCommands() {
   const p = (key) => t(key, lang);
   return recentFilesCache.slice(0, 5).map((file) => ({
+    id: 'recent:' + file,
     label: `${p('palette.recentPrefix')} ${file.split(/[\\/]/).pop()}`,
+    hint: file.replace(/[^\\/]+$/, '').slice(-28),
     run: () => window.api.openPath(file),
   }));
+}
+
+// Jumping to a heading by name is the most common use of a command palette in a long document, so
+// headings are first-class results with their level as the hint.
+function headingCommands() {
+  if (!editor || !editor.state) return [];
+  const items = [];
+  editor.state.doc.descendants((node, pos) => {
+    if (items.length >= 12) return false;
+    if (node.type.name === 'heading' && node.attrs.level <= 3) {
+      const text = node.textContent.trim();
+      if (text) {
+        items.push({
+          id: 'heading:' + pos,
+          label: text,
+          hint: 'H' + node.attrs.level,
+          run: () => {
+            editor.commands.focus(pos + 1);
+            const dom = editor.view.nodeDOM(pos);
+            if (dom && dom.scrollIntoView) dom.scrollIntoView({ block: 'start', behavior: 'smooth' });
+          },
+        });
+      }
+    }
+    return true;
+  });
+  return items;
 }
 
 function commandList() {
@@ -6011,6 +6040,7 @@ function commandList() {
     { id: 'focusMode', hint: 'Ctrl+Shift+K', label: p('palette.focusMode'), run: () => toggleFocusMode() },
     { id: 'aiUsage', hint: '', label: p('palette.aiUsage'), run: () => openUsagePanel() },
     ...recentCommands(),
+      ...headingCommands(),
   ];
 }
 

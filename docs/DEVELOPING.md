@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 328 end-to-end checks against a real window
+npm run smoke          # 329 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -578,3 +578,10 @@ handler would let the global Escape close the panel and drop the query.
 prefix always beats a habit and habit breaks ties. `runPaletteSelection` records usage — keyboard
 runs used to be invisible to the ranking. Navigation wraps, `scrollPaletteActive` keeps the row in
 view, and an empty result shows a message instead of a blank panel.
+
+## Palette targets
+
+`commandList()` appends `recentCommands()` (now with `id` and folder `hint`) and `headingCommands()`:
+heading nodes of level 1–3, at most twelve, each with `H{level}` as its hint and a `run` that focuses
+`pos + 1` and scrolls the node into view. `palette-headings` opens the palette, types "intro", presses
+Enter and asserts the caret landed in the heading.

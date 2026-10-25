@@ -342,6 +342,14 @@ never lost by reflex.
 
 ### The command palette
 
+The palette also lists the **headings of the open document** (levels 1–3, up to twelve) with their
+level as a hint — type part of a section name and press Enter to jump there. Recent files appear
+with their folder and rank alongside everything else.
+
+The palette also lists the **headings of the open document** (levels 1–3, up to twelve) with their
+level as a hint — type part of a section name and press Enter to jump there. Recent files appear
+with their folder and rank alongside everything else.
+
 **Ctrl+K** opens it. Type to filter, **↓ / ↑** to move (the list wraps), **Enter** to run, **Esc** to
 close. Commands that start with what you typed come first, then the ones you use most often —
 running a command with Enter counts as using it.

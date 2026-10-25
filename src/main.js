@@ -13122,6 +13122,48 @@ async function runSmoke() {
     paletteKeyboard
   );
 
+  // 160. document headings are palette targets and Enter jumps to them
+  const paletteHeadings = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'palette-headings.md');
+    fs.writeFileSync(
+      doc,
+      ['# Book', '', '## Introduction', '', 'first body', '', '## Methods', '', 'second body', '', '### Details', ''].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('second body')");
+      if (ready === true) break;
+    }
+    await jsOf("window.__mdpad.openPalette ? window.__mdpad.openPalette() : window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', ctrlKey: true, shiftKey: true, bubbles: true }))");
+    await sleep(400);
+    const all = await jsOf("window.__mdpad.paletteType('')");
+    const filtered = await jsOf("window.__mdpad.paletteType('intro')");
+    const first = filtered && filtered.labels[0];
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Return' });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Return' });
+    await sleep(600);
+    const caret = await jsOf('window.__mdpad.focusState()');
+    const paletteClosed = await jsOf("document.querySelector('#palette').hidden");
+    return { all, filtered, first, caret, paletteClosed };
+  })();
+  step(
+    'palette-headings',
+    paletteHeadings.all &&
+      paletteHeadings.all.total > 5 &&
+      paletteHeadings.filtered &&
+      paletteHeadings.filtered.total >= 1 &&
+      /Introduction/.test(paletteHeadings.first) &&
+      paletteHeadings.caret &&
+      /Introduction/.test(paletteHeadings.caret.caret) &&
+      paletteHeadings.paletteClosed === true,
+    paletteHeadings
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

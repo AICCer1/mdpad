@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.91.0
+
+Headings are palette targets.
+
+- **The palette lists the current document's headings** (levels 1–3, up to twelve) with `H2`-style
+  hints; typing part of a section name and pressing Enter puts the caret in that heading and scrolls to
+  it.
+- **Recent files got ids and folder hints**: they now rank with the commands (including the usage
+  counts from the keyboard) instead of always trailing the list, and show where they live.
+- 329 smoke checks (one new: `palette-headings` loads a document, opens the palette, types "intro",
+  presses Enter and asserts the caret is in the heading and the palette closed), 171 unit tests.
+- The test opened the palette with Ctrl+K first; the actual shortcut is **Ctrl+Shift+P**, so the
+  palette never opened and the assertion measured a closed panel. It now uses the same entry point the
+  shortcut calls.
+
 ## 1.90.0
 
 The command palette learns from the keyboard.
