@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.8.0
+
+"Is this sentence too long?" now has a number.
+
+- **The statistics panel shows sentences, average sentence length and the longest sentence**; the
+  structure report adds a "Sentence length" section listing every sentence over **40 words** with a
+  snippet — the usual edit list for heavy prose.
+- **Measurement is on prose only**: fenced code, inline code, image and link syntax, emphasis markers,
+  list bullets and heading lines are stripped before counting. Without that the document title counted
+  as a sentence (the first test caught it: 4 instead of 3).
+- `analyzeSentences` is a pure helper with four unit tests (paragraphs, over-limit ordering, fragment,
+  empty input); 345 smoke checks with one new `sentence-stats`, 195 unit tests.
+
 ## 2.7.0
 
 A quieter highlight: only the sentence you are writing.

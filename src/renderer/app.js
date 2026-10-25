@@ -3546,6 +3546,17 @@ function statsMarkdown(payload) {
   if (!report.skips.length && !report.duplicates.length) lines.push('No structural problems.');
   for (const skip of report.skips) lines.push('- Heading "' + skip.text + '" jumps from H' + skip.from + ' to H' + skip.to);
   for (const duplicate of report.duplicates) lines.push('- Duplicate heading "' + duplicate.text + '"');
+  if (report.sentences) {
+    const s = report.sentences;
+    lines.push('', '## Sentence length', '');
+    lines.push('- Sentences: ' + s.count);
+    lines.push('- Average: ' + s.avgWords + ' words');
+    lines.push('- Longest: ' + s.longest.words + ' words — "' + s.longest.text.slice(0, 120) + '"');
+    if (s.long.length) {
+      lines.push('- Over ' + s.limit + ' words: ' + s.long.length);
+      for (const entry of s.long.slice(0, 5)) lines.push('  - ' + entry.words + ' words — "' + entry.text.slice(0, 100) + '"');
+    }
+  }
   lines.push('', '## Last 14 days', '', '| Date | Words |', '| --- | --- |');
   for (const day of history.days) lines.push('| ' + day.date + ' | ' + day.words + ' |');
   lines.push('', 'Streak: ' + history.streak + ' day(s) · Best: ' + history.best + ' · Total: ' + history.total);
@@ -7170,6 +7181,8 @@ window.api.info().then((info) => {
 
 const statsModal = $('#stats-modal');
 
+let lastSentenceStats = null;
+
 function documentStats() {
   const text = editor.getText();
   const words = (text.match(/\S+/g) || []).length;
@@ -7196,6 +7209,7 @@ function documentStats() {
 async function openStats() {
   const s = documentStats();
   const info = await window.api.info().catch(() => ({}));
+    const structure = await window.api.docStructure().catch(() => null);
   const { from, to, empty } = editor.state.selection;
   const selectedChars = empty ? 0 : editor.state.doc.textBetween(from, to, ' ').length;
   const rows = [
@@ -7210,6 +7224,9 @@ async function openStats() {
     [t('stats.headings', lang), s.headings],
     [t('stats.images', lang), s.images],
     [t('stats.reading', lang), t('stats.minutes', lang, { count: s.reading })],
+    [t('stats.sentences', lang), structure && structure.sentences ? structure.sentences.count : 0],
+    [t('stats.avgSentence', lang), structure && structure.sentences ? structure.sentences.avgWords : 0],
+    [t('stats.longestSentence', lang), structure && structure.sentences && structure.sentences.longest ? structure.sentences.longest.words : 0],
     [
       t('stats.savedAt', lang),
       info.savedAt ? new Date(info.savedAt).toLocaleTimeString() : t('stats.neverSaved', lang),

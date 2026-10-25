@@ -704,3 +704,10 @@ around an offset inside one block. It treats CJK terminators as immediate ends b
 after `.` `!` `?`, skips abbreviations and initials, and keeps closing quotes inside the sentence.
 `SentenceHighlight` turns that into an inline decoration (`is-current-sentence`), disabled in focus
 mode like the paragraph highlight.
+
+## Sentence statistics
+
+`analyzeSentences(prose, {limit})` in `src/sentence.js` splits on blank lines, reuses `sentenceBounds`,
+and returns `{count, avgWords, longest, long, limit}`. `doc:structure` strips fences, inline code,
+images, link targets, emphasis markers, list bullets and heading lines before calling it; the stats
+panel and the structure report read the same object.

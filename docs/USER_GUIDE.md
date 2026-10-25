@@ -402,6 +402,12 @@ A small strip above the document offers three tips on first use — the command 
 list, and dropping images. Dismissing one ("Got it" or ×) records it and shows the next; once all
 three are seen the strip never returns.
 
+### Sentence length
+
+The statistics panel counts sentences, their average length and the longest one; the structure report
+lists every sentence over **40 words** with a snippet, which is the usual edit list for a heavy
+paragraph. Headings, code and links are excluded.
+
 ### Exporting statistics
 
 The statistics panel has **Export CSV** and **Export Markdown**. Both include the document counts,

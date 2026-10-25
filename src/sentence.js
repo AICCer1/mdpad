@@ -61,4 +61,45 @@ function sentenceBounds(text, offset) {
   return { from: start, to: end, text: source.slice(start, end) };
 }
 
-module.exports = { sentenceBounds };
+// Sentence length across a document: the number writers actually argue about ("is this sentence too
+// long?"), not a readability score.
+function analyzeSentences(text, { limit = 40 } = {}) {
+  const source = String(text || '').replace(/\r\n/g, '\n');
+  const sentences = [];
+  const paragraph = source.split(/\n{2,}/);
+  for (const block of paragraph) {
+    const flat = block.replace(/\s+/g, ' ').trim();
+    if (!flat) continue;
+    let rest = flat;
+    let guard = 0;
+    while (rest && guard < 500) {
+      guard += 1;
+      const bounds = sentenceBounds(rest, 0);
+      if (!bounds) break;
+      sentences.push(bounds.text);
+      rest = rest.slice(bounds.to).trim();
+    }
+  }
+  const wordsOf = (value) => (value.match(/\S+/g) || []).length;
+  const counts = sentences.map(wordsOf);
+  const total = counts.reduce((sum, value) => sum + value, 0);
+  let longest = { words: 0, text: '' };
+  for (const value of sentences) {
+    const words = wordsOf(value);
+    if (words > longest.words) longest = { words, text: value };
+  }
+  const long = sentences
+    .map((value) => ({ words: wordsOf(value), text: value }))
+    .filter((entry) => entry.words > limit)
+    .sort((a, b) => b.words - a.words)
+    .slice(0, 10);
+  return {
+    count: sentences.length,
+    avgWords: sentences.length ? Math.round((total / sentences.length) * 10) / 10 : 0,
+    longest,
+    long,
+    limit,
+  };
+}
+
+module.exports = { sentenceBounds, analyzeSentences };

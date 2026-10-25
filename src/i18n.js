@@ -1346,3 +1346,15 @@ Object.assign(DICT.zh, { 'export.pageNumbers': '页码' });
 
 Object.assign(DICT.en, { 'settings.highlightSentence': 'Highlight only the current sentence' });
 Object.assign(DICT.zh, { 'settings.highlightSentence': '只高亮当前句子' });
+
+Object.assign(DICT.en, {
+  'stats.sentences': 'Sentences',
+  'stats.avgSentence': 'Average sentence (words)',
+});
+Object.assign(DICT.zh, {
+  'stats.sentences': '句子数',
+  'stats.avgSentence': '平均句长（词）',
+});
+
+Object.assign(DICT.en, { 'stats.longestSentence': 'Longest sentence (words)' });
+Object.assign(DICT.zh, { 'stats.longestSentence': '最长句子（词）' });

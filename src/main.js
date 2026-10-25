@@ -16,6 +16,7 @@ const { classifyFsError, fsErrorCode } = require('./errors');
 const { planRestore } = require('./session-restore');
 const { checkDirs } = require('./preflight');
 const { parseFileArgs } = require('./cli');
+const { analyzeSentences } = require('./sentence');
 const { isLargeExport, describeSize } = require('./export-limits');
 const { buildExportName } = require('./filename');
 const { fitBounds } = require('./window-bounds');
@@ -2177,6 +2178,17 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
       duplicates,
       skips,
       longestParagraph: longest,
+      sentences: analyzeSentences(
+        text
+          .replace(/^\s*(?:\x60{3,}|~{3,})[\s\S]*?^\s*(?:\x60{3,}|~{3,})/gm, ' ')
+          .replace(/\x60[^\x60\n]*\x60/g, ' ')
+          .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+          .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+          .replace(/[*_~]{1,3}([^*_~\n]+)[*_~]{1,3}/g, '$1')
+          .replace(/^\s*#{1,6}\s+.*$/gm, ' ')
+          .replace(/^\s*[-*+]\s+/gm, '')
+          .replace(/^\s*\d+\.\s+/gm, '')
+      ),
       previous: s && s.file ? readReportIndex()[s.file] || null : null,
     };
   });
@@ -4946,7 +4958,7 @@ async function runSmoke() {
     'stats-panel',
     statsPanel.visible &&
       statsPanel.stats.words === 5 &&
-      statsPanel.rows.length === 9 &&
+      statsPanel.rows.length === 12 &&
       statsPanel.rows.some((row) => /last saved/i.test(row[0])),
     statsPanel
   );
@@ -14161,6 +14173,46 @@ async function runSmoke() {
       sentenceHighlight.off.enabled === false &&
       sentenceHighlight.off.decorated.length === 0,
     sentenceHighlight
+  );
+
+  // 176. sentence length shows up in the statistics and the structure report
+  const sentenceStats = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'sentence-stats.md');
+    const longSentence = Array.from({ length: 45 }, (_, index) => 'word' + index).join(' ') + '.';
+    fs.writeFileSync(
+      doc,
+      ['# Stats', '', 'First short one. Second is a little longer!', '', longSentence, ''].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('word44')");
+      if (ready === true) break;
+    }
+    await sleep(400);
+    const structure = await jsOf('window.api.docStructure()');
+    const report = await jsOf('window.__mdpad.structureReportText ? window.__mdpad.structureReportText() : null');
+    await jsOf("window.__mdpad.openStats ? window.__mdpad.openStats() : null");
+    await sleep(700);
+    const rows = await jsOf(`[...document.querySelectorAll('#stats-table tr')].map((row) => row.textContent)`);
+    await jsOf("document.querySelector('#stats-modal').hidden = true");
+    return { structure: structure && structure.sentences, rows, report };
+  })();
+  step(
+    'sentence-stats',
+    sentenceStats.structure &&
+      sentenceStats.structure.count === 3 &&
+      sentenceStats.structure.longest.words === 45 &&
+      sentenceStats.structure.long.length <= 10 &&
+      sentenceStats.structure.long.some((entry) => entry.words === 45) &&
+      Array.isArray(sentenceStats.rows) &&
+      sentenceStats.rows.some((row) => /sentences/i.test(row) && /3/.test(row)) &&
+      sentenceStats.rows.some((row) => /average sentence/i.test(row)),
+    sentenceStats
   );
 
   // 30k. the settings filter narrows the visible fields
