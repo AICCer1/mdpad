@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 322 end-to-end checks against a real window
+npm run smoke          # 324 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -519,3 +519,11 @@ stays guarded.
 `exportTo` wraps `exportToUnsafe`: it records whether the target existed, and on failure removes the
 file only when this attempt created it. `export-failures-all` covers four formats × two impossible
 paths plus a read-only overwrite (`refused: true`, `intact: true`).
+
+## Cross-format parity
+
+`export-parity` exports one document with every construct to HTML, DOCX and EPUB, then counts the
+same elements in each output (headings, tables, images, code blocks, list items, bold, italic,
+links) and compares them with the source. DOCX lists are counted by their `• ` prefix because the
+Word writer emits bullet paragraphs rather than numbering; that difference is intentional and
+documented in the user guide.

@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.83.0
+
+The formats are checked against each other.
+
+- **One smoke check exports the same document to HTML, Word and EPUB** and counts headings, tables,
+  images, code blocks, list items, bold/italic runs and links in each output, comparing them with the
+  source. A format that silently loses a table or an image now fails the suite.
+- HTML and EPUB matched every count on the first run. **Word lists came back as 0** because the writer
+  emits bullet paragraphs (`• `) rather than numbering XML — the check counts the bullet and the
+  difference is documented in the user guide as a known limitation (lists keep text and indentation,
+  but not Word numbering).
+- 324 smoke checks (one new: `export-parity`), 167 unit tests.
+
 ## 1.82.0
 
 Large exports are measured, and warned about first.

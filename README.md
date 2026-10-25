@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         322 end-to-end checks (dev or packaged)
+npm run smoke         324 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -233,6 +233,12 @@ broken document is visible before the file is produced.
 **default**, **compact** (tighter spacing, narrow margins) and **with contents** (a linked table
 of contents, localised, with page breaks before the body). Each has a rendered screenshot in
 `docs/images/` so the typography can be reviewed without opening a PDF.
+
+## Formats are checked against each other
+
+One smoke check exports the same document as HTML, Word and EPUB and counts headings, tables,
+images, code blocks, list items, bold/italic runs and links in each output, comparing them with the
+source. Any format that silently drops a table or an image fails the suite.
 
 ## Export consistency
 

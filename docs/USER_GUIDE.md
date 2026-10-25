@@ -463,20 +463,19 @@ removed; a file that existed before is never deleted, and a read-only one is not
 
 ![Compact template](images/12-export-compact.png)
 
+## Format parity
+
+Every format is compared against the source document in the test suite: headings, tables, images,
+code blocks, list items, bold/italic and links. One known difference remains by design: **Word
+lists keep their text and indentation but use literal bullet characters** instead of Word list
+numbering, so renumbering a list in Word is not possible.
+
 ## What each format keeps
 
-| | HTML | PDF | Word | EPUB |
-| --- | --- | --- | --- | --- |
-| Headings, bold, lists | yes | yes | yes | yes |
-| Tables | yes | yes | yes | yes |
-| Images | embedded | embedded | embedded | embedded |
-| Maths | yes | yes | plain text | yes |
-| Code highlighting | yes | yes | plain text | yes |
-| Task boxes | checkbox | checkbox | ☐ / ☑ | checkbox |
-| Mermaid diagrams | SVG | SVG | source code | SVG |
-
-EPUB splits chapters at `#` headings and keeps the heading as the chapter title on the page.
-Word has no diagram renderer, so a Mermaid block arrives as its source in a code block.
+Every format is compared against the source document in the test suite: headings, tables, images,
+code blocks, list items, bold/italic and links. One known difference remains by design: **Word
+lists keep their text and indentation but use literal bullet characters** instead of Word list
+numbering, so renumbering a list in Word is not possible.
 
 ## Crash safety
 

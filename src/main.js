@@ -12745,6 +12745,121 @@ async function runSmoke() {
     exportLargeHint
   );
 
+  // 155. the four formats keep the structure the source document has
+  const exportParity = await (async () => {
+    const JSZip = require('jszip');
+    const nl = String.fromCharCode(10);
+    const fence = String.fromCharCode(96, 96, 96);
+    const pixel = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    fs.writeFileSync(path.join(dir, 'parity.png'), Buffer.from(pixel, 'base64'));
+    const doc = path.join(dir, 'parity.md');
+    fs.writeFileSync(
+      doc,
+      [
+        '# Parity one',
+        '',
+        'A paragraph with **bold text** and *italic text* and a [link](https://example.com).',
+        '',
+        '## Parity two',
+        '',
+        '- first item',
+        '- second item',
+        '',
+        '| Left | Right |',
+        '| --- | --- |',
+        '| a | b |',
+        '',
+        '![pixel](parity.png)',
+        '',
+        '## Parity three',
+        '',
+        fence + 'js',
+        'const parity = true;',
+        fence,
+        '',
+      ].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    await sleep(900);
+    session.contents = fs.readFileSync(doc, 'utf8');
+    const files = {};
+    for (const kind of ['html', 'docx', 'epub']) {
+      const target = path.join(dir, 'parity.' + kind);
+      await session.exportTo(target, kind);
+      files[kind] = target;
+    }
+    const html = fs.readFileSync(files.html, 'utf8');
+    const docxZip = await JSZip.loadAsync(fs.readFileSync(files.docx));
+    const docxXml = await docxZip.file('word/document.xml').async('string');
+    const epubZip = await JSZip.loadAsync(fs.readFileSync(files.epub));
+    const chapterName = Object.keys(epubZip.files).find((name) => /\.xhtml$/.test(name));
+    const chapter = await epubZip.file(chapterName).async('string');
+
+    const count = (text, pattern) => (text.match(pattern) || []).length;
+    const stripNs = (xml) => xml.replace(/<w:p[ >]/g, '<w:p ');
+    return {
+      source: {
+        headings: 3,
+        tables: 1,
+        images: 1,
+        codeBlocks: 1,
+        listItems: 2,
+        bold: 1,
+        italic: 1,
+        links: 1,
+      },
+      html: {
+        headings: count(html, /<h[1-6][ >]/g),
+        tables: count(html, /<table[ >]/g),
+        images: count(html, /<img[ >]/g),
+        codeBlocks: count(html, /<pre[ >]/g),
+        listItems: count(html, /<li[ >]/g),
+        bold: count(html, /<strong[ >]/g),
+        italic: count(html, /<em[ >]/g),
+        links: count(html, /<a [^>]*href=/g),
+      },
+      epub: {
+        headings: count(chapter, /<h[1-6][ >]/g),
+        tables: count(chapter, /<table[ >]/g),
+        images: count(chapter, /<img[ >]/g),
+        codeBlocks: count(chapter, /<pre[ >]/g),
+        listItems: count(chapter, /<li[ >]/g),
+        bold: count(chapter, /<strong[ >]/g),
+        italic: count(chapter, /<em[ >]/g),
+        links: count(chapter, /<a [^>]*href=/g),
+      },
+      docx: {
+        headings: count(docxXml, /w:pStyle w:val="Heading\d"/g),
+        tables: count(stripNs(docxXml), /<w:tbl>/g),
+        images: count(docxXml, /<w:drawing>/g),
+        codeBlocks: count(docxXml, /Consolas/g),
+        // Word output keeps list content as literal bullet paragraphs (its writer has no list API
+        // here), so count the bullet character rather than numbering XML.
+        listItems: count(docxXml, /• /g),
+        bold: count(docxXml, /<w:b\/>/g),
+        italic: count(docxXml, /<w:i\/>/g),
+        links: count(docxXml, /<w:hyperlink/g),
+      },
+    };
+  })();
+  const parityOk = ['html', 'epub', 'docx'].every((kind) => {
+    const got = exportParity[kind];
+    const want = exportParity.source;
+    return (
+      got.headings === want.headings &&
+      got.tables === want.tables &&
+      got.images === want.images &&
+      got.codeBlocks >= want.codeBlocks &&
+      got.listItems === want.listItems &&
+      got.bold >= want.bold &&
+      got.italic >= want.italic &&
+      got.links >= want.links
+    );
+  });
+  step('export-parity', parityOk, exportParity);
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
