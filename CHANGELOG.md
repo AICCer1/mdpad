@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.6.0
+
+A hypothesis about PDF batching, tested and rejected.
+
+- **`--bench-pdf` measures print scaling**: 0.5 → 1 → 2 → 4 MB costs 943 → 1854 → 3964 → 9934 ms, i.e.
+  ~2.0–2.5× per doubling. Batching into halves and merging would save ~6% at 2 MB and ~20% at 4 MB, at
+  the cost of a PDF merge dependency, broken page numbering and no single table of contents — so it was
+  rejected and the numbers recorded in `docs/PERFORMANCE.md`.
+- **Two real fixes came out of running the benchmark**: the print temp file had one name per process,
+  so two windows exporting a PDF at the same time would overwrite each other (now unique per export),
+  and a transient `ERR_FAILED` while loading that file failed the whole export (now retried once).
+- 343 smoke checks unchanged, 183 unit tests.
+
 ## 2.5.0
 
 PDF export, measured before it was changed.

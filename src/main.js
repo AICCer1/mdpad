@@ -3629,6 +3629,50 @@ async function runWalkthrough() {
   }
 }
 
+// How does printToPDF scale with document size? If it is superlinear, batching would help; if it is
+// linear, the only honest answer is "no change".
+async function runBenchPdf() {
+  // toPdf destroys its print window; without another window the app would quit mid-bench.
+  const keeper = createWindow({ show: false, width: 900, height: 700 });
+  await new Promise((resolve) => keeper.webContents.once('did-finish-load', resolve));
+  const sizes = [0.5, 1, 2, 4];
+  const results = [];
+  for (const mb of sizes) {
+    const paragraphs = [];
+    let bytes = 0;
+    let index = 0;
+    while (bytes < mb * 1024 * 1024) {
+      index += 1;
+      const line = 'Paragraph ' + index + ' with **bold**, *italic* and `code` that keeps going so the document is big.';
+      paragraphs.push(line, '');
+      bytes += line.length + 1;
+    }
+    const markdown = '# Bench ' + mb + ' MB\n\n## Section\n\n' + paragraphs.join('\n');
+    const target = path.join(app.getPath('temp'), 'mdpad-bench-pdf-' + mb + '.pdf');
+    const started = Date.now();
+    let result;
+    try {
+      result = await exporter.toPdf(markdown, target, { title: 'Bench', stats: null, diagrams: null });
+    } catch (err) {
+      console.log('BENCH_PDF_ERROR ' + JSON.stringify({ mb, message: err.message, stack: String(err.stack).split('\n').slice(0, 3) }));
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      app.exit(1);
+      return;
+    }
+    results.push({
+      mb,
+      totalMs: Date.now() - started,
+      timings: result.timings,
+      bytes: result.bytes,
+      paragraphs: index,
+    });
+  }
+  console.log('BENCH_PDF ' + JSON.stringify(results));
+  for (const row of results) fs.rmSync(path.join(app.getPath('temp'), 'mdpad-bench-pdf-' + row.mb + '.pdf'), { force: true });
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  app.exit(0);
+}
+
 async function runBenchExport() {
   const target = process.env.MDPAD_PERF_OPEN;
   const win = createWindow({ show: false, width: 1180, height: 900 });
@@ -14898,6 +14942,10 @@ app.whenReady().then(async () => {
   }
   if (process.argv.includes('--walkthrough')) {
     await runWalkthrough();
+    return;
+  }
+  if (process.argv.includes('--bench-pdf')) {
+    await runBenchPdf();
     return;
   }
   if (process.argv.includes('--bench-export')) {

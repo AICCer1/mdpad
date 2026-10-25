@@ -689,3 +689,10 @@ moves it into that display (or the primary) keeping its size. Malformed or infin
 Printing dominates and scales with pages; `displayHeaderFooter` costs ~14% of it, while
 `printBackground` costs nothing measurable. `pageNumbers` (setting `exportPageNumbers`, default true)
 is threaded through `Session.exportTo`.
+
+## PDF scaling
+
+`npx electron . --bench-pdf` prints 0.5/1/2/4 MB documents in one process. It creates a keep-alive
+window because `toPdf` destroys its print window and `window-all-closed` would quit the app. Results and
+the batching decision are in `docs/PERFORMANCE.md`. Print files are uniquely named per export, and a
+transient `ERR_FAILED` on load is retried once.

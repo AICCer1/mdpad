@@ -4,6 +4,27 @@ Measured with `npm run perf` (`electron . --perf-report`), which builds the docu
 real editor and writes `mdpad-perf.json` next to the exported files. Numbers come from one run on
 the development machine; the point is the order of magnitude and the guard, not a benchmark score.
 
+### Does printToPDF scale linearly?
+
+Measured with `npx electron . --bench-pdf`, which prints generated documents of 0.5, 1, 2 and 4 MB in
+one process (a keep-alive window is needed: `toPdf` destroys its print window, and the app quits when the
+last window closes).
+
+| Document | PDF | print phase | vs previous size |
+| --- | --- | --- | --- |
+| 0.5 MB | 1.7 MB | 943 ms | — |
+| 1 MB | 3.3 MB | 1854 ms | 2.0× |
+| 2 MB | 6.6 MB | 3964 ms | 2.1× |
+| 4 MB | 13 MB | 9934 ms | 2.5× |
+
+Printing is close to linear, with a mild penalty as documents grow (≈O(n^1.2) at the top end). **Splitting
+a document into batches and merging the PDFs was measured against that and rejected**: at 2 MB two
+1 MB halves would save about 6%, at 4 MB about 20%, in exchange for a PDF merge dependency and broken
+page numbering, a single table of contents, and cross-page layout. Not worth it.
+
+Two fixes came out of running it: the print file now has a **unique name per export** (two windows
+exporting at once used to share `mdpad-print-<pid>.html`), and a transient `ERR_FAILED` while loading it
+is retried once instead of failing the export.
 ## PDF export phases (2 MB document)
 
 Measured with `node scripts/perf-export.js --kb 2048`, which reports the phases `toPdf` now returns:

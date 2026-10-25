@@ -132,7 +132,10 @@ async function toPdf(
   const html = toHtmlDocument(markdown, title, { template, css, stats, diagrams, font, margin });
   const buildMs = Date.now() - buildStarted;
   const writeStarted = Date.now();
-  const tmpHtml = path.join(path.dirname(targetPath), `mdpad-print-${process.pid}.html`);
+  const tmpHtml = path.join(
+    path.dirname(targetPath),
+    `mdpad-print-${process.pid}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.html`
+  );
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   fs.writeFileSync(tmpHtml, html, 'utf8');
   const writeMs = Date.now() - writeStarted;
@@ -152,7 +155,14 @@ async function toPdf(
     console.error(`pdf: load failed ${code} ${desc} ${url}`));
   try {
     const loadStarted = Date.now();
-    await withTimeout(win.loadURL(`file://${tmpHtml.replace(/\\/g, '/')}`), 15000, 'loadURL');
+    const url = `file://${tmpHtml.replace(/\\/g, '/')}`;
+    try {
+      await withTimeout(win.loadURL(url), 15000, 'loadURL');
+    } catch (err) {
+      // ERR_FAILED happens when a scanner still holds the file; one retry is enough.
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      await withTimeout(win.loadURL(url), 15000, 'loadURL');
+    }
     const loadMs = Date.now() - loadStarted;
     const footer = `<div style="width:100%;font-size:9px;color:#888;padding:0 12mm;display:flex;justify-content:space-between;">
       <span>${escapeHtml(String(title))}</span>
