@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.3.0
+
+A tab that cannot come back says so.
+
+- **Missing files are reported, not dropped silently.** Restoring a session used to skip deleted files
+  with only a log line; now a notice names up to three of them ("2 tabs were not reopened: notes.md,
+  plan.md") so the disappearance is explained.
+- **The caret now survives a restart too**: `planRestore` used to rebuild tabs without their view, so
+  the position was lost exactly when it mattered. It travels with the tab.
+- **Maximised windows reopen maximised** — the snapshot records the flag, not only the bounds.
+- 342 smoke checks (one new: `restore-missing-tabs` checks the wording for one, several and no files),
+  177 unit tests (three new for the planner: view, missing list, maximised).
+
 ## 2.2.0
 
 Long documents reopen where you left them.

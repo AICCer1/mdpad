@@ -48,6 +48,7 @@ contextBridge.exposeInMainWorld('api', {
   setSettings: (patch) => ipcRenderer.invoke('settings:set', patch),
   onLoadDraft: (cb) => ipcRenderer.on('doc:loadDraft', (_e, payload) => cb(payload)),
   onLoaded: (cb) => ipcRenderer.on('doc:loaded', (_e, payload) => cb(payload)),
+  onSessionMissing: (cb) => ipcRenderer.on('session:missing', (_e, payload) => cb(payload)),
   onPreview: (cb) => ipcRenderer.on('preview:html', (_e, html) => cb(html)),
   onOutline: (cb) => ipcRenderer.on('outline:update', (_e, items) => cb(items)),
   onTabs: (cb) => ipcRenderer.on('tabs:update', (_e, list) => cb(list)),

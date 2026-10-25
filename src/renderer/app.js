@@ -7495,6 +7495,20 @@ window.api.onExported((payload) => {
   ]);
 });
 
+function showRestoreMissing(payload) {
+  const files = (payload && Array.isArray(payload.files)) ? payload.files : [];
+  const count = (payload && payload.count) || files.length;
+  if (!count) return '';
+  const names = files.map((file) => String(file).split(/[\\/]/).pop()).slice(0, 3);
+  const text = count === 1
+    ? 'One tab was not reopened: ' + (names[0] || 'the file is gone')
+    : count + ' tabs were not reopened: ' + names.join(', ') + (count > names.length ? '…' : '');
+  showToast(text, 9000, [{ label: 'Dismiss', run: () => {} }]);
+  return text;
+}
+
+window.api.onSessionMissing?.((payload) => showRestoreMissing(payload));
+
 window.api.onFirstRun(() => {
   showBanner(
     t('firstRun.text', lang),
@@ -8188,6 +8202,7 @@ window.__mdpad = {
     paneScrollable: editorPane ? editorPane.scrollHeight > editorPane.clientHeight + 4 : false,
     paneScrollTop: editorPane ? Math.round(editorPane.scrollTop) : 0,
   }),
+  restoreMissingToast: (payload) => showRestoreMissing(payload),
   exportHistoryState: () => ({
     rows: [...document.querySelectorAll('#export-history .export-history-row')].map((row) => ({
       name: row.querySelector('.export-history-name').textContent,

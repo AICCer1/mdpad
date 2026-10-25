@@ -25,6 +25,7 @@ function planRestore(snapshot, options = {}) {
     if (!win || typeof win !== 'object') continue;
     const tabs = Array.isArray(win.tabs) ? win.tabs : [];
     const kept = [];
+    const missing = [];
     let untitled = 0;
     let dropped = 0;
 
@@ -37,9 +38,11 @@ function planRestore(snapshot, options = {}) {
       if (tab.file) {
         if (!exists(tab.file)) {
           dropped += 1;
+          missing.push(tab.file);
           continue;
         }
-        kept.push({ file: tab.file, contents: null });
+        // the view (caret and scroll) travels with the tab, so a restart also lands in the right place
+        kept.push(tab.view ? { file: tab.file, contents: null, view: tab.view } : { file: tab.file, contents: null });
       } else {
         const contents = String(tab.contents || '');
         if (untitled >= maxUntitled || contents.length > maxUntitledBytes) {
@@ -58,7 +61,9 @@ function planRestore(snapshot, options = {}) {
       activeId: win.activeId || null,
       treeRoot: win.treeRoot || null,
       bounds: win.bounds || null,
+      maximized: win.maximized === true,
       dropped,
+      missing,
     });
   }
 

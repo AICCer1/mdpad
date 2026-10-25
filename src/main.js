@@ -527,6 +527,7 @@ function snapshotSession() {
         activeId: snap.activeId,
         treeRoot: snap.treeRoot,
         bounds: s.win && !s.win.isDestroyed() ? s.win.getBounds() : null,
+        maximized: Boolean(s.win && !s.win.isDestroyed() && s.win.isMaximized()),
       };
     }),
   };
@@ -1320,6 +1321,7 @@ function createWindow({ show = true, restore = null, cascade = 0, bounds: explic
       backgroundThrottling: false,
     },
   });
+  if (restore && restore.maximized) win.maximize();
   const session = new Session(win);
   // Capture the id now: reading win.webContents.id inside 'closed' throws because
   // the webContents is already destroyed by then.
@@ -1454,6 +1456,7 @@ function restoreSessionTabs(session, restore) {
   session.activeId = null;
   let activeId = null;
   let count = 0;
+  const missing = [];
 
   for (const entry of restore.tabs || []) {
     if (count >= MAX_RESTORE_TABS) break;
@@ -1461,10 +1464,15 @@ function restoreSessionTabs(session, restore) {
       const contents = storage.readIfExists(entry.file);
       if (contents === null) {
         logLine('session', `missing file ${entry.file}`);
+        missing.push(entry.file);
         continue;
       }
       const id = entry.file;
       session.tabs.set(id, { id, file: entry.file, contents, savedContents: contents });
+      if (entry.view) {
+        session.viewByTab = session.viewByTab || {};
+        session.viewByTab[id] = entry.view;
+      }
       if (entry.activeId === id || activeId === null) activeId = activeId ?? id;
       count += 1;
     } else {
@@ -1485,6 +1493,10 @@ function restoreSessionTabs(session, restore) {
   const wanted = [...session.tabs.keys()].find((id) => id === restore.activeId) || activeId || [...session.tabs.keys()][0];
   session.broadcastTabs();
   session.activateTab(wanted);
+
+  if (missing.length) {
+    session.send('session:missing', { files: missing.slice(0, 5), count: missing.length });
+  }
 
   if (restore.treeRoot) {
     const info = session.setTreeRoot(restore.treeRoot);
@@ -13966,6 +13978,39 @@ async function runSmoke() {
       Math.abs(viewRestore.after.cursor - viewRestore.before.cursor) < 5 &&
       viewRestore.after.scroll === 400,
     viewRestore
+  );
+
+  // 173. tabs whose file vanished are reported instead of disappearing silently
+  const restoreMissing = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const single = await jsOf(`window.__mdpad.restoreMissingToast({
+      files: ['C:\\\\notes\\\\gone-one.md'],
+      count: 1,
+    })`);
+    await sleep(200);
+    const singleToast = await jsOf("document.querySelector('#toast').hidden ? '' : document.querySelector('#toast').textContent");
+    const many = await jsOf(`window.__mdpad.restoreMissingToast({
+      files: ['C:\\\\notes\\\\a.md', 'C:\\\\notes\\\\b.md', 'C:\\\\notes\\\\c.md', 'C:\\\\notes\\\\d.md'],
+      count: 4,
+    })`);
+    await sleep(200);
+    const manyToast = await jsOf("document.querySelector('#toast').hidden ? '' : document.querySelector('#toast').textContent");
+    const none = await jsOf('window.__mdpad.restoreMissingToast({ files: [], count: 0 })');
+    await jsOf("document.querySelector('#toast').hidden = true");
+    return { single, singleToast, many, manyToast, none };
+  })();
+  step(
+    'restore-missing-tabs',
+    typeof restoreMissing.single === 'string' &&
+      /One tab was not reopened/.test(restoreMissing.single) &&
+      /gone-one\.md/.test(restoreMissing.single) &&
+      /One tab was not reopened/.test(restoreMissing.singleToast) &&
+      typeof restoreMissing.many === 'string' &&
+      /4 tabs were not reopened/.test(restoreMissing.many) &&
+      /a\.md, b\.md, c\.md/.test(restoreMissing.many) &&
+      /…/.test(restoreMissing.many) &&
+      restoreMissing.none === '',
+    restoreMissing
   );
 
   // 30k. the settings filter narrows the visible fields

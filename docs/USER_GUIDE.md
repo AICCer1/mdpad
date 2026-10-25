@@ -175,6 +175,11 @@ folding — it is a reading aid, not an edit.
 
 ## Reopening a document
 
+If a file moved while the app was closed, its tab cannot come back — a notice names the missing
+files so the disappearance is explained rather than mysterious. Windows that were maximised reopen
+maximised, and each tab returns to its caret.
+
+
 The caret position and the scroll of each tab are remembered with the session, so a long document
 reopens where you stopped reading rather than at the first line.
 

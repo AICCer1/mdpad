@@ -68,3 +68,26 @@ test('missing files count as dropped', () => {
   assert.equal(plans[0].dropped, 1);
   assert.equal(plans[0].tabs.length, 1);
 });
+
+test('carries the caret and scroll of each restored tab', () => {
+  const view = { cursor: 120, scrollTop: 400 };
+  const plans = planRestore(snapshot([{ tabs: [{ file: 'a.md', view }] }]));
+  assert.deepEqual(plans[0].tabs[0].view, view);
+});
+
+test('names the tabs whose file disappeared', () => {
+  const plans = planRestore(
+    snapshot([{ tabs: [{ file: 'gone.md' }, { file: 'here.md' }, { file: 'also-gone.md' }] }]),
+    { exists: (file) => file === 'here.md' }
+  );
+  assert.deepEqual(plans[0].missing, ['gone.md', 'also-gone.md']);
+  assert.equal(plans[0].dropped, 2);
+  assert.equal(plans[0].tabs.length, 1);
+});
+
+test('remembers whether a window was maximised', () => {
+  const plans = planRestore(snapshot([{ tabs: [{ file: 'a.md' }], maximized: true }]));
+  assert.equal(plans[0].maximized, true);
+  const plain = planRestore(snapshot([{ tabs: [{ file: 'a.md' }] }]));
+  assert.equal(plain[0].maximized, false);
+});

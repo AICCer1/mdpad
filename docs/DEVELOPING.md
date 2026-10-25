@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 341 end-to-end checks against a real window
+npm run smoke          # 342 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -668,3 +668,10 @@ selection change); main keeps `session.viewByTab` and `tabsForSnapshot` writes i
 `doc:loaded` carries the view back, the caret is clamped to the new document size, and the existing
 `tabScroll` restoration places the scroll. The smoke window is hidden and has no viewport, so
 `view-restore` asserts the caret and that the persisted scroll reaches `tabScroll`, not pixels.
+
+## Restore reporting
+
+`planRestore` keeps a `missing` list beside `dropped`, carries each tab's `view` and a window's
+`maximized` flag. `restoreSessionTabs` sends `session:missing` with up to five paths, which the
+renderer turns into a toast naming them. Unit tests cover the planner; `restore-missing-tabs` checks
+the wording for one and for several files.
