@@ -402,6 +402,12 @@ A small strip above the document offers three tips on first use — the command 
 list, and dropping images. Dismissing one ("Got it" or ×) records it and shows the next; once all
 three are seen the strip never returns.
 
+### Repetition
+
+The structure report has a **Repetition** section: content words used three or more times, words
+doubled by accident ("that that"), repeated three-word phrases such as "in spite of", and repeated
+Chinese bigrams. Common stop words are ignored so the list stays readable.
+
 ### Sentence length
 
 The statistics panel counts sentences, their average length and the longest one; the structure report

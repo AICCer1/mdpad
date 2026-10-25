@@ -711,3 +711,10 @@ mode like the paragraph highlight.
 and returns `{count, avgWords, longest, long, limit}`. `doc:structure` strips fences, inline code,
 images, link targets, emphasis markers, list bullets and heading lines before calling it; the stats
 panel and the structure report read the same object.
+
+## Repetition
+
+`analyzeRepetition(text, {limit, minCount, phraseLength})` returns `{words, doubled, repeated, cjkRepeated}`.
+The tokeniser keeps words down to two letters so phrases like "in spite of" can exist; stop words are
+filtered only from the single-word list, because "that that" is exactly the typo worth showing. `doc:structure`
+strips fences, inline code and heading lines first.

@@ -3546,6 +3546,31 @@ function statsMarkdown(payload) {
   if (!report.skips.length && !report.duplicates.length) lines.push('No structural problems.');
   for (const skip of report.skips) lines.push('- Heading "' + skip.text + '" jumps from H' + skip.from + ' to H' + skip.to);
   for (const duplicate of report.duplicates) lines.push('- Duplicate heading "' + duplicate.text + '"');
+  if (report.repetition) {
+    const r = report.repetition;
+    const hasAny = r.words.length || r.doubled.length || r.repeated.length || r.cjkRepeated.length;
+    lines.push('', '## Repetition', '');
+    if (!hasAny) {
+      lines.push('No repeated words or phrases worth flagging.');
+    } else {
+      if (r.words.length) {
+        lines.push('Words used at least three times:');
+        for (const entry of r.words) lines.push('- ' + entry.word + ' — ' + entry.count + '×');
+      }
+      if (r.cjkRepeated.length) {
+        lines.push('', 'Chinese characters repeated at least three times:');
+        for (const entry of r.cjkRepeated) lines.push('- ' + entry.word + ' — ' + entry.count + '×');
+      }
+      if (r.doubled.length) {
+        lines.push('', 'Words repeated back to back:');
+        for (const entry of r.doubled) lines.push('- ' + entry.phrase);
+      }
+      if (r.repeated.length) {
+        lines.push('', 'Phrases repeated across the document:');
+        for (const entry of r.repeated) lines.push('- "' + entry.phrase + '" — ' + entry.count + '×');
+      }
+    }
+  }
   if (report.sentences) {
     const s = report.sentences;
     lines.push('', '## Sentence length', '');

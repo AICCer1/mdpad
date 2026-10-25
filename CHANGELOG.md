@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.9.0
+
+The mechanical half of an editing pass.
+
+- **The structure report now lists repetition**: content words used three or more times, words doubled by
+  accident ("very very", "that that"), repeated three-word phrases such as "in spite of", and repeated
+  Chinese bigrams. Stop words are filtered from the single-word list only.
+- 346 smoke checks (one new: `repetition-report` asserts the counts for all three kinds and that stop
+  words stay out), 202 unit tests (seven new).
+- Two bugs the tests caught: the tokeniser dropped two-letter words, so "in spite of" could never be a
+  phrase; and filtering stop words from the doubled list hid exactly the typos it exists to find.
+
 ## 2.8.0
 
 "Is this sentence too long?" now has a number.

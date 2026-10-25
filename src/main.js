@@ -17,6 +17,7 @@ const { planRestore } = require('./session-restore');
 const { checkDirs } = require('./preflight');
 const { parseFileArgs } = require('./cli');
 const { analyzeSentences } = require('./sentence');
+const { analyzeRepetition } = require('./repetition');
 const { isLargeExport, describeSize } = require('./export-limits');
 const { buildExportName } = require('./filename');
 const { fitBounds } = require('./window-bounds');
@@ -2188,6 +2189,12 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
           .replace(/^\s*#{1,6}\s+.*$/gm, ' ')
           .replace(/^\s*[-*+]\s+/gm, '')
           .replace(/^\s*\d+\.\s+/gm, '')
+      ),
+      repetition: analyzeRepetition(
+        text
+          .replace(/^\s*(?:\x60{3,}|~{3,})[\s\S]*?^\s*(?:\x60{3,}|~{3,})/gm, ' ')
+          .replace(/\x60[^\x60\n]*\x60/g, ' ')
+          .replace(/^\s*#{1,6}\s+.*$/gm, ' ')
       ),
       previous: s && s.file ? readReportIndex()[s.file] || null : null,
     };
@@ -14213,6 +14220,46 @@ async function runSmoke() {
       sentenceStats.rows.some((row) => /sentences/i.test(row) && /3/.test(row)) &&
       sentenceStats.rows.some((row) => /average sentence/i.test(row)),
     sentenceStats
+  );
+
+  // 177. repeated words, doubled words and repeated phrases reach the structure payload
+  const repetitionStats = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'repetition.md');
+    fs.writeFileSync(
+      doc,
+      [
+        '# Repetition',
+        '',
+        'The important thing is important. Very important, and the important result.',
+        '',
+        'This is very very good and that that works.',
+        '',
+        'in spite of everything we tried, in spite of the noise, in spite of it all',
+        '',
+      ].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('in spite of it all')");
+      if (ready === true) break;
+    }
+    await sleep(400);
+    const structure = await jsOf('window.api.docStructure()');
+    return structure && structure.repetition;
+  })();
+  step(
+    'repetition-report',
+    repetitionStats &&
+      repetitionStats.words.some((entry) => entry.word === 'important' && entry.count === 4) &&
+      repetitionStats.doubled.some((entry) => entry.phrase === 'very very') &&
+      repetitionStats.repeated.some((entry) => entry.phrase === 'in spite of' && entry.count === 3) &&
+      !repetitionStats.words.some((entry) => entry.word === 'the'),
+    repetitionStats
   );
 
   // 30k. the settings filter narrows the visible fields
