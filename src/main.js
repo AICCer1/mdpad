@@ -12953,6 +12953,40 @@ async function runSmoke() {
   });
   step('export-parity', parityOk, exportParity);
 
+  // 156. settings search matches labels, highlights hits and finds every field
+  const settingsSearch = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    await jsOf(`document.querySelector('#open-settings').click()`);
+    await sleep(700);
+    const single = await jsOf("window.__mdpad.settingsSearch('spell')");
+    const multi = await jsOf("window.__mdpad.settingsSearch('writing goal')");
+    const none = await jsOf("window.__mdpad.settingsSearch('zzzz-no-setting')");
+    const cleared = await jsOf("window.__mdpad.settingsSearch('')");
+    const audit = await jsOf('window.__mdpad.settingsSearchAudit()');
+    await jsOf("document.querySelector('#settings-modal').hidden = true");
+    return { single, multi, none, cleared, audit };
+  })();
+  step(
+    'settings-search',
+    settingsSearch.single &&
+      settingsSearch.single.visible >= 1 &&
+      settingsSearch.single.hits > 0 &&
+      settingsSearch.single.labels.some((label) => /spell/i.test(label)) &&
+      settingsSearch.multi &&
+      settingsSearch.multi.visible >= 1 &&
+      settingsSearch.multi.labels.some((label) => /goal/i.test(label)) &&
+      settingsSearch.none &&
+      settingsSearch.none.visible === 0 &&
+      settingsSearch.none.empty === true &&
+      settingsSearch.cleared &&
+      settingsSearch.cleared.visible === settingsSearch.audit.fields &&
+      settingsSearch.cleared.hits === 0 &&
+      settingsSearch.audit &&
+      settingsSearch.audit.fields > 20 &&
+      settingsSearch.audit.failures.length === 0,
+    settingsSearch
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

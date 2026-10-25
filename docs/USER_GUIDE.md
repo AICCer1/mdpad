@@ -321,6 +321,13 @@ Switching tabs remembers **where you were** in each document, not just the caret
 file, jump to another tab and back, and you land where you left. A tab that has never been scrolled
 starts at the top.
 
+## Finding a setting
+
+The box at the top of Settings filters by **field label**: type "spell", "goal" or "external" and
+only the matching fields remain, with the matched words highlighted. Several words narrow the
+list; if nothing matches all of them the search falls back to any word, so a remembered phrase
+still finds the field. When nothing matches at all, the panel says so.
+
 ## Theme
 
 Light, dark, sepia, or **Follow system** — the last one resolves to dark or light from Windows and

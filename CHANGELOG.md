@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.87.0
+
+Settings are findable by their labels.
+
+- **The filter matches field labels** (it always did), but now several words narrow the list, a phrase
+  like "writing goal" still finds "Daily word goal" through an any-word fallback instead of showing
+  nothing, and the matched words are **highlighted** in the label.
+- **A no-match state**: the panel says "No settings match." instead of silently going blank.
+- **A self-check types every label** (`settingsSearchAudit`) and fails if a field hides itself, so a
+  new setting with an unsearchable label breaks the suite.
+- Two highlight bugs: clearing the query left `<mark>` elements behind because `textContent` cannot
+  distinguish highlighted text from plain text (fixed by comparing `innerHTML` and rebuilding), and
+  the first implementation used `innerHTML` with the label text — replaced by DOM node construction.
+- 325 smoke checks (one new: `settings-search`), 171 unit tests.
+
 ## 1.86.0
 
 The copy is audited now.

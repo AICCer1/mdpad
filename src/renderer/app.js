@@ -4518,21 +4518,81 @@ for (const sub of document.querySelectorAll('#settings-modal .modal-sub')) {
   });
 }
 
-function filterSettings(query) {
-  const q = String(query || '').trim().toLowerCase();
-  // First hide fields that do not match their own text…
-  for (const field of document.querySelectorAll('#settings-modal .field')) {
-    field.hidden = Boolean(q) && !field.textContent.toLowerCase().includes(q);
+// Search matches labels and help text; several words all have to be present, so "ai key" narrows
+// rather than widens. Hits are highlighted inside the label without touching the controls.
+function highlightLabel(label, words) {
+  if (!label.dataset.originalText) label.dataset.originalText = label.textContent;
+  const text = label.dataset.originalText;
+  if (!words.length) {
+    // textContent cannot tell a <mark> from plain text, so rebuild unconditionally.
+    if (label.innerHTML !== text) label.textContent = text;
+    return;
   }
-  // …then let a section heading ("Usage", "Export") reveal its whole section, because a user
-  // searching for a group name means the group, not the fields whose text happens to match.
+  const escaped = words.map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).filter(Boolean);
+  if (!escaped.length) return;
+  const pattern = new RegExp(escaped.join("|"), "gi");
+  const parts = [];
+  let last = 0;
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    if (!match[0]) {
+      pattern.lastIndex += 1;
+      continue;
+    }
+    if (match.index > last) parts.push(document.createTextNode(text.slice(last, match.index)));
+    const mark = document.createElement("mark");
+    mark.className = "settings-hit";
+    mark.textContent = match[0];
+    parts.push(mark);
+    last = match.index + match[0].length;
+  }
+  if (!parts.length) {
+    if (label.textContent !== text) label.textContent = text;
+    return;
+  }
+  if (last < text.length) parts.push(document.createTextNode(text.slice(last)));
+  label.textContent = '';
+  label.append(...parts);
+}
+
+function filterSettings(query) {
+  const words = String(query || '')
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+  const q = words.join(' ');
+  const allWords = (text) => {
+    const haystack = String(text || '').toLowerCase();
+    return words.length > 0 && words.every((word) => haystack.includes(word));
+  };
+  const anyWord = (text) => {
+    const haystack = String(text || '').toLowerCase();
+    return words.some((word) => haystack.includes(word));
+  };
+  // All words first (narrowing); a phrase like "writing goal" still finds "Daily word goal" through
+  // the fallback instead of showing an empty panel.
+  const fields = [...document.querySelectorAll('#settings-modal .field')];
+  const useAny = Boolean(q) && !fields.some((field) => allWords(field.textContent));
+  const matches = useAny ? anyWord : allWords;
+  let visible = 0;
+  for (const field of fields) {
+    const hit = !q || matches(field.textContent);
+    field.hidden = !hit;
+    if (hit) visible += 1;
+    const label = field.querySelector('label');
+    if (label) highlightLabel(label, q ? words : []);
+  }
   for (const sub of document.querySelectorAll('#settings-modal .modal-sub')) {
-    const headingMatches = Boolean(q) && sub.textContent.toLowerCase().includes(q);
+    const headingMatches = Boolean(q) && matches(sub.textContent);
     if (headingMatches) {
       setSectionCollapsed(sub, false);
       let node = sub.nextElementSibling;
       while (node && !node.classList.contains('modal-sub')) {
-        if (node.classList.contains('field')) node.hidden = false;
+        if (node.classList.contains('field')) {
+          node.hidden = false;
+          visible += 1;
+        }
         node = node.nextElementSibling;
       }
     }
@@ -4544,7 +4604,28 @@ function filterSettings(query) {
     }
     sub.hidden = Boolean(q) && !anyVisible && !headingMatches;
   }
+  const empty = document.querySelector('#settings-empty');
+  if (empty) empty.hidden = !q || visible > 0;
+  return visible;
 }
+
+// Every setting must be findable by typing its own label. The smoke test asks for every label and
+// fails if a field hides itself.
+function settingsSearchAudit() {
+  const failures = [];
+  const fields = [...document.querySelectorAll('#settings-modal .field')];
+  for (const field of fields) {
+    const label = field.querySelector('label');
+    if (!label) continue;
+    const text = (label.dataset.originalText || label.textContent).trim();
+    if (!text) continue;
+    filterSettings(text);
+    if (field.hidden) failures.push(text);
+  }
+  filterSettings('');
+  return { fields: fields.length, failures };
+}
+
 
 for (const button of document.querySelectorAll('.style-preset')) {
   button.addEventListener('click', () => {
@@ -7327,6 +7408,16 @@ window.__mdpad = {
     });
     return out;
   },
+  settingsSearch: (query) => {
+    const visible = filterSettings(query);
+    return {
+      visible,
+      empty: !document.querySelector('#settings-empty').hidden,
+      hits: document.querySelectorAll('#settings-modal .settings-hit').length,
+      labels: [...document.querySelectorAll('#settings-modal .field:not([hidden]) label')].map((label) => label.textContent),
+    };
+  },
+  settingsSearchAudit: () => settingsSearchAudit(),
   externalState: () => ({
     banner: !document.querySelector('#banner').hidden,
     text: document.querySelector('#banner-text').textContent,

@@ -1214,3 +1214,6 @@ Object.assign(DICT.zh, {
   'settings.externalAuto': '自动重新加载',
   'settings.externalIgnore': '忽略',
 });
+
+Object.assign(DICT.en, { 'settings.noMatches': 'No settings match.' });
+Object.assign(DICT.zh, { 'settings.noMatches': '没有匹配的设置。' });

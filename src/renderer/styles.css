@@ -2384,3 +2384,7 @@ html.table-dragging-column, html.table-dragging-column * { cursor: col-resize !i
 .writing-history-day.is-reached .writing-history-bar { background: var(--accent); }
 .writing-history-label { font-size: 9.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 #writing-status { cursor: pointer; }
+
+/* ---- settings search ---- */
+.settings-hit { background: color-mix(in srgb, var(--accent) 22%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+.settings-empty { padding: 14px 2px; color: var(--muted); font-size: 12.5px; }

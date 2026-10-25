@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 324 end-to-end checks against a real window
+npm run smoke          # 325 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -550,3 +550,10 @@ profile hashes. It runs in `npm run ship` after the install check.
 spaces, no CJK in English (the `presetZh` label excepted), no unexplained Latin prose in Chinese
 (technical terms and placeholders stripped first), and Title Case for short English menu labels
 with articles and the brand as stop words.
+
+## Settings search
+
+`filterSettings` matches every word against the field text, falls back to any-word when nothing
+matches all, and rebuilds label content as DOM nodes for highlighting (never `innerHTML` with user
+text). `settingsSearchAudit()` types each label and reports fields that hide themselves; the smoke
+check asserts that list is empty, so a new setting without a searchable label fails the suite.
