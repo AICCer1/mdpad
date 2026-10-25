@@ -44,6 +44,7 @@ if (!checksOnly) {
     );
   }
   step('install / uninstall check', npm, ['run', 'install-check']);
+step('upgrade path', process.execPath, ['scripts/upgrade-check.js']);
 }
 
 const artifacts = fs

@@ -534,3 +534,11 @@ documented in the user guide.
 visible, editor present, `onboarded` still false, a document created, saved (`changed: true`),
 exported, and the opened tab active and clean. `scripts/first-run-check.js` spawns it with an empty
 `MDPAD_USERDATA`; `release-check` runs the same script against the packaged binary.
+
+## Upgrade check
+
+`--verify-profile` prints one `PROFILE_STATE` line with settings, restored windows/tabs and drafts.
+Because it dispatches before the normal restore, it performs `planRestore` itself — otherwise the
+phase would report an empty session. `upgrade-check.js` installs, seeds `settings.json`,
+`session.json` and `draftsRecover/<hash>.json`, runs the installed exe, then reinstalls and compares
+profile hashes. It runs in `npm run ship` after the install check.

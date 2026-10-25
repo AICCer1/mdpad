@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.85.0
+
+Upgrades keep the profile.
+
+- **`npm run upgrade-check`** installs the build, seeds a real profile — dark theme, Chinese UI, a
+  session with one open file, one recovery draft — launches the **installed** app and asserts it
+  reads all of it back: settings, restored tab, draft list. It then **reinstalls over the same
+  directory** and verifies `settings.json`, `session.json` and the drafts are byte-for-byte unchanged.
+- It runs inside `npm run ship` right after the install check, so a release that would wipe user data
+  cannot be published.
+- Four bugs found while building it: the phase dispatched **before** the normal session restore (it
+  reported zero tabs until it ran `planRestore` itself), the script seeded `drafts/` while the app
+  uses `draftsRecover/`, the installer unpacks asynchronously so the exe check needed a wait loop, and
+  the reinstall assertion originally tried to relaunch the app (which hung) instead of comparing the
+  profile files.
+- 324 smoke checks, 167 unit tests.
+
 ## 1.84.0
 
 The first minute is a test now.

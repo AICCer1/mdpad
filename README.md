@@ -173,6 +173,13 @@ All four formats are tested against a path whose parent is a file and against a 
 directory: each answers with an error, creates no file, and a **read-only existing file survives
 the attempted overwrite untouched**. A partial file from a failed attempt is removed.
 
+## Upgrades keep the profile
+
+`npm run upgrade-check` installs the build, seeds a real profile (dark theme, Chinese UI, a session
+with one open file and a recovery draft), launches the installed app and asserts it reads all of
+it back — settings, restored tab and draft. It then **reinstalls over the same directory** and
+verifies the profile files are byte-for-byte unchanged.
+
 ## First run is a test
 
 `npm run first-run` starts the app against an **empty profile** and walks the first minute: the

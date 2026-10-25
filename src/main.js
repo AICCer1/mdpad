@@ -3367,6 +3367,33 @@ async function runPerfReport() {
 // separately (read, IPC, renderer parse+layout) instead of one opaque number.
 // First-run walkthrough against a genuinely empty profile: what a new user sees, then one document
 // created, saved and exported, with the state checked at each step.
+// Reads back what a user profile says after an install: settings, restored tabs and drafts.
+async function runVerifyProfile() {
+  // The dispatch skips the normal startup restore, so restore here: the point of this phase is what a
+  // user sees after an upgrade, and that is the restored session.
+  const previous = readSession();
+  const plans = planRestore(previous, { exists: (file) => fs.existsSync(file) });
+  for (const plan of plans) createWindow({ restore: plan, show: false });
+  await sleep(2000);
+  const settings = readSettings();
+  const windows = [...sessions.values()].map((session) => ({
+    tabs: [...session.tabs.values()].map((tab) => ({ file: tab.file, chars: (tab.contents || '').length })),
+    activeFile: session.file || null,
+  }));
+  const drafts = listDrafts(draftsDir()).map((draft) => ({ file: draft.file, chars: (draft.contents || '').length }));
+  const state = {
+    theme: settings.theme || null,
+    language: settings.language || null,
+    accent: settings.accent || null,
+    onboarded: settings.onboarded === true,
+    windows,
+    tabs: windows.reduce((sum, win) => sum + win.tabs.length, 0),
+    drafts,
+  };
+  console.log('PROFILE_STATE ' + JSON.stringify(state));
+  app.exit(0);
+}
+
 async function runWalkthrough() {
   try {
   const steps = {};
@@ -13754,6 +13781,10 @@ app.whenReady().then(async () => {
   }
   if (process.argv.includes('--perf-report')) {
     await runPerfReport();
+    return;
+  }
+  if (process.argv.includes('--verify-profile')) {
+    await runVerifyProfile();
     return;
   }
   if (process.argv.includes('--walkthrough')) {
