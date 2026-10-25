@@ -682,3 +682,10 @@ the wording for one and for several files.
 it spans monitors, shrinks it when it is larger than the display it mostly occupies, and otherwise
 moves it into that display (or the primary) keeping its size. Malformed or infinite values return
 `null`, which makes `createWindow` use its defaults. The rules are unit-tested without Electron.
+
+## PDF phases
+
+`toPdf` returns `timings` (`buildMs`, `writeMs`, `loadMs`, `printMs`), which `--bench-export` reports.
+Printing dominates and scales with pages; `displayHeaderFooter` costs ~14% of it, while
+`printBackground` costs nothing measurable. `pageNumbers` (setting `exportPageNumbers`, default true)
+is threaded through `Session.exportTo`.

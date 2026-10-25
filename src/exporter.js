@@ -126,12 +126,16 @@ ${stats ? `<footer class="export-stats">${escapeHtml(stats.line)}</footer>` : ''
 async function toPdf(
   markdown,
   targetPath,
-  { title = 'Untitled', template = 'default', css = '', stats = null, diagrams = null, font = '', margin = 'normal' } = {}
+  { title = 'Untitled', template = 'default', css = '', stats = null, diagrams = null, font = '', margin = 'normal', pageNumbers = true } = {}
 ) {
+  const buildStarted = Date.now();
   const html = toHtmlDocument(markdown, title, { template, css, stats, diagrams, font, margin });
+  const buildMs = Date.now() - buildStarted;
+  const writeStarted = Date.now();
   const tmpHtml = path.join(path.dirname(targetPath), `mdpad-print-${process.pid}.html`);
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   fs.writeFileSync(tmpHtml, html, 'utf8');
+  const writeMs = Date.now() - writeStarted;
 
   const withTimeout = (promise, ms, label) =>
     Promise.race([
@@ -147,16 +151,21 @@ async function toPdf(
   win.webContents.on('did-fail-load', (_e, code, desc, url) =>
     console.error(`pdf: load failed ${code} ${desc} ${url}`));
   try {
+    const loadStarted = Date.now();
     await withTimeout(win.loadURL(`file://${tmpHtml.replace(/\\/g, '/')}`), 15000, 'loadURL');
+    const loadMs = Date.now() - loadStarted;
     const footer = `<div style="width:100%;font-size:9px;color:#888;padding:0 12mm;display:flex;justify-content:space-between;">
       <span>${escapeHtml(String(title))}</span>
       <span><span class="pageNumber"></span>/<span class="totalPages"></span></span>
     </div>`;
+    const printStarted = Date.now();
+    // Page numbers cost a pagination pass per page (~14% on a 2 MB document); they are worth it by
+    // default and can be switched off for very large exports.
     const data = await withTimeout(
       win.webContents.printToPDF({
         pageSize: 'A4',
         printBackground: true,
-        displayHeaderFooter: true,
+        displayHeaderFooter: pageNumbers !== false,
         headerTemplate: '<div></div>',
         footerTemplate: footer,
         margins: PDF_MARGINS[margin] || PDF_MARGINS.normal,
@@ -164,8 +173,9 @@ async function toPdf(
       25000,
       'printToPDF',
     );
+    const printMs = Date.now() - printStarted;
     fs.writeFileSync(targetPath, data);
-    return { path: targetPath, bytes: data.length };
+    return { path: targetPath, bytes: data.length, timings: { buildMs, writeMs, loadMs, printMs, htmlBytes: html.length } };
   } finally {
     win.destroy();
     try { fs.unlinkSync(tmpHtml); } catch { /* already gone */ }

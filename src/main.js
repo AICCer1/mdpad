@@ -320,6 +320,7 @@ function publicSettings() {
     filesCollapsed: Boolean(s.filesCollapsed),
     exportFont: FONT_KEYS.includes(s.exportFont) ? s.exportFont : 'serif',
     exportMargin: EXPORT_MARGINS.includes(s.exportMargin) ? s.exportMargin : 'normal',
+    exportPageNumbers: s.exportPageNumbers !== false,
     spellcheck: s.spellcheck !== false,
     findOptions:
       s.findOptions && typeof s.findOptions === 'object'
@@ -1131,6 +1132,7 @@ class Session {
         diagrams,
         font: exportFontStack(),
         margin: readSettings().exportMargin || 'normal',
+        pageNumbers: readSettings().exportPageNumbers !== false,
       });
       rememberExport(filePath, kind);
       this.sendStatus({ exported: result });
@@ -2454,6 +2456,7 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
         .slice(0, 10)
         .map((item) => ({ path: item.path, kind: String(item.kind || 'html'), at: Number(item.at) || Date.now() }));
     }
+    if (patch.exportPageNumbers !== undefined) next.exportPageNumbers = patch.exportPageNumbers !== false;
     if (patch.externalPolicy !== undefined) {
       next.externalPolicy = ['ask', 'auto', 'ignore'].includes(patch.externalPolicy) ? patch.externalPolicy : 'ask';
     }
@@ -3639,11 +3642,12 @@ async function runBenchExport() {
     const file = path.join(app.getPath('temp'), 'mdpad-bench-export.' + kind);
     const started = Date.now();
     try {
-      await session.exportTo(file, kind);
+      const result = await session.exportTo(file, kind);
       out.formats[kind] = {
         ms: Date.now() - started,
         bytes: fs.statSync(file).size,
         heapMb: Math.round(process.memoryUsage().heapUsed / 1048576),
+        timings: result && result.timings ? result.timings : null,
       };
     } catch (err) {
       out.formats[kind] = { ms: Date.now() - started, error: err.message };
@@ -14011,6 +14015,51 @@ async function runSmoke() {
       /…/.test(restoreMissing.many) &&
       restoreMissing.none === '',
     restoreMissing
+  );
+
+  // 174. page numbers can be switched off, which shortens large PDF exports
+  const pageNumbersTest = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'page-numbers.md');
+    const body = [];
+    for (let i = 0; i < 120; i += 1) body.push('paragraph ' + i + ' with a handful of words to make pages');
+    fs.writeFileSync(doc, ['# Pages', '', ...body, ''].join(nl), 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('paragraph 119')");
+      if (ready === true) break;
+    }
+    await sleep(400);
+    await jsOf("window.api.setSettings({ exportPageNumbers: true })");
+    const withNumbers = await session.exportTo(path.join(dir, 'pages-on.pdf'), 'pdf');
+    await jsOf("window.api.setSettings({ exportPageNumbers: false })");
+    const withoutNumbers = await session.exportTo(path.join(dir, 'pages-off.pdf'), 'pdf');
+    await sleep(200);
+    const setting = await jsOf('window.api.getSettings().then((s) => s.exportPageNumbers)');
+    await jsOf('window.__mdpad.openExportPanel("pdf")');
+    await sleep(500);
+    const checkbox = await jsOf(`({
+      present: Boolean(document.querySelector('#export-page-numbers')),
+      checked: (document.querySelector('#export-page-numbers') || {}).checked === true,
+    })`);
+    await jsOf("document.querySelector('#export-modal').hidden = true");
+    await jsOf("window.api.setSettings({ exportPageNumbers: true })");
+    return { withNumbers, withoutNumbers, setting, checkbox };
+  })();
+  step(
+    'export-page-numbers',
+    pageNumbersTest.withNumbers &&
+      pageNumbersTest.withNumbers.exported === true &&
+      pageNumbersTest.withoutNumbers &&
+      pageNumbersTest.withoutNumbers.exported === true &&
+      pageNumbersTest.withoutNumbers.bytes < pageNumbersTest.withNumbers.bytes &&
+      pageNumbersTest.setting === false &&
+      pageNumbersTest.checkbox.present === true &&
+      pageNumbersTest.checkbox.checked === false,
+    pageNumbersTest
   );
 
   // 30k. the settings filter narrows the visible fields

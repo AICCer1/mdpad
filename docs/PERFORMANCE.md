@@ -4,6 +4,29 @@ Measured with `npm run perf` (`electron . --perf-report`), which builds the docu
 real editor and writes `mdpad-perf.json` next to the exported files. Numbers come from one run on
 the development machine; the point is the order of magnitude and the guard, not a benchmark score.
 
+## PDF export phases (2 MB document)
+
+Measured with `node scripts/perf-export.js --kb 2048`, which reports the phases `toPdf` now returns:
+
+| Phase | Time | What it is |
+| --- | --- | --- |
+| build | 201 ms | markdown → standalone HTML + link marking |
+| write | 5 ms | the temporary print file |
+| load | 557 ms | Chromium loads and lays out the HTML in a hidden window |
+| print | 3253 ms | `printToPDF`: pagination and text rasterisation |
+| **total** | **~4.0 s** | 7.8 MB PDF |
+
+Printing is 81% of the time and scales with page count. Two experiments with no quality loss:
+
+| Variant | print phase |
+| --- | --- |
+| default (page numbers on) | 3253 ms |
+| no `displayHeaderFooter` | 2808 ms (−14%) |
+| `printBackground: false` | 3286 ms (no gain) |
+
+So page numbers are now a setting (`Export → Page numbers`, on by default): turning them off shortens
+a large export by about 14% for people who do not need them. Background printing costs nothing, so it
+stays on.
 ## The document
 
 | Property | Value |

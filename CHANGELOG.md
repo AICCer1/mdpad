@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.5.0
+
+PDF export, measured before it was changed.
+
+- **`toPdf` now reports its phases** and `--bench-export` prints them. On a 2 MB document: build 201 ms,
+  write 5 ms, load 557 ms, **print 3253 ms** — printing is 81% of the export and is where the time
+  actually goes.
+- **Page numbers became a setting** after measuring what they cost: `displayHeaderFooter` adds 445 ms
+  per export (14%); `printBackground` costs nothing measurable, so it stays on. The new **Page numbers**
+  checkbox (on by default) lets a large PDF export finish ~14% faster.
+- 343 smoke checks (one new: `export-page-numbers` exports the same document both ways, asserts the
+  footer-less file is smaller, and that the setting and the panel checkbox agree), 183 unit tests.
+- `docs/PERFORMANCE.md` now carries the phase table and the two experiments, so the next improvement
+  starts from numbers rather than guesses.
+
 ## 2.4.0
 
 The window comes back where it can be seen.

@@ -1340,3 +1340,6 @@ Object.assign(DICT.zh, {
   'export.historyClear': '清空',
   'export.historyMissing': '文件已不存在',
 });
+
+Object.assign(DICT.en, { 'export.pageNumbers': 'Page numbers' });
+Object.assign(DICT.zh, { 'export.pageNumbers': '页码' });

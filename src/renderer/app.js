@@ -444,6 +444,7 @@ async function openExportPanel(format = 'pdf') {
   document.querySelector('#export-template').value = settings.exportTemplate || 'default';
   document.querySelector('#export-font').value = settings.exportFont || 'serif';
   document.querySelector('#export-margin').value = settings.exportMargin || 'normal';
+    document.querySelector('#export-page-numbers').checked = settings.exportPageNumbers !== false;
   document.querySelector('#export-name').value = settings.exportNameTemplate || '{title}';
   document.querySelector('#export-status').textContent = '';
   setExportFormat(format);
@@ -471,6 +472,7 @@ async function saveExportPanelSettings() {
     exportTemplate: document.querySelector('#export-template').value,
     exportFont: document.querySelector('#export-font').value,
     exportMargin: document.querySelector('#export-margin').value,
+    exportPageNumbers: document.querySelector('#export-page-numbers').checked,
     exportNameTemplate: document.querySelector('#export-name').value,
   });
 }

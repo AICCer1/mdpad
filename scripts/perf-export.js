@@ -62,7 +62,14 @@ function main() {
   console.log('document: ' + (report.bytes / 1024 / 1024).toFixed(2) + ' MB');
   for (const [kind, value] of Object.entries(report.formats)) {
     if (value.error) console.log(kind.padEnd(5) + ' failed: ' + value.error);
-    else console.log(kind.padEnd(5) + ' ' + String(value.ms).padStart(6) + ' ms · ' + (value.bytes / 1024).toFixed(0) + ' KB · heap ' + value.heapMb + ' MB');
+    else {
+      let line = kind.padEnd(5) + ' ' + String(value.ms).padStart(6) + ' ms · ' + (value.bytes / 1024).toFixed(0) + ' KB · heap ' + value.heapMb + ' MB';
+      if (value.timings) {
+        const t = value.timings;
+        line += ' · build ' + t.buildMs + ' / write ' + t.writeMs + ' / load ' + t.loadMs + ' / print ' + t.printMs + ' ms';
+      }
+      console.log(line);
+    }
   }
 }
 
