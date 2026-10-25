@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         317 end-to-end checks (dev or packaged)
+npm run smoke         318 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -166,6 +166,12 @@ two or more list items) parses it; prose and a lone `#tag` stay literal.
 
 Settings → Appearance → **Keep the caret in the middle**: while you type, the view scrolls so the
 caret line sits around 45% of the window, instead of drifting to the bottom edge.
+
+## Daily word goal
+
+Settings → **Daily word goal** turns the status bar into `Today 620 / 800 words`. Only **positive**
+word deltas are counted, so deleting text does not take back words already written; crossing the
+goal raises one toast for the day.
 
 ## Current paragraph highlight
 

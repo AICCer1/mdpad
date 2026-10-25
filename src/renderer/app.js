@@ -1011,6 +1011,40 @@ function flash(message) {
   flash._t = setTimeout(() => { status.textContent = ''; }, 2500);
 }
 
+let writingStatus = null;
+let writingTimer = null;
+
+function renderWritingStatus(summary) {
+  if (!summary) return;
+  const node = document.querySelector('#writing-status');
+  if (!node) return;
+  if (!summary.goal) {
+    node.hidden = true;
+    node.textContent = '';
+    return;
+  }
+  node.hidden = false;
+  node.textContent = 'Today ' + summary.today + ' / ' + summary.goal + ' words';
+  node.classList.toggle('is-reached', summary.reached === true);
+}
+
+async function recordWriting() {
+  const words = (editor.getText().match(/\S+/g) || []).length;
+  const key = activeTabId || 'untitled';
+  const summary = await window.api.writingRecord(key, words).catch(() => null);
+  if (!summary) return;
+  writingStatus = summary;
+  renderWritingStatus(summary);
+  if (summary.firstReach) {
+    showToast('Daily goal reached: ' + summary.today + ' words', 6000);
+  }
+}
+
+async function refreshWritingStatus() {
+  writingStatus = await window.api.writingStats().catch(() => null);
+  renderWritingStatus(writingStatus);
+}
+
 function updateStatsNow() {
   const { from, to, empty } = editor.state.selection;
   const text = editor.getText();
@@ -4801,6 +4835,7 @@ async function openSettings(section = 'appearance') {
   $('#set-spellcheck').checked = settings.spellcheck !== false;
   $('#set-typewriter').checked = settings.typewriter === true;
   $('#set-highlight-paragraph').checked = settings.highlightParagraph === true;
+  $('#set-writing-goal').value = String(Number(settings.writingGoal) || 0);
   setParagraphHighlight(settings.highlightParagraph === true);
   typewriterEnabled = settings.typewriter === true;
   setParagraphHighlight(settings.highlightParagraph === true);
@@ -4902,6 +4937,7 @@ async function saveSettings() {
     spellcheck: $('#set-spellcheck').checked,
     typewriter: $('#set-typewriter').checked,
     highlightParagraph: $('#set-highlight-paragraph').checked,
+    writingGoal: Number($('#set-writing-goal').value) || 0,
   });
   aiConfirmThreshold = Number($('#set-ai-confirm').value);
   applyAppearance({ editorFont, lineWidth, accent });
@@ -7232,6 +7268,9 @@ window.__mdpad = {
     });
     return out;
   },
+  writingState: () => window.api.writingStats(),
+  recordWritingNow: () => recordWriting(),
+  refreshWriting: () => refreshWritingStatus(),
   setParagraphHighlight: (on) => {
     setParagraphHighlight(on);
     return highlightParagraphEnabled;

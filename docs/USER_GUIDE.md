@@ -334,6 +334,13 @@ scrolls so the line you are typing stays near the middle of the window instead o
 bottom. It only acts while the caret moves in the editor, so reading and scrolling are untouched;
 turn it off to get the normal behaviour back.
 
+## Daily word goal
+
+Set **Settings → Daily word goal** to a number (0 turns it off). The status bar then shows
+`Today 620 / 800 words` and turns to the accent colour once the goal is reached, with a toast the
+first time it happens that day. Only words you add count: deleting a paragraph does not reduce the
+day's total, so the number reflects writing effort rather than the current size of the file.
+
 ## Current paragraph highlight
 
 Settings → Appearance → **Highlight the current paragraph** gives the block you are editing a faint

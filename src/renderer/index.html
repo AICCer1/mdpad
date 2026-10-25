@@ -420,6 +420,11 @@
         <input id="set-typewriter" type="checkbox">
       </div>
 
+      <div class="field">
+        <label for="set-writing-goal" data-i18n="settings.writingGoal">Daily word goal (0 = off)</label>
+        <input id="set-writing-goal" type="number" min="0" max="100000" step="50">
+      </div>
+
       <div class="field field-inline">
         <label for="set-highlight-paragraph" data-i18n="settings.highlightParagraph">Highlight the current paragraph</label>
         <input id="set-highlight-paragraph" type="checkbox">
@@ -791,6 +796,7 @@
   </main>
 
   <footer class="foot">
+    <span id="writing-status" hidden></span>
     <span id="stats"></span>
     <span id="paths"></span>
   </footer>

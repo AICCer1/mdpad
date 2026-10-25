@@ -2371,3 +2371,7 @@ html.table-dragging-column, html.table-dragging-column * { cursor: col-resize !i
 @media (prefers-reduced-motion: reduce) {
   .tiptap .is-current-block-soft { transition: none; }
 }
+
+/* ---- daily writing goal ---- */
+#writing-status { color: var(--muted); font-variant-numeric: tabular-nums; }
+#writing-status.is-reached { color: var(--accent); }

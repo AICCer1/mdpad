@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.76.0
+
+A daily writing goal.
+
+- **Settings → "Daily word goal"** (0 = off) shows `Today 620 / 800 words` in the status bar, in the
+  accent colour once reached, with one toast per day when you cross it.
+- **Only positive word deltas count.** Deleting a paragraph does not take back words already written,
+  so the number measures effort rather than the current file size; the ledger (`writing.json`) keeps
+  30 days and remembers the last count per document so switching tabs cannot double-count.
+- Recording rides the debounced stats pass (1.2 s), not every keystroke.
+- 318 smoke checks (one new: `writing-goal` writes 60 words, deletes half and asserts the count does
+  not shrink, then crosses a goal of 100 and asserts the status text and the reached state), 160 unit
+  tests. The first version asserted `today === 120` after replacing the document; the real count is
+  the sum of positive deltas (145), so the assertion now derives from the reported number.
+
 ## 1.75.0
 
 The paragraph you are writing can be marked.

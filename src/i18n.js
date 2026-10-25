@@ -1198,3 +1198,6 @@ Object.assign(DICT.zh, { 'settings.typewriter': '光标保持居中' });
 
 Object.assign(DICT.en, { 'settings.highlightParagraph': 'Highlight the current paragraph' });
 Object.assign(DICT.zh, { 'settings.highlightParagraph': '高亮当前段落' });
+
+Object.assign(DICT.en, { 'settings.writingGoal': 'Daily word goal (0 = off)' });
+Object.assign(DICT.zh, { 'settings.writingGoal': '每日字数目标（0 为关闭）' });

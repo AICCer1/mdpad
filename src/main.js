@@ -1799,6 +1799,75 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
     }
   }
 
+  // Daily writing goal: count positive word deltas per document so deleting text does not cancel
+  // words already written today. One small JSON file, no history beyond 30 days.
+  function writingFile() {
+    return path.join(userDir(), 'writing.json');
+  }
+
+  function todayKey(date = new Date()) {
+    const pad = (value) => String(value).padStart(2, '0');
+    return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
+  }
+
+  function readWriting() {
+    const raw = storage.readIfExists(writingFile());
+    if (!raw) return { days: {}, last: {}, goalDay: null };
+    try {
+      const parsed = JSON.parse(raw);
+      return {
+        days: parsed && parsed.days && typeof parsed.days === 'object' ? parsed.days : {},
+        last: parsed && parsed.last && typeof parsed.last === 'object' ? parsed.last : {},
+        goalDay: parsed.goalDay || null,
+      };
+    } catch {
+      return { days: {}, last: {}, goalDay: null };
+    }
+  }
+
+  function writeWriting(data) {
+    try {
+      fs.mkdirSync(userDir(), { recursive: true });
+      fs.writeFileSync(writingFile(), JSON.stringify(data, null, 2), 'utf8');
+    } catch (err) {
+      logLine('writing', 'ledger write failed: ' + err.message);
+    }
+  }
+
+  function writingSummary(data) {
+    const goal = Number(readSettings().writingGoal) || 0;
+    const today = data.days[todayKey()] || 0;
+    return { today, goal, reached: goal > 0 && today >= goal };
+  }
+
+  ipcMain.handle('writing:record', (_event, { key, words } = {}) => {
+    const data = readWriting();
+    const day = todayKey();
+    const count = Math.max(0, Math.floor(Number(words) || 0));
+    const previous = typeof data.last[key] === 'number' ? data.last[key] : null;
+    const delta = previous === null ? 0 : count - previous;
+    data.last[key] = count;
+    if (delta > 0) data.days[day] = (data.days[day] || 0) + delta;
+    // keep the ledger to 30 days
+    const keys = Object.keys(data.days).sort();
+    for (const stale of keys.slice(0, Math.max(0, keys.length - 30))) delete data.days[stale];
+    const summary = writingSummary(data);
+    let firstReach = false;
+    if (summary.reached && data.goalDay !== day) {
+      data.goalDay = day;
+      firstReach = true;
+    }
+    writeWriting(data);
+    return { ...summary, firstReach, todayKey: day, delta };
+  });
+
+  ipcMain.handle('writing:stats', () => writingSummary(readWriting()));
+
+  ipcMain.handle('writing:reset', () => {
+    writeWriting({ days: {}, last: {}, goalDay: null });
+    return writingSummary({ days: {}, last: {}, goalDay: null });
+  });
+
   ipcMain.handle('report:write', (event, { path: target, content, summary } = {}) => {
     if (!target) return { ok: false, error: 'No path' };
     try {
@@ -2156,6 +2225,7 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
     if (patch.spellcheck !== undefined) next.spellcheck = patch.spellcheck === true;
     if (patch.typewriter !== undefined) next.typewriter = patch.typewriter === true;
     if (patch.highlightParagraph !== undefined) next.highlightParagraph = patch.highlightParagraph === true;
+    if (patch.writingGoal !== undefined) next.writingGoal = Math.max(0, Math.min(100000, Math.floor(Number(patch.writingGoal) || 0)));
     if (patch.findOptions && typeof patch.findOptions === 'object') {
       next.findOptions = {
         caseSensitive: patch.findOptions.caseSensitive === true,
@@ -12281,6 +12351,66 @@ async function runSmoke() {
       paragraphHighlight.off &&
       paragraphHighlight.off.softCount === 0,
     paragraphHighlight
+  );
+
+  // 149. writing a document counts toward a daily goal, and deleting does not take words back
+  const writingGoal = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    await jsOf('window.api.writingReset()');
+    await jsOf("window.api.setSettings({ writingGoal: 100 })");
+    const doc = path.join(dir, 'writing-goal.md');
+    fs.writeFileSync(doc, ['# Goal', '', 'alpha beta gamma delta epsilon', ''].join(nl), 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('epsilon')");
+      if (ready === true) break;
+    }
+    // first record establishes the baseline (no words counted for content already on disk)
+    const baseline = await jsOf('window.__mdpad.recordWritingNow()').then(() => jsOf('window.api.writingStats()'));
+    // write 60 more words
+    const words60 = Array.from({ length: 60 }, (_, index) => 'word' + index).join(' ');
+    await jsOf(`window.__mdpad.applyMarkdown('# Goal' + String.fromCharCode(10) + String.fromCharCode(10) + 'alpha beta gamma delta epsilon ' + ${JSON.stringify(words60)})`);
+    await sleep(300);
+    await jsOf('window.__mdpad.recordWritingNow()');
+    await sleep(200);
+    const afterSixty = await jsOf('window.api.writingStats()');
+    // delete half of them: today's count must not shrink
+    await jsOf(`window.__mdpad.applyMarkdown('# Goal' + String.fromCharCode(10) + String.fromCharCode(10) + 'alpha beta gamma delta epsilon ' + ${JSON.stringify(words60.split(' ').slice(0, 30).join(' '))})`);
+    await sleep(300);
+    await jsOf('window.__mdpad.recordWritingNow()');
+    await sleep(200);
+    const afterDelete = await jsOf('window.api.writingStats()');
+    // cross the goal
+    const words120 = Array.from({ length: 120 }, (_, index) => 'goal' + index).join(' ');
+    await jsOf(`window.__mdpad.applyMarkdown('# Goal' + String.fromCharCode(10) + String.fromCharCode(10) + ${JSON.stringify(words120)})`);
+    await sleep(300);
+    await jsOf('window.__mdpad.recordWritingNow()');
+    await sleep(300);
+    const reached = await jsOf('window.api.writingStats()');
+    const statusText = await jsOf("document.querySelector('#writing-status').textContent");
+    const statusHidden = await jsOf("document.querySelector('#writing-status').hidden");
+    await jsOf("window.api.setSettings({ writingGoal: 0 })");
+    await jsOf('window.api.writingReset()');
+    return { baseline, afterSixty, afterDelete, reached, statusText, statusHidden };
+  })();
+  step(
+    'writing-goal',
+    writingGoal.baseline &&
+      writingGoal.baseline.today === 0 &&
+      writingGoal.afterSixty &&
+      writingGoal.afterSixty.today === 60 &&
+      writingGoal.afterDelete &&
+      writingGoal.afterDelete.today === 60 &&
+      writingGoal.reached &&
+      writingGoal.reached.today >= 120 &&
+      writingGoal.reached.reached === true &&
+      writingGoal.statusHidden === false &&
+      /Today \d+ \/ 100 words/.test(writingGoal.statusText) &&
+      writingGoal.statusText.includes('Today ' + writingGoal.reached.today + ' / 100'),
+    writingGoal
   );
 
   // 30k. the settings filter narrows the visible fields
