@@ -4557,7 +4557,40 @@ function highlightLabel(label, words) {
   label.append(...parts);
 }
 
+let settingsActiveIndex = -1;
+
+function settingsVisibleFields() {
+  return [...document.querySelectorAll('#settings-modal .field:not([hidden])')];
+}
+
+function moveSettingsActive(delta) {
+  const fields = settingsVisibleFields();
+  if (!fields.length) return -1;
+  const current = settingsActiveIndex;
+  settingsActiveIndex = current < 0 ? (delta > 0 ? 0 : fields.length - 1) : (current + delta + fields.length) % fields.length;
+  fields.forEach((field, index) => field.classList.toggle('is-search-active', index === settingsActiveIndex));
+  const active = fields[settingsActiveIndex];
+  if (active && active.scrollIntoView) active.scrollIntoView({ block: "nearest" });
+  return settingsActiveIndex;
+}
+
+function focusSettingsActive() {
+  const fields = settingsVisibleFields();
+  const field = fields[settingsActiveIndex];
+  if (!field) return false;
+  const control = field.querySelector('input, select, textarea, button');
+  if (!control) return false;
+  control.focus();
+  return true;
+}
+
+function resetSettingsActive() {
+  settingsActiveIndex = -1;
+  for (const field of document.querySelectorAll('#settings-modal .field')) field.classList.remove('is-search-active');
+}
+
 function filterSettings(query) {
+  resetSettingsActive();
   const words = String(query || '')
     .trim()
     .toLowerCase()
@@ -5147,6 +5180,42 @@ $('#ai-test').addEventListener('click', async () => {
     status.classList.add('error');
   }
 });
+
+// Escape belongs to the search box while it has text, even when the focus has moved to a control —
+// otherwise pressing Escape after Enter would close the panel and lose the query.
+document.addEventListener(
+  'keydown',
+  (event) => {
+    if (event.key !== 'Escape') return;
+    const modal = document.querySelector('#settings-modal');
+    const input = document.querySelector('#set-filter');
+    if (!modal || modal.hidden || !input || !input.value) return;
+    event.preventDefault();
+    event.stopPropagation();
+    input.value = '';
+    filterSettings('');
+    input.focus();
+  },
+  { capture: true }
+);
+
+// Arrow keys walk the visible settings, Enter jumps to the control, Escape first clears the query
+// (a second Escape closes the panel through the global handler).
+$('#set-filter').addEventListener(
+  'keydown',
+  (event) => {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      moveSettingsActive(event.key === 'ArrowDown' ? 1 : -1);
+      return;
+    }
+    if (event.key === 'Enter') {
+      if (focusSettingsActive()) event.preventDefault();
+      return;
+    }
+  },
+  { capture: true }
+);
 
 $('#set-filter').addEventListener('input', (event) => filterSettings(event.target.value));
 $('#ai-scope').addEventListener('change', (event) => {
@@ -7429,6 +7498,11 @@ window.__mdpad = {
     };
   },
   settingsSearchAudit: () => settingsSearchAudit(),
+  settingsActive: () => ({
+    index: settingsActiveIndex,
+    marked: document.querySelectorAll('#settings-modal .field.is-search-active').length,
+    activeId: document.activeElement ? document.activeElement.id || document.activeElement.tagName : '',
+  }),
   settingsSection: (name) => {
     const sub = document.querySelector('#settings-modal .modal-sub[data-section="' + name + '"]');
     return sub ? { collapsed: sub.classList.contains('collapsed'), hidden: sub.hidden } : null;

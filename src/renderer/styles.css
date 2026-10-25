@@ -2388,3 +2388,10 @@ html.table-dragging-column, html.table-dragging-column * { cursor: col-resize !i
 /* ---- settings search ---- */
 .settings-hit { background: color-mix(in srgb, var(--accent) 22%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
 .settings-empty { padding: 14px 2px; color: var(--muted); font-size: 12.5px; }
+
+/* ---- settings search keyboard target ---- */
+#settings-modal .field.is-search-active {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 4px;
+  border-radius: var(--r-sm, 6px);
+}

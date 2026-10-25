@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 326 end-to-end checks against a real window
+npm run smoke          # 327 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -564,3 +564,10 @@ check asserts that list is empty, so a new setting without a searchable label fa
 contains a visible field (a match inside a folded section must not stay hidden), and restores the
 snapshot when the query is cleared. `settings-search-collapse` folds the AI section, searches for
 "api key", asserts the section opened, clears the query and asserts it is folded again.
+
+## Settings keyboard model
+
+`moveSettingsActive` walks the visible fields and marks one with `is-search-active`; `Enter` calls
+`focusSettingsActive` to focus the first control inside it. Escape is handled by a **document
+capture** listener, not by the input: after Enter the focus is inside a control, and an input-only
+handler would let the global Escape close the panel and drop the query.

@@ -334,6 +334,12 @@ If a section is folded and the search finds something inside it, the section ope
 Clearing the search restores exactly the sections you had folded — the panel does not stay
 rearranged after a search.
 
+### Settings from the keyboard
+
+Type in the filter, then use **↓ / ↑** to move through the matching fields and **Enter** to jump to
+the control. **Escape** clears the search first — press it again to close the panel — so a search is
+never lost by reflex.
+
 ## Theme
 
 Light, dark, sepia, or **Follow system** — the last one resolves to dark or light from Windows and

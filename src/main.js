@@ -13021,6 +13021,58 @@ async function runSmoke() {
     settingsCollapse
   );
 
+  // 158. arrows walk the settings results, Enter focuses the control, Escape clears the query first
+  const settingsKeyboard = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    await jsOf(`document.querySelector('#open-settings').click()`);
+    await sleep(700);
+    const typed = await jsOf(`(() => {
+      const input = document.querySelector('#set-filter');
+      input.focus();
+      input.value = 'api';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      return window.__mdpad.settingsSearch.length >= 0;
+    })()`);
+    const visible = await jsOf('document.querySelectorAll(\'#settings-modal .field:not([hidden])\').length');
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Down' });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Down' });
+    await sleep(200);
+    const first = await jsOf('window.__mdpad.settingsActive()');
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Return' });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Return' });
+    await sleep(250);
+    const focused = await jsOf('window.__mdpad.settingsActive()');
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' });
+    await sleep(250);
+    const cleared = await jsOf(`({
+      query: document.querySelector('#set-filter').value,
+      open: !document.querySelector('#settings-modal').hidden,
+      visible: document.querySelectorAll('#settings-modal .field:not([hidden])').length,
+    })`);
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' });
+    await sleep(300);
+    const closed = await jsOf("document.querySelector('#settings-modal').hidden");
+    return { visible, first, focused, cleared, closed };
+  })();
+  step(
+    'settings-keyboard',
+    settingsKeyboard.visible >= 1 &&
+      settingsKeyboard.first &&
+      settingsKeyboard.first.index === 0 &&
+      settingsKeyboard.first.marked === 1 &&
+      settingsKeyboard.focused &&
+      settingsKeyboard.focused.activeId !== '' &&
+      settingsKeyboard.focused.activeId !== 'set-filter' &&
+      settingsKeyboard.cleared &&
+      settingsKeyboard.cleared.query === '' &&
+      settingsKeyboard.cleared.open === true &&
+      settingsKeyboard.cleared.visible > settingsKeyboard.visible &&
+      settingsKeyboard.closed === true,
+    settingsKeyboard
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

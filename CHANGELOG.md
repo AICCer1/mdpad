@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.89.0
+
+Settings from the keyboard.
+
+- **↓ / ↑ walk the matching fields**, the current one is outlined, and **Enter** jumps into its
+  control — no mouse needed to find and change a setting.
+- **Escape clears the search before it closes the panel**: after Enter the focus sits in a control, so
+  Escape is handled by a document-capture listener rather than by the input. Without that, the global
+  Escape closed the panel and threw the query away (the first test caught exactly this).
+- 327 smoke checks (one new: `settings-keyboard` types a query, presses Down, Enter and Escape with real
+  key events and asserts the marked field, the focused control, the cleared query and the later close),
+  171 unit tests.
+
 ## 1.88.0
 
 Folding survives a search.
