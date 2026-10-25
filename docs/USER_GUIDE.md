@@ -387,6 +387,12 @@ The statistics panel has **Export CSV** and **Export Markdown**. Both include th
 the structure issues and the last fourteen days of writing, so a journal of progress can be kept
 outside the app.
 
+### Exporting one section
+
+Put the caret in a heading, open the palette and pick **Export section as HTML** or **PDF**: that
+heading and everything under it become a standalone file. The rest of the document is untouched,
+and the section ends at the next heading of the same or a shallower level.
+
 ## Theme
 
 Light, dark, sepia, or **Follow system** — the last one resolves to dark or light from Windows and

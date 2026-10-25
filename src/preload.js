@@ -111,6 +111,8 @@ contextBridge.exposeInMainWorld('api', {
   imagesAudit: () => ipcRenderer.invoke('images:audit'),
   linksAudit: () => ipcRenderer.invoke('links:audit'),
   docStructure: () => ipcRenderer.invoke('doc:structure'),
+  exportSection: (markdown, format) => ipcRenderer.invoke('export:section', { markdown, format }),
+  exportSectionTo: (path, markdown, format) => ipcRenderer.invoke('export:sectionTo', { path, markdown, format }),
   statsSave: (content, suggestedName) => ipcRenderer.invoke('stats:save', { content, suggestedName }),
   statsWrite: (path, content) => ipcRenderer.invoke('stats:write', { path, content }),
   writingRecord: (key, words) => ipcRenderer.invoke('writing:record', { key, words }),

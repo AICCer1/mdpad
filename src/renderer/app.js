@@ -3402,6 +3402,67 @@ async function exportStats(kind) {
   return result;
 }
 
+// The markdown of the section the caret is in: from its heading to the next heading of the same or a
+// shallower level. Fenced code is skipped so a "## " line inside a fence cannot split a section.
+function sectionMarkdown() {
+  const items = outlineItems();
+  if (!items.length) return null;
+  const caret = editor.state.selection.from;
+  let index = -1;
+  for (let i = 0; i < items.length; i += 1) if (items[i].pos <= caret) index = i;
+  if (index < 0) return null;
+  const heading = items[index];
+  let occurrence = 0;
+  for (let i = 0; i < index; i += 1) {
+    if (items[i].depth === heading.depth && items[i].text === heading.text) occurrence += 1;
+  }
+  const lines = String(currentMarkdown() || '').split('\n');
+  let fence = false;
+  let headingLine = -1;
+  let seen = -1;
+  let end = lines.length;
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (/^\s*(\`\`\`|~~~)/.test(line)) {
+      fence = !fence;
+      continue;
+    }
+    if (fence) continue;
+    const match = /^(#{1,6})\s+(.*)$/.exec(line);
+    if (!match) continue;
+    if (headingLine < 0) {
+      if (match[1].length === heading.depth && match[2].trim() === heading.text) {
+        seen += 1;
+        if (seen === occurrence) headingLine = i;
+      }
+      continue;
+    }
+    if (match[1].length <= heading.depth) {
+      end = i;
+      break;
+    }
+  }
+  if (headingLine < 0) return null;
+  return { markdown: lines.slice(headingLine, end).join('\n').trim() + '\n', title: heading.text };
+}
+
+async function exportSection(format) {
+  const section = sectionMarkdown();
+  if (!section) {
+    flash('Put the caret in a heading to export that section');
+    return null;
+  }
+  const result = await window.api.exportSection(section.markdown, format);
+  if (result && result.exported) {
+    showToast('Section exported', 4000, [
+      { label: 'Show in folder', run: () => window.api.revealExportedFile(result.path) },
+    ]);
+  } else if (result && result.reason && result.reason !== 'canceled') {
+    flash(result.reason);
+  }
+  return result;
+}
+
 async function openStructureReport() {
   const modal = document.querySelector('#structure-report');
   const list = document.querySelector('#structure-issues');
@@ -7953,6 +8014,8 @@ window.__mdpad = {
     text: row.querySelector('.outline-item').textContent,
     count: (row.querySelector('.outline-words') || {}).textContent || '',
   })),
+  sectionMarkdown: () => sectionMarkdown(),
+  exportSection: (format) => exportSection(format),
   headingFoldState: () => ({
     folded: [...foldedHeadings],
     hidden: document.querySelectorAll('.tiptap .is-folded').length,

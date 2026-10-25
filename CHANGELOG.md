@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.99.0
+
+Export one section, and never miss an external change.
+
+- **The palette exports the section at the caret as HTML or PDF**: the heading and everything under it
+  become a standalone file. Duplicate titles are matched by occurrence, fenced code is skipped so a
+  `## ` line inside it cannot split the section, and the session buffer is untouched
+  (`exportToUnsafe` now takes a contents override).
+- **External changes are detected even when `fs.watch` goes quiet**: the watcher keeps its handle and
+  also polls the file size and mtime every two seconds. This was found by a smoke check that started
+  failing deterministically — the handle simply delivered nothing, so a clean buffer never reloaded.
+  Both paths share one handler, so the ask/auto/ignore rules cannot diverge.
+- 337 smoke checks (one new: `export-section` asserts the slice excludes the next section, that the
+  written HTML excludes it too, and that a different caret produces the other section), 171 unit tests.
+
 ## 1.98.0
 
 The outline counts words.

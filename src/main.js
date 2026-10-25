@@ -1062,7 +1062,7 @@ class Session {
 
   // A half-written export is worse than no export. Remove the file this attempt created (but never
   // touch a file that existed before the attempt).
-  async exportTo(filePath, kind, diagrams = this.exportDiagrams || null) {
+  async exportTo(filePath, kind, diagrams = this.exportDiagrams || null, contentsOverride = null) {
     const existedBefore = (() => {
       try {
         return fs.existsSync(filePath);
@@ -1071,7 +1071,7 @@ class Session {
       }
     })();
     try {
-      return await this.exportToUnsafe(filePath, kind, diagrams);
+      return await this.exportToUnsafe(filePath, kind, diagrams, contentsOverride);
     } catch (err) {
       if (!existedBefore) {
         try {
@@ -1085,13 +1085,14 @@ class Session {
   }
 
 
-  async exportToUnsafe(filePath, kind, diagrams = this.exportDiagrams || null) {
+  async exportToUnsafe(filePath, kind, diagrams = this.exportDiagrams || null, contentsOverride = null) {
+    const contents = contentsOverride == null ? this.contents : contentsOverride;
     const name = path.basename(this.file || 'Untitled', path.extname(this.file || 'Untitled'));
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     this.sendStatus({ exporting: kind, target: path.basename(filePath) });
 
     if (kind === 'pdf') {
-      const result = await exporter.toPdf(this.contents, filePath, {
+      const result = await exporter.toPdf(contents, filePath, {
         title: name,
         template: exportTemplate(),
         css: String(readSettings().exportCss || ''),
@@ -1105,7 +1106,7 @@ class Session {
       return { exported: true, ...result };
     }
     if (kind === 'docx') {
-      const result = await toDocx(this.contents, filePath, {
+      const result = await toDocx(contents, filePath, {
         title: name,
         baseDir: this.file ? path.dirname(this.file) : path.dirname(filePath),
       });
@@ -1115,7 +1116,7 @@ class Session {
       return { exported: true, ...out };
     }
     if (kind === 'epub') {
-      const result = await toEpub(this.contents, filePath, {
+      const result = await toEpub(contents, filePath, {
         title: name,
         baseDir: this.file ? path.dirname(this.file) : path.dirname(filePath),
         diagrams,
@@ -1127,7 +1128,7 @@ class Session {
     }
     fs.writeFileSync(
       filePath,
-      exporter.toHtmlDocument(this.contents, name, {
+      exporter.toHtmlDocument(contents, name, {
         template: exportTemplate(),
         css: String(readSettings().exportCss || ''),
         stats: this.exportStats(),
@@ -1148,44 +1149,80 @@ class Session {
   // --- watchers -----------------------------------------------------------
 
   watchDocument(file) {
-    if (this.fileWatcher) {
-      this.fileWatcher.close();
-      this.fileWatcher = null;
-    }
+    this.stopWatching();
     if (!file) return;
     let timer = null;
+    const handleChange = () => {
+      try {
+        const onDisk = storage.readIfExists(file);
+        if (onDisk === null || onDisk === this.savedContents) return;
+        if (onDisk === this.contents) {
+          this.savedContents = onDisk;
+          this.refreshTitle();
+          return;
+        }
+        const policy = readSettings().externalPolicy || 'ask';
+        if (policy === 'ignore') return;
+        // Automatic reload only when nothing would be lost: a dirty buffer always asks.
+        if (policy === 'auto' && this.contents === this.savedContents) {
+          logLine('watch', 'auto reloaded ' + file);
+          this.reloadFromDisk();
+          this.sendStatus({ autoReloaded: true });
+          return;
+        }
+        this.send('file:external', { size: onDisk.length });
+      } catch (err) {
+        logLine('watch', 'handler failed: ' + err.message);
+      }
+    };
     try {
       this.fileWatcher = fs.watch(path.dirname(file), (_event, filename) => {
         if (!filename || path.basename(String(filename)) !== path.basename(file)) return;
         clearTimeout(timer);
-        timer = setTimeout(() => {
-          try {
-            const onDisk = storage.readIfExists(file);
-            if (onDisk === null || onDisk === this.savedContents) return;
-            if (onDisk === this.contents) {
-              this.savedContents = onDisk;
-              this.refreshTitle();
-              return;
-            }
-            const policy = readSettings().externalPolicy || 'ask';
-            if (policy === 'ignore') return;
-            // Automatic reload only when nothing would be lost: a dirty buffer always asks.
-            if (policy === 'auto' && this.contents === this.savedContents) {
-              logLine('watch', 'auto reloaded ' + file);
-              this.reloadFromDisk();
-              this.sendStatus({ autoReloaded: true });
-              return;
-            }
-            this.send('file:external', { size: onDisk.length });
-          } catch {
-            /* file may be mid-write */
-          }
-        }, 250);
+        timer = setTimeout(handleChange, 120);
       });
     } catch (err) {
-      this.sendStatus({ error: `watch: ${err.message}` });
+      logLine('watch', 'fs.watch failed: ' + err.message);
+    }
+    // fs.watch drops events on some network drives and after long runs; a cheap stat poll keeps a
+    // clean buffer in step even when the handle goes quiet. It checks one file every two seconds.
+    let stamp = null;
+    const readStamp = () => {
+      try {
+        const stat = fs.statSync(file);
+        return stat.mtimeMs + ':' + stat.size;
+      } catch {
+        return null;
+      }
+    };
+    stamp = readStamp();
+    this.filePoll = setInterval(() => {
+      const now = readStamp();
+      if (now && stamp && now !== stamp) {
+        stamp = now;
+        handleChange();
+      } else if (now) {
+        stamp = now;
+      }
+    }, 2000);
+    this.watchTimer = timer;
+  }
+
+  stopWatching() {
+    if (this.fileWatcher) {
+      try {
+        this.fileWatcher.close();
+      } catch {
+        /* already closed */
+      }
+      this.fileWatcher = null;
+    }
+    if (this.filePoll) {
+      clearInterval(this.filePoll);
+      this.filePoll = null;
     }
   }
+
 
   setTreeRoot(root) {
     this.treeRoot = root || null;
@@ -1213,7 +1250,7 @@ class Session {
     if (this.fileWatcher) this.fileWatcher.close();
     if (this.treeWatcher) this.treeWatcher.close();
     try {
-      if (this.contents !== this.savedContents) this.writeDraftNow();
+      if (contents !== this.savedContents) this.writeDraftNow();
     } catch {
       /* best effort */
     }
@@ -2208,6 +2245,29 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
       embedded: entries.filter((entry) => entry.kind === 'embedded').length,
       entries,
     };
+  });
+
+  ipcMain.handle('export:section', async (event, { markdown, format } = {}) => {
+    const session = sessionFor(event);
+    if (!session) return { exported: false, reason: 'no session' };
+    const kind = ['html', 'pdf', 'docx', 'epub'].includes(format) ? format : 'html';
+    const base = session.file
+      ? path.join(path.dirname(session.file), path.basename(session.file, path.extname(session.file)))
+      : path.join(app.getPath('documents'), 'Untitled');
+    const { canceled, filePath } = await dialog.showSaveDialog(session.win, {
+      title: EXPORT_TITLES[kind] || 'Export',
+      defaultPath: path.join(path.dirname(base), `${path.basename(base)}-section.${kind === 'docx' ? 'docx' : kind}`),
+      filters: EXPORT_FILTERS[kind] || [],
+    });
+    if (canceled || !filePath) return { exported: false, reason: 'canceled' };
+    return session.exportTo(filePath, kind, null, String(markdown || session.contents || ''));
+  });
+
+  ipcMain.handle('export:sectionTo', async (event, { path: target, markdown, format } = {}) => {
+    const session = sessionFor(event);
+    if (!session || !target) return { exported: false, reason: 'bad request' };
+    const kind = ['html', 'pdf', 'docx', 'epub'].includes(format) ? format : 'html';
+    return session.exportTo(target, kind, null, String(markdown || session.contents || ''));
   });
 
   ipcMain.handle('export:inspect', (event) => {
@@ -13570,6 +13630,74 @@ async function runSmoke() {
     {
       rows: outlineWords.rows,
       folded: outlineWords.folded,
+    }
+  );
+
+  // 168. a single section can be exported without touching the rest of the document
+  const sectionExport = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'section-export.md');
+    fs.writeFileSync(
+      doc,
+      [
+        '# Book',
+        '',
+        '## Intro',
+        '',
+        'intro body words',
+        '',
+        '### Detail',
+        '',
+        'detail body words',
+        '',
+        '## Methods',
+        '',
+        'methods body words',
+        '',
+      ].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('methods body')");
+      if (ready === true) break;
+    }
+    await sleep(500);
+    const focused = await jsOf("window.__mdpad.focusHeading('Intro')");
+    const section = await jsOf('window.__mdpad.sectionMarkdown()');
+    const out = path.join(dir, 'section.html');
+    const exported = await jsOf(
+      `window.api.exportSectionTo(${JSON.stringify(out)}, ${JSON.stringify(section && section.markdown)}, 'html')`
+    );
+    const html = fs.existsSync(out) ? fs.readFileSync(out, 'utf8') : '';
+    const focusedMethods = await jsOf("window.__mdpad.focusHeading('Methods')");
+    const methodsSection = await jsOf('window.__mdpad.sectionMarkdown()');
+    return { focused, section, exported, html, focusedMethods, methodsSection };
+  })();
+  step(
+    'export-section',
+    sectionExport.focused === true &&
+      sectionExport.section &&
+      /## Intro/.test(sectionExport.section.markdown) &&
+      /intro body words/.test(sectionExport.section.markdown) &&
+      /### Detail/.test(sectionExport.section.markdown) &&
+      !/methods body words/.test(sectionExport.section.markdown) &&
+      sectionExport.exported &&
+      sectionExport.exported.exported === true &&
+      /intro body words/.test(sectionExport.html) &&
+      !/methods body words/.test(sectionExport.html) &&
+      sectionExport.focusedMethods === true &&
+      sectionExport.methodsSection &&
+      /methods body words/.test(sectionExport.methodsSection.markdown) &&
+      !/intro body words/.test(sectionExport.methodsSection.markdown),
+    {
+      title: sectionExport.section && sectionExport.section.title,
+      section: sectionExport.section && sectionExport.section.markdown,
+      exported: sectionExport.exported,
+      methods: sectionExport.methodsSection && sectionExport.methodsSection.markdown,
     }
   );
 
