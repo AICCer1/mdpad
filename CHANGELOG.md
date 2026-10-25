@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.79.0
+
+Closing unsaved work is no longer silent — and Reopen keeps your text.
+
+- **Closing a dirty tab writes a recovery draft and says so** in a toast with a **Reopen** action. The
+  close result (`closedWithDraft`, `draftSaved`, `name`) drives the message; the keyboard Delete path
+  and the tab context menu share it.
+- **Reopen used to reload the file from disk**, quietly discarding the buffer it had just promised to
+  restore. `reopenTab` now rebuilds the tab from `closedTabs[].contents`, with `savedContents` taken
+  from disk so the restored text correctly shows as unsaved.
+- **The first test passed `closeTab` through the API and asserted a toast that only the UI raises** —
+  it now clicks the real close button, waits for the toast text and then reopens.
+- 321 smoke checks (one new: `close-dirty-tab`), 167 unit tests.
+
 ## 1.78.0
 
 External changes are your decision.

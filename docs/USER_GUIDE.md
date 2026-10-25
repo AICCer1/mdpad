@@ -334,6 +334,13 @@ scrolls so the line you are typing stays near the middle of the window instead o
 bottom. It only acts while the caret moves in the editor, so reading and scrolling are untouched;
 turn it off to get the normal behaviour back.
 
+## Closing unsaved work
+
+Closing a tab with unsaved text is not silent: a recovery draft is written, a toast says so and
+offers **Reopen**, and Ctrl+Shift+T brings the tab back with the buffer you closed (not the disk
+version). Closing the window with unsaved tabs asks first: **Keep editing** or **Close and keep
+drafts**, and those drafts appear in the recovery panel after a restart.
+
 ## External changes
 
 When another program changes the file you are reading (a sync client, a script, another editor),

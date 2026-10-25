@@ -5293,7 +5293,15 @@ function renderTabs(list) {
     close.addEventListener('click', async (event) => {
       event.stopPropagation();
       await flushChange();
-      await window.api.closeTab(tab.id);
+      const result = await window.api.closeTab(tab.id);
+      if (result && result.closedWithDraft) {
+        showToast(
+          (result.draftSaved ? 'Closed with unsaved changes — a recovery draft is kept' : 'Closed with unsaved changes') +
+            ' · ' + result.name,
+          6000,
+          [{ label: 'Reopen', run: () => window.api.reopenTab() }]
+        );
+      }
     });
     el.appendChild(close);
 
@@ -5357,7 +5365,15 @@ tabList.addEventListener('keydown', async (event) => {
     const id = tabs[index].dataset.id;
     tabs[index].focus();
     await flushChange();
-    await window.api.closeTab(id);
+    const result = await window.api.closeTab(id);
+    if (result && result.closedWithDraft) {
+      showToast(
+        (result.draftSaved ? 'Closed with unsaved changes — a recovery draft is kept' : 'Closed with unsaved changes') +
+          ' · ' + result.name,
+        6000,
+        [{ label: 'Reopen', run: () => window.api.reopenTab() }]
+      );
+    }
   }
 });
 

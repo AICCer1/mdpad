@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         320 end-to-end checks (dev or packaged)
+npm run smoke         321 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -166,6 +166,11 @@ two or more list items) parses it; prose and a lone `#tag` stay literal.
 
 Settings → Appearance → **Keep the caret in the middle**: while you type, the view scrolls so the
 caret line sits around 45% of the window, instead of drifting to the bottom edge.
+
+## Closing a dirty tab
+
+Closing a tab with unsaved text writes a recovery draft, says so in a toast and offers **Reopen**,
+which restores **the buffer that was closed** — not whatever the file holds on disk now.
 
 ## External changes, your call
 

@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 320 end-to-end checks against a real window
+npm run smoke          # 321 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -498,3 +498,10 @@ no-goal rule. `writing:history` feeds it the ledger; the panel only renders.
 `reloadFromDisk()` only when `contents === savedContents` (a dirty buffer falls through to the
 banner), everything else sends `file:external`. The test writes the file from the outside for all
 three policies and asserts the buffer text and the banner state.
+
+## Closing tabs
+
+`closeTab` returns `closedWithDraft`, `draftSaved` and `name` so the UI can say what happened.
+`reopenTab` rebuilds the tab from `closedTabs[].contents` with `savedContents` taken from disk, so
+the reopened buffer shows as unsaved instead of silently reverting. The smoke check closes a dirty
+tab through the real close button and asserts the toast, the draft and the restored text.

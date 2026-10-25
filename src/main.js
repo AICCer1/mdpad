@@ -672,14 +672,24 @@ class Session {
     this.closedTabs = stack;
     if (!last) return { ok: false };
     if (last.file) {
-      try {
-        return { ok: true, ...this.loadDocument(last.file) };
-      } catch (err) {
-        logLine('tabs', `reopen failed: ${err.message}`);
-      }
+      // The point of reopening is the buffer that was closed; reading the file again would
+      // silently replace it with whatever the disk says now.
+      const existing = [...this.tabs.values()].find((tab) => tab.file === last.file);
+      if (existing) return { ok: true, ...this.activateTab(existing.id) };
+      const onDisk = storage.readIfExists(last.file);
+      const id = this.newTabId();
+      this.tabs.set(id, {
+        id,
+        file: last.file,
+        contents: last.contents || onDisk || "",
+        savedContents: onDisk === null ? "" : onDisk,
+        diskRaw: onDisk === null ? "" : onDisk,
+      });
+      this.watchDocument(last.file);
+      return { ok: true, ...this.activateTab(id) };
     }
     const id = this.newTabId();
-    this.tabs.set(id, { id, file: null, contents: last.contents || '', savedContents: '' });
+    this.tabs.set(id, { id, file: null, contents: last.contents || "", savedContents: "" });
     this.activateTab(id);
     return { ok: true, id };
   }
@@ -723,9 +733,12 @@ class Session {
     if (id === this.activeId) this.stashActive();
     const tab = this.tabs.get(id);
     if (!tab) return { ok: false };
-    if (tab.contents !== tab.savedContents) {
+    const wasDirty = tab.contents !== tab.savedContents;
+    let draftSaved = false;
+    if (wasDirty) {
       try {
         storage.writeDraft(tab.file, tab.contents, draftsDir());
+        draftSaved = true;
       } catch {
         /* the buffer is gone either way */
       }
@@ -735,16 +748,25 @@ class Session {
     this.closedTabs.push({ file: tab.file, contents: tab.contents });
     if (this.closedTabs.length > 10) this.closedTabs.shift();
     this.tabs.delete(id);
-    if (this.activeId === id) {
-      this.activeId = null;
-      const remaining = [...this.tabs.keys()];
-      if (remaining.length) return this.activateTab(remaining[remaining.length - 1]);
-      const newId = this.newTabId();
-      this.tabs.set(newId, { id: newId, file: null, contents: '', savedContents: '' });
-      return this.activateTab(newId);
-    }
-    this.broadcastTabs();
-    return { ok: true };
+    const result = (() => {
+      if (this.activeId === id) {
+        this.activeId = null;
+        const remaining = [...this.tabs.keys()];
+        if (remaining.length) return this.activateTab(remaining[remaining.length - 1]);
+        const newId = this.newTabId();
+        this.tabs.set(newId, { id: newId, file: null, contents: '', savedContents: '' });
+        return this.activateTab(newId);
+      }
+      this.broadcastTabs();
+      return { ok: true };
+    })();
+    return {
+      ...(result && typeof result === "object" ? result : {}),
+      closed: true,
+      closedWithDraft: wasDirty,
+      draftSaved,
+      name: tab.file ? path.basename(tab.file) : "Untitled",
+    };
   }
 
   // --- documents ----------------------------------------------------------
@@ -12521,6 +12543,56 @@ async function runSmoke() {
       externalPolicy.ignored.markdown.includes('Changed again') &&
       externalPolicy.ignored.banner === false,
     externalPolicy
+  );
+
+  // 152. closing a tab with unsaved text keeps a draft, says so, and can be undone
+  const closeDirty = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'close-dirty.md');
+    fs.writeFileSync(doc, '# Saved' + nl, 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('Saved')");
+      if (ready === true) break;
+    }
+    await jsOf("window.__mdpad.applyMarkdown('# Saved' + String.fromCharCode(10) + String.fromCharCode(10) + 'unsaved words')");
+    await sleep(500);
+    const beforeClose = await jsOf('window.__mdpad.getMarkdown()');
+    const tabsBefore = await jsOf('window.api.listTabs()');
+    const active = tabsBefore.find((tab) => tab.active);
+    const closed = await jsOf(`(() => {
+      const tab = [...document.querySelectorAll('#tab-list .tab')].find(
+        (node) => node.dataset.id === ${JSON.stringify(active.id)}
+      );
+      if (!tab) return { error: 'tab not found' };
+      tab.querySelector('.tab-close').click();
+      return { clicked: true };
+    })()`);
+    await sleep(900);
+    const drafts = await jsOf('window.api.listDrafts()');
+    let toast = '';
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      toast = await jsOf("document.querySelector('#toast').textContent");
+      if (/unsaved changes/.test(String(toast))) break;
+      await sleep(200);
+    }
+    const opened = await jsOf('(async () => { const result = await window.api.reopenTab(); await new Promise((r) => setTimeout(r, 600)); return result; })()');
+    const markdown = await jsOf('window.__mdpad.getMarkdown()');
+    return { closed, drafts, toast, opened, markdown, beforeClose };
+  })();
+  step(
+    'close-dirty-tab',
+    closeDirty.closed &&
+      closeDirty.closed.clicked === true &&
+      Array.isArray(closeDirty.drafts) &&
+      closeDirty.drafts.some((draft) => /close-dirty\.md/.test(draft.name || draft.file || '')) &&
+      /unsaved changes/.test(closeDirty.toast) &&
+      closeDirty.opened &&
+      /unsaved words/.test(closeDirty.markdown),
+    closeDirty
   );
 
   // 30k. the settings filter narrows the visible fields
