@@ -280,31 +280,43 @@
   </div>
 
   <div id="shortcuts" class="modal" hidden>
-    <div class="modal-card">
+    <div class="modal-card shortcuts-card">
       <div class="modal-title" data-i18n="shortcuts.title">Keyboard shortcuts</div>
+      <input id="shortcuts-filter" class="settings-filter" data-i18n-placeholder="shortcuts.filter" placeholder="Filter shortcuts…" autocomplete="off">
       <table class="shortcut-table">
-        <tr class="shortcut-group"><td colspan="2">Files and tabs</td></tr>
-        <tr><td>Ctrl+N / Ctrl+T</td><td data-i18n="sc.newDoc">New document / new tab</td></tr>
-        <tr><td>Ctrl+O / Ctrl+K</td><td data-i18n="sc.open">Open file / open folder</td></tr>
-        <tr><td>Ctrl+S / Ctrl+Shift+S</td><td data-i18n="sc.save">Save / save as</td></tr>
-        <tr class="shortcut-group"><td colspan="2">Editing</td></tr>
-        <tr><td>Ctrl+F</td><td data-i18n="sc.find">Find &amp; replace</td></tr>
-        <tr class="shortcut-group"><td colspan="2">Writing</td></tr>
-        <tr><td>Ctrl+J</td><td data-i18n="sc.ai">AI writing</td></tr>
-        <tr><td>Ctrl+,</td><td data-i18n="sc.settings">Settings</td></tr>
-        <tr class="shortcut-group"><td colspan="2">View</td></tr>
-        <tr><td>Ctrl+Shift+P</td><td data-i18n="sc.palette">Command palette</td></tr>
-        <tr><td>Ctrl+Shift+O</td><td data-i18n="sc.outline">Toggle outline</td></tr>
-        <tr><td>Ctrl+Shift+N</td><td data-i18n="sc.newWindow">New window</td></tr>
-        <tr class="shortcut-group"><td colspan="2">Export</td></tr>
-        <tr><td>Ctrl+Shift+E / Ctrl+Shift+P</td><td data-i18n="sc.export">Export HTML / PDF</td></tr>
-        <tr><td>Ctrl+Shift+↑ / ↓</td><td data-i18n="sc.moveBlock">Move the current block</td></tr>
-        <tr><td>Ctrl+Shift+V</td><td data-i18n="sc.preview">Preview the export</td></tr>
-        <tr><td>Ctrl+Shift+K</td><td data-i18n="sc.focusMode">Toggle focus mode</td></tr>
-        <tr><td>Ctrl+W / Ctrl+Shift+T</td><td data-i18n="sc.tabs">Close tab / reopen the last closed tab</td></tr>
-        <tr><td>F1</td><td data-i18n="sc.help">This list</td></tr>
+        <tr class="shortcut-group"><td colspan="3">Files and tabs</td></tr>
+        <tr data-command="newTab"><td>Ctrl+N / Ctrl+T</td><td data-i18n="sc.newDoc">New document / new tab</td><td></td></tr>
+        <tr data-command="open"><td>Ctrl+O</td><td data-i18n="sc.open">Open file</td><td></td></tr>
+        <tr data-command="openFolder"><td>Ctrl+K</td><td data-i18n="sc.openFolder">Open folder</td><td></td></tr>
+        <tr data-command="save"><td>Ctrl+S</td><td data-i18n="sc.save">Save</td><td></td></tr>
+        <tr data-command="closeTab"><td>Ctrl+W</td><td data-i18n="sc.closeTab">Close tab</td><td></td></tr>
+        <tr data-command="reopenTab"><td>Ctrl+Shift+T</td><td data-i18n="sc.reopenTab">Reopen the last closed tab</td><td></td></tr>
+        <tr><td>Ctrl+Shift+N</td><td data-i18n="sc.newWindow">New window</td><td></td></tr>
+        <tr class="shortcut-group"><td colspan="3">Editing</td></tr>
+        <tr><td>Ctrl+F</td><td data-i18n="sc.find">Find &amp; replace</td><td></td></tr>
+        <tr><td>Ctrl+H</td><td data-i18n="sc.replace">Replace</td><td></td></tr>
+        <tr><td>Ctrl+Shift+↑ / ↓</td><td data-i18n="sc.moveBlock">Move the current block</td><td></td></tr>
+        <tr><td>Ctrl+B / Ctrl+I</td><td data-i18n="sc.boldItalic">Bold / italic</td><td></td></tr>
+        <tr class="shortcut-group"><td colspan="3">Writing</td></tr>
+        <tr data-command="ai"><td>Ctrl+J</td><td data-i18n="sc.ai">AI writing</td><td></td></tr>
+        <tr data-command="settings"><td>Ctrl+,</td><td data-i18n="sc.settings">Settings</td><td></td></tr>
+        <tr data-command="focusMode"><td>Ctrl+Shift+K</td><td data-i18n="sc.focusMode">Toggle focus mode</td><td></td></tr>
+        <tr class="shortcut-group"><td colspan="3">View</td></tr>
+        <tr><td>Ctrl+Shift+P</td><td data-i18n="sc.palette">Command palette</td><td></td></tr>
+        <tr data-command="outline"><td>Ctrl+Shift+O</td><td data-i18n="sc.outline">Toggle outline</td><td></td></tr>
+        <tr><td>F11</td><td data-i18n="sc.fullscreen">Full screen</td><td></td></tr>
+        <tr><td>Ctrl+= / Ctrl+- / Ctrl+0</td><td data-i18n="sc.zoom">Zoom in / out / reset</td><td></td></tr>
+        <tr class="shortcut-group"><td colspan="3">Export</td></tr>
+        <tr data-command="exportHtml"><td>Ctrl+Shift+E</td><td data-i18n="sc.exportHtml">Export HTML</td><td></td></tr>
+        <tr data-command="exportPdf"><td>Ctrl+Alt+P</td><td data-i18n="sc.exportPdf">Export PDF</td><td></td></tr>
+        <tr data-command="previewExport"><td>Ctrl+Shift+V</td><td data-i18n="sc.preview">Preview the export</td><td></td></tr>
+        <tr class="shortcut-group"><td colspan="3">Windows</td></tr>
+        <tr><td>Ctrl+Alt+2</td><td data-i18n="sc.split">Split into two windows</td><td></td></tr>
+        <tr><td>Ctrl+Alt+1</td><td data-i18n="sc.unsplit">Merge the split windows</td><td></td></tr>
+        <tr><td>F1</td><td data-i18n="sc.help">This list</td><td></td></tr>
+        <tr><td>Esc</td><td data-i18n="sc.escape">Close the open dialog</td><td></td></tr>
       </table>
-
+      <div id="shortcuts-empty" class="settings-empty" hidden data-i18n="shortcuts.noMatches">No shortcuts match.</div>
       <div class="modal-foot">
         <button id="shortcuts-close" data-i18n="shortcuts.close">Close</button>
       </div>

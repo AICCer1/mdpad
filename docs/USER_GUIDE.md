@@ -357,6 +357,12 @@ with their folder and rank alongside everything else.
 close. Commands that start with what you typed come first, then the ones you use most often —
 running a command with Enter counts as using it.
 
+### Keyboard shortcuts (F1)
+
+The list is generated from the real bindings, so it cannot drift from behaviour. Type in the filter
+to find one by name or key, and press **Run** on a row to execute that command without leaving the
+keyboard.
+
 ## Theme
 
 Light, dark, sepia, or **Follow system** — the last one resolves to dark or light from Windows and

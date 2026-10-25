@@ -1230,3 +1230,39 @@ Object.assign(DICT.zh, {
   'settings.paletteHint': '命令面板会优先显示你常用的命令；清空后恢复原始顺序。',
   'settings.paletteCount': '已记住 {count} 条命令',
 });
+
+Object.assign(DICT.en, { 'menu.palette': 'Command Palette…' });
+Object.assign(DICT.zh, { 'menu.palette': '命令面板…' });
+
+Object.assign(DICT.en, {
+  'shortcuts.filter': 'Filter shortcuts…',
+  'shortcuts.noMatches': 'No shortcuts match.',
+  'shortcuts.close': 'Close',
+  'shortcuts.run': 'Run',
+  'sc.closeTab': 'Close tab',
+  'sc.reopenTab': 'Reopen the last closed tab',
+  'sc.replace': 'Replace',
+  'sc.boldItalic': 'Bold / italic',
+  'sc.openFolder': 'Open folder',
+  'sc.fullscreen': 'Full screen',
+  'sc.zoom': 'Zoom in / out / reset',
+  'sc.split': 'Split into two windows',
+  'sc.unsplit': 'Merge the split windows',
+  'sc.escape': 'Close the open dialog',
+});
+Object.assign(DICT.zh, {
+  'shortcuts.filter': '筛选快捷键…',
+  'shortcuts.noMatches': '没有匹配的快捷键。',
+  'shortcuts.close': '关闭',
+  'shortcuts.run': '运行',
+  'sc.closeTab': '关闭标签',
+  'sc.reopenTab': '重新打开刚关闭的标签',
+  'sc.replace': '替换',
+  'sc.boldItalic': '加粗 / 斜体',
+  'sc.openFolder': '打开文件夹',
+  'sc.fullscreen': '全屏',
+  'sc.zoom': '放大 / 缩小 / 重置',
+  'sc.split': '分屏为两个窗口',
+  'sc.unsplit': '合并分屏窗口',
+  'sc.escape': '关闭当前对话框',
+});

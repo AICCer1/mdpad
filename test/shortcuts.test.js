@@ -24,11 +24,17 @@ test('no two menu items share an accelerator', () => {
 });
 
 test('every documented shortcut is well formed', () => {
-  const rows = [...html.matchAll(/<tr><td>([^<]+)<\/td><td data-i18n="sc\.([a-z]+)"/g)].map((m) => m[1]);
+  const rows = [
+    ...html.matchAll(/<tr(?: data-command="[^"]*")?><td>([^<]+)<\/td><td data-i18n="sc\.([a-z]+)"/g),
+  ].map((m) => m[1]);
   assert.ok(rows.length >= 9);
   for (const row of rows) {
     for (const part of row.split('/').map((p) => p.trim())) {
-      assert.match(part, /^(Ctrl|Alt|Shift|F\d+(?:\+.*)?|↑|↓)/, `bad shortcut "${part}" in "${row}"`);
+      assert.match(
+        part,
+        /^(Ctrl|Alt|Shift|F\d+|Esc|↑|↓)/,
+        `bad shortcut "${part}" in "${row}"`
+      );
     }
   }
 });

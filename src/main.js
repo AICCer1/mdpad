@@ -3054,7 +3054,7 @@ function buildMenu() {
         { label: tt('menu.saveAs'), accelerator: 'CmdOrCtrl+Shift+S', click: () => sendMenuAction('saveAs') },
         { type: 'separator' },
         { label: tt('menu.exportHtml'), accelerator: 'CmdOrCtrl+Shift+E', click: () => sendMenuAction('exportHtml') },
-        { label: tt('menu.exportPdf'), accelerator: 'CmdOrCtrl+Shift+P', click: () => sendMenuAction('exportPdf') },
+        { label: tt('menu.exportPdf'), accelerator: 'CmdOrCtrl+Alt+P', click: () => sendMenuAction('exportPdf') },
         { label: tt('menu.exportWord'), click: () => sendMenuAction('exportDocx') },
         { label: tt('menu.exportEpub'), click: () => sendMenuAction('exportEpub') },
         { label: tt('menu.preview'), accelerator: 'CmdOrCtrl+Shift+V', click: () => sendMenuAction('previewExport') },
@@ -3079,6 +3079,7 @@ function buildMenu() {
       submenu: [
         { label: tt('menu.find'), accelerator: 'CmdOrCtrl+F', click: () => sendMenuAction('find') },
         { label: tt('menu.outline'), accelerator: 'CmdOrCtrl+Shift+O', click: () => sendMenuAction('toggleOutline') },
+    { label: tt('menu.palette'), accelerator: 'CmdOrCtrl+Shift+P', click: () => sendMenuAction('palette') },
       ],
     },
     {
@@ -13175,7 +13176,7 @@ async function runSmoke() {
     const state = await jsOf('window.__mdpad.paletteState()');
     const grouped = await jsOf('window.__mdpad.paletteGroup()');
     const first = state && state.labels[0];
-    await jsOf("document.querySelector('#palette').hidden = true");
+    await jsOf("document.querySelector('#settings-modal').hidden = true");
     // settings shows the count and clears it
     await jsOf(`document.querySelector('#open-settings').click()`);
     await sleep(700);
@@ -13197,6 +13198,51 @@ async function runSmoke() {
       paletteUsage.afterClear === 0 &&
       /0 command/.test(paletteUsage.rowAfter),
     paletteUsage
+  );
+
+  // 162. the shortcuts list matches real commands, filters, and can run them
+  const shortcutsPanel = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    await jsOf('window.__mdpad.openShortcuts ? window.__mdpad.openShortcuts() : document.querySelector("#shortcuts-close").click()');
+    await jsOf("document.querySelector('#open-settings') && null");
+    await sleep(300);
+    const opened = await jsOf('window.__mdpad.shortcutsState()');
+    const filtered = await jsOf("window.__mdpad.shortcutsFilter('zoom')");
+    const filteredState = await jsOf('window.__mdpad.shortcutsState()');
+    const emptyVisible = await jsOf("window.__mdpad.shortcutsFilter('zzzz-none')");
+    const emptyState = await jsOf("!document.querySelector('#shortcuts-empty').hidden");
+    await jsOf("window.__mdpad.shortcutsFilter('')");
+    const restored = await jsOf('window.__mdpad.shortcutsState()');
+    const ran = await jsOf(`(async () => {
+      const row = [...document.querySelectorAll('#shortcuts tr[data-command]')].find(
+        (item) => item.dataset.command === 'settings'
+      );
+      if (!row) return { error: 'row missing' };
+      const button = row.querySelector('.shortcut-run');
+      if (!button) return { error: 'button missing' };
+      button.click();
+      await new Promise((r) => setTimeout(r, 500));
+      return { settingsOpen: !document.querySelector('#settings-modal').hidden, shortcutsOpen: !document.querySelector('#shortcuts').hidden };
+    })()`);
+    await jsOf("document.querySelector('#palette').hidden = true");
+    return { opened, filtered, filteredState, emptyVisible, emptyState, restored, ran };
+  })();
+  step(
+    'shortcuts-panel',
+    shortcutsPanel.opened &&
+      shortcutsPanel.opened.open === true &&
+      shortcutsPanel.opened.rows >= 10 &&
+      shortcutsPanel.opened.runButtons >= 10 &&
+      shortcutsPanel.opened.missing.length === 0 &&
+      shortcutsPanel.filtered >= 1 &&
+      shortcutsPanel.filteredState.visible < shortcutsPanel.opened.visible &&
+      shortcutsPanel.emptyVisible === 0 &&
+      shortcutsPanel.emptyState === true &&
+      shortcutsPanel.restored.visible === shortcutsPanel.opened.visible &&
+      shortcutsPanel.ran &&
+      shortcutsPanel.ran.settingsOpen === true &&
+      shortcutsPanel.ran.shortcutsOpen === false,
+    shortcutsPanel
   );
 
   // 30k. the settings filter narrows the visible fields

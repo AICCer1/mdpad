@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.93.0
+
+The shortcuts list now tells the truth.
+
+- **The help panel listed bindings that were wrong**: `Ctrl+Shift+P` appeared twice (palette and export
+  PDF) and `Ctrl+K` was described as "open file" while it opens the folder. The list is rebuilt from the
+  real menu accelerators and renderer handlers.
+- **The actual conflict is fixed**: the palette keeps `Ctrl+Shift+P` (the convention) through a new
+  View → Command Palette item, and Export PDF moves to `Ctrl+Alt+P`.
+- **The panel has a filter and each runnable row has Run**, wired to the palette command of the same id.
+  `shortcutsAudit()` reports ids that do not exist and the smoke check fails on them.
+- 331 smoke checks (one new: `shortcuts-panel` opens the list, filters to "zoom", checks the no-match
+  state, and presses Run on the Settings row), 171 unit tests.
+- The unit test that validates the table needed updating for rows carrying `data-command` and for `Esc`
+  as a legitimate single key.
+
 ## 1.92.0
 
 The palette shows what it remembers.

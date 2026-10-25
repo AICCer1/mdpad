@@ -6227,7 +6227,64 @@ paletteInput.addEventListener('keydown', (event) => {
 
 const shortcutsModal = $('#shortcuts');
 
+// Rows with data-command get a Run button: the list is both a reference and an entry point.
+function wireShortcutRows() {
+  const byId = new Map(commandList().map((cmd) => [cmd.id, cmd]));
+  for (const row of document.querySelectorAll('#shortcuts tr[data-command]')) {
+    const cell = row.lastElementChild;
+    if (!cell || cell.querySelector('.shortcut-run')) continue;
+    const cmd = byId.get(row.dataset.command);
+    if (!cmd) continue;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'shortcut-run';
+    button.textContent = t('shortcuts.run', lang);
+    button.title = cmd.label;
+    button.addEventListener('click', () => {
+      document.querySelector('#shortcuts').hidden = true;
+      cmd.run();
+    });
+    cell.appendChild(button);
+  }
+}
+
+function shortcutsAudit() {
+  const byId = new Set(commandList().map((cmd) => cmd.id));
+  const rows = [...document.querySelectorAll('#shortcuts tr[data-command]')];
+  const missing = rows.filter((row) => !byId.has(row.dataset.command)).map((row) => row.dataset.command);
+  return { rows: rows.length, missing };
+}
+
+function filterShortcuts(query) {
+  const words = String(query || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+  let visible = 0;
+  for (const row of document.querySelectorAll('#shortcuts tr:not(.shortcut-group)')) {
+    const text = row.textContent.toLowerCase();
+    const hit = !words.length || words.every((word) => text.includes(word));
+    row.hidden = !hit;
+    if (hit) visible += 1;
+  }
+  for (const group of document.querySelectorAll('#shortcuts tr.shortcut-group')) {
+    let any = false;
+    let row = group.nextElementSibling;
+    while (row && !row.classList.contains('shortcut-group')) {
+      if (!row.hidden) any = true;
+      row = row.nextElementSibling;
+    }
+    group.hidden = !any;
+  }
+  const empty = document.querySelector('#shortcuts-empty');
+  if (empty) empty.hidden = visible > 0;
+  return visible;
+}
+
 function openShortcuts() {
+  wireShortcutRows();
+  const filter = document.querySelector('#shortcuts-filter');
+  if (filter) {
+    filter.value = '';
+    filterShortcuts('');
+  }
   shortcutsModal.hidden = false;
 }
 
@@ -6668,6 +6725,7 @@ statsModal.addEventListener('click', (event) => {
 // ---- top bar / menu --------------------------------------------------------
 
 const actions = {
+  palette: () => openPalette(),
   new: async () => { await flushChange(); return window.api.newDoc(); },
   open: async () => { await flushChange(); return window.api.open(); },
   save: () => saveDocument(),
@@ -7582,6 +7640,14 @@ window.__mdpad = {
     return true;
   },
   paletteGroup: () => Boolean(document.querySelector('#palette .palette-group')),
+  shortcutsState: () => ({
+    open: !document.querySelector('#shortcuts').hidden,
+    visible: [...document.querySelectorAll('#shortcuts tr:not(.shortcut-group)')].filter((row) => !row.hidden).length,
+    rows: document.querySelectorAll('#shortcuts tr[data-command]').length,
+    runButtons: document.querySelectorAll('#shortcuts .shortcut-run').length,
+    missing: shortcutsAudit().missing,
+  }),
+  shortcutsFilter: (query) => filterShortcuts(query),
   paletteState: () => ({
     open: !document.querySelector('#palette').hidden,
     active: paletteIndex,

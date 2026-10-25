@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 330 end-to-end checks against a real window
+npm run smoke          # 331 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -592,3 +592,10 @@ Enter and asserts the caret landed in the heading.
 the query is empty (rows still map one-to-one to commands, so keyboard indices are unaffected).
 `refreshPaletteUsageRow` mirrors the remembered count into Settings → Advanced; the Clear button
 wipes `paletteUsage` and persists `{}`.
+
+## Shortcuts panel
+
+Rows carrying `data-command` get a Run button wired to the palette command of that id;
+`shortcutsAudit()` returns any id that does not exist, and the smoke check fails when that list is
+non-empty. `filterShortcuts` hides rows and empty groups and shows a no-match line. The list is kept
+in step by rebuilding it from the menu accelerators whenever a binding changes.
