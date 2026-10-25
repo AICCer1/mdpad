@@ -11,6 +11,12 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <div id="hint-bar" class="hint-bar" hidden>
+    <span id="hint-text" class="hint-text"></span>
+    <button id="hint-done" class="hint-action" data-i18n="hint.gotIt">Got it</button>
+    <button id="hint-close" class="hint-close" aria-label="Dismiss">×</button>
+  </div>
+
   <header class="bar">
     <div class="bar-left">
       <button id="toggle-outline" class="icon" data-icon="menu" title="Toggle outline (Ctrl+Shift+O)">Outline</button>

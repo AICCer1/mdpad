@@ -363,6 +363,12 @@ The list is generated from the real bindings, so it cannot drift from behaviour.
 to find one by name or key, and press **Run** on a row to execute that command without leaving the
 keyboard.
 
+### Tips appear once
+
+A small strip above the document offers three tips on first use — the command palette, the shortcut
+list, and dropping images. Dismissing one ("Got it" or ×) records it and shows the next; once all
+three are seen the strip never returns.
+
 ## Theme
 
 Light, dark, sepia, or **Follow system** — the last one resolves to dark or light from Windows and

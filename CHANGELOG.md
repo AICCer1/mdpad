@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.94.0
+
+Tips are shown once.
+
+- **A hint strip above the editor offers three tips on first use**: the command palette, the F1 shortcut
+  list, and dropping an image. Dismissing one stores it in `seenHints` and the next appears; when all
+  three are seen the strip never returns.
+- `settings:set` sanitises `seenHints` (booleans only, max 50 keys) and `publicSettings` exposes it, so
+  the state survives restarts.
+- 332 smoke checks (one new: `one-time-hints` resets the map, asserts the palette tip, dismisses through
+  the queue, checks the strip disappears and reads the persisted flags back), 171 unit tests.
+- Two placement mistakes on the way: the strip's markup was inserted with an anchor that did not exist,
+  and `seenHints` landed inside the `findOptions` object instead of the settings result, so
+  `getSettings()` never returned it.
+
 ## 1.93.0
 
 The shortcuts list now tells the truth.

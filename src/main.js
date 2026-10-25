@@ -317,6 +317,7 @@ function publicSettings() {
           }
         : { caseSensitive: false, wholeWord: false, regex: false },
     zoomLevel: clampZoom(s.zoomLevel),
+    seenHints: s.seenHints && typeof s.seenHints === 'object' ? s.seenHints : {},
   };
 }
 
@@ -2288,6 +2289,13 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
     if (patch.spellcheck !== undefined) next.spellcheck = patch.spellcheck === true;
     if (patch.typewriter !== undefined) next.typewriter = patch.typewriter === true;
     if (patch.highlightParagraph !== undefined) next.highlightParagraph = patch.highlightParagraph === true;
+    if (patch.seenHints && typeof patch.seenHints === 'object') {
+      const cleaned = {};
+      for (const key of Object.keys(patch.seenHints).slice(0, 50)) {
+        if (patch.seenHints[key] === true) cleaned[key] = true;
+      }
+      next.seenHints = cleaned;
+    }
     if (patch.externalPolicy !== undefined) {
       next.externalPolicy = ['ask', 'auto', 'ignore'].includes(patch.externalPolicy) ? patch.externalPolicy : 'ask';
     }
@@ -13243,6 +13251,41 @@ async function runSmoke() {
       shortcutsPanel.ran.settingsOpen === true &&
       shortcutsPanel.ran.shortcutsOpen === false,
     shortcutsPanel
+  );
+
+  // 163. one-time hints appear once each and disappear for good
+  const hints = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    await jsOf("window.api.setSettings({ seenHints: {} })");
+    await jsOf('window.__mdpad.refreshHints ? window.__mdpad.refreshHints() : null');
+    await sleep(300);
+    const first = await jsOf('window.__mdpad.hintState()');
+    const dismissed = await jsOf('window.__mdpad.dismissHint()');
+    const second = await jsOf('window.__mdpad.hintState()');
+    await jsOf('window.__mdpad.dismissHint()');
+    await jsOf('window.__mdpad.dismissHint()');
+    const afterAll = await jsOf('window.__mdpad.hintState()');
+    await sleep(600);
+    const stored = await jsOf('window.api.getSettings().then((s) => s.seenHints)');
+    await jsOf('window.api.setSettings({ seenHints: {} })');
+    return { first, dismissed, second, afterAll, stored };
+  })();
+  step(
+    'one-time-hints',
+    hints.first &&
+      hints.first.visible === true &&
+      hints.first.active === 'palette' &&
+      /Ctrl\+Shift\+P/.test(hints.first.text) &&
+      hints.second &&
+      hints.second.active === 'shortcuts' &&
+      hints.second.visible === true &&
+      hints.afterAll &&
+      hints.afterAll.visible === false &&
+      hints.stored &&
+      hints.stored.palette === true &&
+      hints.stored.shortcuts === true &&
+      hints.stored.dropImage === true,
+    hints
   );
 
   // 30k. the settings filter narrows the visible fields

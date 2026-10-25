@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 331 end-to-end checks against a real window
+npm run smoke          # 332 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -599,3 +599,10 @@ Rows carrying `data-command` get a Run button wired to the palette command of th
 `shortcutsAudit()` returns any id that does not exist, and the smoke check fails when that list is
 non-empty. `filterShortcuts` hides rows and empty groups and shows a no-match line. The list is kept
 in step by rebuilding it from the menu accelerators whenever a binding changes.
+
+## One-time hints
+
+`HINTS` is an ordered list; `refreshHints` shows the first whose id is not in `seenHints`, and
+`dismissHint` persists the flag through `settings:set` then advances. `settings:set` sanitises the map
+to booleans (max 50 keys) and `publicSettings` exposes it, so the state survives restarts and the test
+can read it back.

@@ -1266,3 +1266,16 @@ Object.assign(DICT.zh, {
   'sc.unsplit': '合并分屏窗口',
   'sc.escape': '关闭当前对话框',
 });
+
+Object.assign(DICT.en, {
+  'hint.palette': 'Press Ctrl+Shift+P to run any command without leaving the keyboard.',
+  'hint.shortcuts': 'F1 lists every shortcut; the list can run them too.',
+  'hint.dropImage': 'Drop an image into the page to insert it, or paste one from the clipboard.',
+  'hint.gotIt': 'Got it',
+});
+Object.assign(DICT.zh, {
+  'hint.palette': '按 Ctrl+Shift+P 可以不开鼠标运行任何命令。',
+  'hint.shortcuts': '按 F1 查看全部快捷键，列表里也能直接运行。',
+  'hint.dropImage': '把图片拖进页面即可插入，也可以直接从剪贴板粘贴。',
+  'hint.gotIt': '知道了',
+});

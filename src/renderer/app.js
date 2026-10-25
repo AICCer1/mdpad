@@ -974,6 +974,48 @@ document.addEventListener('keydown', (event) => {
 
 // ---- state plumbing --------------------------------------------------------
 
+// One-time hints: each is shown once per profile, and the queue advances only after one is seen.
+const HINTS = ['palette', 'shortcuts', 'dropImage'];
+let seenHints = {};
+let activeHint = null;
+
+function hintText(id) {
+  if (id === 'palette') return t('hint.palette', lang);
+  if (id === 'shortcuts') return t('hint.shortcuts', lang);
+  return t('hint.dropImage', lang);
+}
+
+function markHintSeen(id) {
+  if (!id) return;
+  seenHints[id] = true;
+  window.api.setSettings({ seenHints }).catch(() => {});
+}
+
+function refreshHints() {
+  const bar = document.querySelector('#hint-bar');
+  if (!bar) return null;
+  const next = HINTS.find((id) => !seenHints[id]) || null;
+  activeHint = next;
+  if (!next) {
+    bar.hidden = true;
+    return null;
+  }
+  document.querySelector('#hint-text').textContent = hintText(next);
+  bar.hidden = false;
+  return next;
+}
+
+function dismissHint() {
+  const bar = document.querySelector('#hint-bar');
+  if (bar) bar.hidden = true;
+  markHintSeen(activeHint);
+  activeHint = null;
+  return refreshHints();
+}
+
+document.querySelector('#hint-done')?.addEventListener('click', () => dismissHint());
+document.querySelector('#hint-close')?.addEventListener('click', () => dismissHint());
+
 let draftBannerShown = false;
 let lastLoadTiming = null;
 let lastSetMarkdownPhases = null;
@@ -7182,6 +7224,8 @@ window.api.onOutline(() => {});
   updateActiveBlock();
   applySectionState(settings.collapsedSections);
   paletteUsage = settings.paletteUsage && typeof settings.paletteUsage === 'object' ? settings.paletteUsage : {};
+  seenHints = settings.seenHints && typeof settings.seenHints === 'object' ? settings.seenHints : {};
+  refreshHints();
   guideDismissed = settings.guideDismissed === true;
   syncEmptyHint();
   aiScopeExplicit = Boolean(settings.aiContextScope);
@@ -7640,6 +7684,13 @@ window.__mdpad = {
     return true;
   },
   paletteGroup: () => Boolean(document.querySelector('#palette .palette-group')),
+  hintState: () => ({
+    visible: !document.querySelector('#hint-bar').hidden,
+    text: document.querySelector('#hint-text').textContent,
+    active: activeHint,
+    seen: { ...seenHints },
+  }),
+  dismissHint: () => dismissHint(),
   shortcutsState: () => ({
     open: !document.querySelector('#shortcuts').hidden,
     visible: [...document.querySelectorAll('#shortcuts tr:not(.shortcut-group)')].filter((row) => !row.hidden).length,
