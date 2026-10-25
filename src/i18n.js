@@ -1327,3 +1327,16 @@ Object.assign(DICT.zh, {
   'export.open': '打开',
   'export.reveal': '在文件夹中显示',
 });
+
+Object.assign(DICT.en, {
+  'export.history': 'Recent exports',
+  'export.historyEmpty': 'Nothing exported yet.',
+  'export.historyClear': 'Clear',
+  'export.historyMissing': 'gone',
+});
+Object.assign(DICT.zh, {
+  'export.history': '最近导出',
+  'export.historyEmpty': '还没有导出记录。',
+  'export.historyClear': '清空',
+  'export.historyMissing': '文件已不存在',
+});

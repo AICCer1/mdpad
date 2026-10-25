@@ -383,6 +383,62 @@ function setExportScope(scope) {
   return exportScope;
 }
 
+function exportAgo(at) {
+  const minutes = Math.max(0, Math.round((Date.now() - Number(at || 0)) / 60000));
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return minutes + ' min ago';
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return hours + ' h ago';
+  return Math.round(hours / 24) + ' d ago';
+}
+
+async function renderExportHistory() {
+  const list = document.querySelector('#export-history');
+  if (!list) return [];
+  const entries = await window.api.exportHistory().catch(() => []);
+  list.textContent = '';
+  if (!entries.length) {
+    const empty = document.createElement('div');
+    empty.className = 'name-hint';
+    empty.textContent = t('export.historyEmpty', lang);
+    list.appendChild(empty);
+    return [];
+  }
+  for (const entry of entries.slice(0, 5)) {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'export-history-row';
+    const name = String(entry.path).split(/[\\/]/).pop();
+    const label = document.createElement('span');
+    label.className = 'export-history-name';
+    label.textContent = name;
+    const meta = document.createElement('span');
+    meta.className = 'export-history-meta';
+    meta.textContent = String(entry.kind || '').toUpperCase() + ' · ' + exportAgo(entry.at);
+    row.append(label, meta);
+    row.title = entry.path;
+    row.addEventListener('click', async () => {
+      const result = await runExportAction('open', entry.path);
+      if (!result.ok) {
+        // a stale entry should say why rather than pretend
+        row.classList.add('is-missing');
+        meta.textContent = t('export.historyMissing', lang);
+      }
+    });
+    list.appendChild(row);
+  }
+  const clear = document.createElement('button');
+  clear.type = 'button';
+  clear.className = 'export-history-clear';
+  clear.textContent = t('export.historyClear', lang);
+  clear.addEventListener('click', async () => {
+    await window.api.clearExportHistory();
+    renderExportHistory();
+  });
+  list.appendChild(clear);
+  return entries;
+}
+
 async function openExportPanel(format = 'pdf') {
   const settings = await window.api.getSettings();
   document.querySelector('#export-template').value = settings.exportTemplate || 'default';
@@ -393,6 +449,7 @@ async function openExportPanel(format = 'pdf') {
   setExportFormat(format);
   refreshExportSummary();
   refreshExportThumb();
+  renderExportHistory();
   await refreshExportNameHintFor('#export-name', '#export-name-hint');
   document.querySelector('#export-modal').hidden = false;
 }
@@ -6009,7 +6066,7 @@ async function childrenOf(dir) {
   return treeCache.get(dir);
 }
 
-function relativeTime(ms) {
+function agoText(ms) {
   if (!ms) return '';
   const diff = Date.now() - ms;
   if (diff < 60_000) return 'now';
@@ -6283,7 +6340,7 @@ async function renderDir(dir, depth) {
     if (!entry.dir && entry.mtime) {
       const meta = document.createElement('span');
       meta.className = 'tree-meta';
-      meta.textContent = relativeTime(entry.mtime);
+      meta.textContent = agoText(entry.mtime);
       meta.title = new Date(entry.mtime).toLocaleString();
       row.appendChild(meta);
     }
@@ -8072,6 +8129,15 @@ window.__mdpad = {
     labels: [...document.querySelectorAll('#toast .toast-action')].map((button) => button.textContent),
     run: (action) => runExportAction(action, target),
   }),
+  exportHistoryState: () => ({
+    rows: [...document.querySelectorAll('#export-history .export-history-row')].map((row) => ({
+      name: row.querySelector('.export-history-name').textContent,
+      meta: row.querySelector('.export-history-meta').textContent,
+    })),
+    empty: Boolean(document.querySelector('#export-history .name-hint')),
+    clear: Boolean(document.querySelector('#export-history .export-history-clear')),
+  }),
+  renderExportHistory: () => renderExportHistory(),
   exportActionToast: (target, name) => {
     exportActionToast(target, name);
     return [...document.querySelectorAll('#toast .toast-action')].map((button) => button.textContent);

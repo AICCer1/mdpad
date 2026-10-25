@@ -389,6 +389,10 @@ outside the app.
 
 ### After an export
 
+**Recent exports** at the top of the panel keeps the last ten files with their format and age.
+Click one to open it; a moved file is marked instead of pretending. **Clear** empties the list.
+
+
 The toast that follows an export has three buttons: **Open** (in your default app), **Show in folder**
 and **Copy path**. If the file has been moved or the folder cannot be opened, the status line says so
 instead of silently doing nothing.

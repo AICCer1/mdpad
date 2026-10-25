@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.1.0
+
+Exports are remembered.
+
+- **The export panel lists the last ten exports** with format and age; clicking one opens it. A file
+  that has since moved is marked "file not found" rather than appearing to open, and **Clear** empties
+  the list. Entries are de-duplicated by path and recorded for every format, including sections.
+- 340 smoke checks (one new: `export-history` clears the list, exports a section, asserts the stored
+  entry and the rendered row, then clears it from the panel and checks both storage and UI are empty),
+  174 unit tests.
+- The panel needed an explicit `renderExportHistory()` call on open; without it the list was built but
+  never inserted, which the new check caught immediately.
+
 ## 2.0.2
 
 An export ends with something you can act on.

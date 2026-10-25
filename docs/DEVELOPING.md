@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 339 end-to-end checks against a real window
+npm run smoke          # 340 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -653,3 +653,10 @@ still renders the whole document — it is a design preview, not a range-aware e
 `exportActionToast(path, name)` is the single toast for every export; `runExportAction` handles open,
 reveal and copy and returns `{ ok, reason }`, flashing a translated message on failure. The smoke check
 calls it against a real file and a missing one, and checks the clipboard.
+
+## Export history
+
+`rememberExport(path, kind)` writes `exportHistory` through `writeSettings`, newest first, at most ten
+entries, de-duplicated by path. `settings:set` sanitises a history list, `publicSettings` exposes it,
+and the panel renders the first five. Clicking a row reuses `runExportAction('open')`, so a missing
+file produces the same message as the toast.

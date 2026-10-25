@@ -206,6 +206,19 @@ function writeSettings(patch) {
   return next;
 }
 
+// The last ten exports, so a finished document can be opened again without hunting for the path.
+function rememberExport(filePath, kind) {
+  try {
+    const settings = readSettings();
+    const list = Array.isArray(settings.exportHistory) ? settings.exportHistory : [];
+    const entry = { path: String(filePath), kind: String(kind || 'html'), at: Date.now() };
+    const next = [entry, ...list.filter((item) => item && item.path !== entry.path)].slice(0, 10);
+    writeSettings({ exportHistory: next });
+  } catch (err) {
+    logLine('export', 'could not record history: ' + err.message);
+  }
+}
+
 // ---- secrets ----------------------------------------------------------------
 // API keys go through the OS credential store (Keychain / DPAPI / libsecret).
 // If it is unavailable the key is only base64-wrapped, which is obfuscation and
@@ -318,6 +331,7 @@ function publicSettings() {
         : { caseSensitive: false, wholeWord: false, regex: false },
     zoomLevel: clampZoom(s.zoomLevel),
     seenHints: s.seenHints && typeof s.seenHints === 'object' ? s.seenHints : {},
+    exportHistory: Array.isArray(s.exportHistory) ? s.exportHistory : [],
     foldedHeadings: s.foldedHeadings && typeof s.foldedHeadings === 'object' ? s.foldedHeadings : {},
   };
 }
@@ -1101,6 +1115,7 @@ class Session {
         font: exportFontStack(),
         margin: readSettings().exportMargin || 'normal',
       });
+      rememberExport(filePath, kind);
       this.sendStatus({ exported: result });
       this.send('doc:exported', { path: filePath, kind });
       return { exported: true, ...result };
@@ -1112,6 +1127,7 @@ class Session {
       });
       fs.writeFileSync(filePath, result.buffer);
       const out = { path: filePath, bytes: result.bytes };
+      rememberExport(filePath, kind);
       this.sendStatus({ exported: out, sizeWarning: isLargeExport(result.bytes) ? describeSize(result.bytes) : null });
       return { exported: true, ...out };
     }
@@ -1123,6 +1139,7 @@ class Session {
       });
       fs.writeFileSync(filePath, result.buffer);
       const out = { path: filePath, bytes: result.bytes, chapters: result.chapters };
+      rememberExport(filePath, kind);
       this.sendStatus({ exported: out, sizeWarning: isLargeExport(result.bytes) ? describeSize(result.bytes) : null });
       return { exported: true, ...out };
     }
@@ -1141,6 +1158,7 @@ class Session {
       'utf8'
     );
     const result = { path: filePath, bytes: fs.statSync(filePath).size };
+    rememberExport(filePath, kind);
     this.sendStatus({ exported: result });
     this.send('doc:exported', { path: filePath, kind });
     return { exported: true, ...result };
@@ -2396,6 +2414,12 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
         if (patch.seenHints[key] === true) cleaned[key] = true;
       }
       next.seenHints = cleaned;
+    }
+    if (Array.isArray(patch.exportHistory)) {
+      next.exportHistory = patch.exportHistory
+        .filter((item) => item && typeof item.path === 'string')
+        .slice(0, 10)
+        .map((item) => ({ path: item.path, kind: String(item.kind || 'html'), at: Number(item.at) || Date.now() }));
     }
     if (patch.externalPolicy !== undefined) {
       next.externalPolicy = ['ask', 'auto', 'ignore'].includes(patch.externalPolicy) ? patch.externalPolicy : 'ask';
@@ -13811,6 +13835,63 @@ async function runSmoke() {
       failed: exportActionsTest.failed,
       status: exportActionsTest.status,
       revealStatus: exportActionsTest.revealStatus,
+    }
+  );
+
+  // 171. finished exports are remembered, can be reopened, and the list can be cleared
+  const exportHistoryTest = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'history-source.md');
+    fs.writeFileSync(doc, '# History' + nl + nl + '## One' + nl + nl + 'body words' + nl, 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('body words')");
+      if (ready === true) break;
+    }
+    await jsOf("window.api.setSettings({ exportHistory: [] })");
+    await jsOf("window.__mdpad.focusHeading('One')");
+    const target = path.join(dir, 'history-export.html');
+    const exported = await jsOf(
+      `window.api.exportSectionTo(${JSON.stringify(target)}, window.__mdpad.sectionMarkdown().markdown, 'html')`
+    );
+    await sleep(400);
+    const stored = await jsOf('window.api.getSettings().then((s) => s.exportHistory)');
+    await jsOf("window.__mdpad.openExportPanel('html')");
+    await sleep(600);
+    const state = await jsOf('window.__mdpad.exportHistoryState()');
+    await jsOf("document.querySelector('#export-history .export-history-clear').click()");
+    await sleep(500);
+    const cleared = await jsOf('window.__mdpad.exportHistoryState()');
+    const storedAfter = await jsOf('window.api.getSettings().then((s) => s.exportHistory)');
+    await jsOf("document.querySelector('#export-modal').hidden = true");
+    return { exported, stored, state, cleared, storedAfter, target };
+  })();
+  step(
+    'export-history',
+    exportHistoryTest.exported &&
+      exportHistoryTest.exported.exported === true &&
+      Array.isArray(exportHistoryTest.stored) &&
+      exportHistoryTest.stored.length === 1 &&
+      exportHistoryTest.stored[0].path === exportHistoryTest.target &&
+      exportHistoryTest.stored[0].kind === 'html' &&
+      exportHistoryTest.state &&
+      exportHistoryTest.state.rows.length === 1 &&
+      /history-export\.html/.test(exportHistoryTest.state.rows[0].name) &&
+      /HTML/.test(exportHistoryTest.state.rows[0].meta) &&
+      exportHistoryTest.state.clear === true &&
+      exportHistoryTest.cleared &&
+      exportHistoryTest.cleared.rows.length === 0 &&
+      exportHistoryTest.cleared.empty === true &&
+      Array.isArray(exportHistoryTest.storedAfter) &&
+      exportHistoryTest.storedAfter.length === 0,
+    {
+      exported: exportHistoryTest.exported,
+      stored: exportHistoryTest.stored,
+      state: exportHistoryTest.state,
+      cleared: exportHistoryTest.cleared,
     }
   );
 

@@ -2435,3 +2435,19 @@ html.table-dragging-column, html.table-dragging-column * { cursor: col-resize !i
 .outline-row { display: flex; align-items: center; gap: 6px; }
 .outline-words { margin-left: auto; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .outline-row:hover .outline-words { color: var(--text); }
+
+/* ---- export history ---- */
+.export-history { display: flex; flex-direction: column; gap: 2px; }
+.export-history-row {
+  display: flex; align-items: baseline; gap: 8px; width: 100%;
+  border: 0; background: transparent; color: var(--text);
+  font-size: 12px; padding: 3px 4px; text-align: left; cursor: pointer; border-radius: var(--r-sm, 6px);
+}
+.export-history-row:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.export-history-name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.export-history-meta { color: var(--muted); font-size: 10.5px; }
+.export-history-row.is-missing { opacity: 0.55; }
+.export-history-clear {
+  align-self: flex-start; border: 0; background: transparent; color: var(--muted);
+  font-size: 10.5px; padding: 2px 4px; cursor: pointer; text-decoration: underline;
+}
