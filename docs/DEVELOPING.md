@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 340 end-to-end checks against a real window
+npm run smoke          # 341 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -660,3 +660,11 @@ calls it against a real file and a missing one, and checks the clipboard.
 entries, de-duplicated by path. `settings:set` sanitises a history list, `publicSettings` exposes it,
 and the panel renders the first five. Clicking a row reuses `runExportAction('open')`, so a missing
 file produces the same message as the toast.
+
+## View state
+
+The renderer reports `{tabId, cursor, scrollTop}` through `view:set` (debounced 800 ms after a
+selection change); main keeps `session.viewByTab` and `tabsForSnapshot` writes it into `session.json`.
+`doc:loaded` carries the view back, the caret is clamped to the new document size, and the existing
+`tabScroll` restoration places the scroll. The smoke window is hidden and has no viewport, so
+`view-restore` asserts the caret and that the persisted scroll reaches `tabScroll`, not pixels.

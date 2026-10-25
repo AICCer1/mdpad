@@ -470,6 +470,16 @@ const MAX_RESTORE_UNTITLED_BYTES = 200_000;
 
 let sessionSaveTimer = null;
 
+// Cursor and scroll of each tab, reported by the renderer: reopening a long document should land
+// where the user was, not at the top.
+function rememberView(session, payload) {
+  if (!session || !payload || typeof payload.tabId !== 'string') return;
+  const cursor = Math.max(0, Math.floor(Number(payload.cursor) || 0));
+  const scrollTop = Math.max(0, Math.floor(Number(payload.scrollTop) || 0));
+  session.viewByTab = session.viewByTab || {};
+  session.viewByTab[payload.tabId] = { cursor, scrollTop, at: Date.now() };
+}
+
 function tabsForSnapshot(session) {
   session.stashActive();
   const all = [...session.tabs.values()];
@@ -487,6 +497,7 @@ function tabsForSnapshot(session) {
     kept.push({
       file: tab.file,
       contents: tab.file ? null : tab.contents,
+      view: (session.viewByTab && session.viewByTab[tab.id]) || null,
     });
     if (kept.length >= MAX_RESTORE_TABS) break;
   }
@@ -494,7 +505,11 @@ function tabsForSnapshot(session) {
   // The active tab (if any) must survive the cap so the user lands where they left.
   const active = session.tabs.get(session.activeId);
   if (active && !kept.some((entry) => entry.file && entry.file === active.file)) {
-    kept.unshift({ file: active.file, contents: active.file ? null : active.contents });
+    kept.unshift({
+      file: active.file,
+      contents: active.file ? null : active.contents,
+      view: (session.viewByTab && session.viewByTab[active.id]) || null,
+    });
     kept.splice(MAX_RESTORE_TABS);
   }
 
@@ -740,7 +755,8 @@ class Session {
     const draft = this.file
       ? storage.hasRecoverableDraft(this.file, this.contents, draftsDir())
       : null;
-    this.send('doc:loaded', { id, file: this.file, contents: this.contents, draft });
+    const view = (this.viewByTab && this.viewByTab[id]) || null;
+    this.send('doc:loaded', { id, file: this.file, contents: this.contents, draft, view });
     this.sendStatus({ file: this.file, dirty: this.isDirty() });
     return { ok: true, id };
   }
@@ -2370,6 +2386,11 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
   ipcMain.handle('backup:list', (event) => {
     const s = sessionFor(event);
     return storage.listBackups(s.file || '', backupsDir());
+  });
+
+  ipcMain.handle('view:set', (event, payload = {}) => {
+    rememberView(sessionFor(event), payload);
+    return { ok: true };
   });
 
   ipcMain.handle('settings:get', () => publicSettings());
@@ -13893,6 +13914,58 @@ async function runSmoke() {
       state: exportHistoryTest.state,
       cleared: exportHistoryTest.cleared,
     }
+  );
+
+  // 172. the caret and scroll of a tab survive a reload of the document
+  const viewRestore = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'view-state.md');
+    const paragraphs = [];
+    for (let i = 0; i < 40; i += 1) paragraphs.push('paragraph number ' + i + ' with enough words to fill a line');
+    fs.writeFileSync(doc, ['# View', '', '## Section A', '', ...paragraphs, ''].join(nl), 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('paragraph number 30')");
+      if (ready === true) break;
+    }
+    await sleep(500);
+    // move the caret deep into the document and scroll down
+    await jsOf(`(() => {
+      const ed = window.__mdpad.editor;
+      ed.commands.setTextSelection(Math.floor(ed.state.doc.content.size * 0.7));
+      ed.commands.focus();
+    })()`);
+    await sleep(1200);
+    const before = await jsOf(`(() => {
+      const pane = document.querySelector('#editor-pane') || document.querySelector('.editor-scroll');
+      return {
+        cursor: window.__mdpad.editor.state.selection.from,
+        scrollTop: 0,
+        size: window.__mdpad.editor.state.doc.content.size,
+      };
+    })()`);
+    await jsOf(`window.api.setViewState({
+      tabId: ${JSON.stringify(doc)},
+      cursor: ${before.cursor},
+      scrollTop: 400,
+    })`);
+    await sleep(300);
+    await session.loadDocument(doc);
+    await sleep(1500);
+    const after = await jsOf("window.__mdpad.viewStateFor(" + JSON.stringify(doc) + ")");
+    return { before, after };
+  })();
+  step(
+    'view-restore',
+    viewRestore.before &&
+      viewRestore.before.cursor > 100 &&
+      viewRestore.after &&
+      Math.abs(viewRestore.after.cursor - viewRestore.before.cursor) < 5 &&
+      viewRestore.after.scroll === 400,
+    viewRestore
   );
 
   // 30k. the settings filter narrows the visible fields

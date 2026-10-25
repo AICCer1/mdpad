@@ -2198,6 +2198,47 @@ document.addEventListener('mousedown', (event) => {
 window.addEventListener('blur', () => closeSlashMenu({ suppress: true }));
 
 // The editable area is a multiline textbox; name it so it is not announced as just "edit".
+// Remember where the reader is: the caret offset and the scroll of the editor surface.
+let viewTimer = null;
+let pendingView = null;
+
+function reportViewState() {
+  if (!editor || !editor.view) return;
+  clearTimeout(viewTimer);
+  viewTimer = setTimeout(() => {
+    try {
+      if (!activeTabId) return;
+      pendingView = {
+        tabId: activeTabId,
+        cursor: editor.state.selection.from,
+        scrollTop: editorPane ? Math.max(0, Math.round(editorPane.scrollTop)) : 0,
+      };
+      window.api.setViewState(pendingView).catch(() => {});
+    } catch {
+      /* the editor may be gone during shutdown */
+    }
+  }, 800);
+}
+
+function applyViewState(view) {
+  if (!view || typeof view.cursor !== 'number') return false;
+  const max = editor.state.doc.content.size;
+  const cursor = Math.max(1, Math.min(max, Math.floor(view.cursor)));
+  try {
+    editor.commands.setTextSelection(cursor);
+  } catch {
+    return false;
+  }
+  const scrollTop = Math.max(0, Math.floor(Number(view.scrollTop) || 0));
+  if (scrollTop > 0) {
+    // the editor scroll container is the one the CSS makes scrollable
+    requestAnimationFrame(() => {
+      if (editorPane) editorPane.scrollTop = scrollTop;
+    });
+  }
+  return true;
+}
+
 function headingKeyAtCursor() {
   const { $from } = editor.state.selection;
   for (let depth = $from.depth; depth >= 0; depth -= 1) {
@@ -3117,10 +3158,12 @@ document.addEventListener('keydown', (event) => {
 let outlineTimer = null;
 
 editor.on('update', () => {
+  reportViewState();
   clearTimeout(outlineTimer);
   outlineTimer = setTimeout(() => renderOutline(), 120);
 });
 editor.on('selectionUpdate', () => {
+  reportViewState();
   if (!aiPopover.hidden) {
     updateContextNote();
     refreshAiTargetChip();
@@ -7298,7 +7341,7 @@ function cacheActiveEditorState() {
   }
 }
 
-window.api.onLoaded(async ({ id, file, contents, draft }) => {
+window.api.onLoaded(async ({ id, file, contents, draft, view }) => {
   const nextId = id || null;
   activeIsUntitled = !file;
   if (activeTabId && activeTabId !== nextId) cacheActiveEditorState();
@@ -7331,6 +7374,16 @@ window.api.onLoaded(async ({ id, file, contents, draft }) => {
   }
   activeTabId = nextId;
   syncEmptyHint();
+  if (view && typeof view.scrollTop === 'number') tabScroll.set(nextId, Math.max(0, view.scrollTop));
+  if (view && typeof view.cursor === 'number') {
+    const max = editor.state.doc.content.size;
+    const cursor = Math.max(1, Math.min(max, Math.floor(view.cursor)));
+    try {
+      editor.commands.setTextSelection(cursor);
+    } catch {
+      /* an empty document has no valid position */
+    }
+  }
   // Restore after the new content has been laid out; clamp in case the document got shorter.
   const wantedScroll = (nextId && tabScroll.get(nextId)) || 0;
   if (editorPane) {
@@ -8128,6 +8181,12 @@ window.__mdpad = {
   exportActions: (target) => ({
     labels: [...document.querySelectorAll('#toast .toast-action')].map((button) => button.textContent),
     run: (action) => runExportAction(action, target),
+  }),
+  viewStateFor: (id) => ({
+    cursor: editor.state.selection.from,
+    scroll: tabScroll.get(id) || 0,
+    paneScrollable: editorPane ? editorPane.scrollHeight > editorPane.clientHeight + 4 : false,
+    paneScrollTop: editorPane ? Math.round(editorPane.scrollTop) : 0,
   }),
   exportHistoryState: () => ({
     rows: [...document.querySelectorAll('#export-history .export-history-row')].map((row) => ({

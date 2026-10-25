@@ -173,6 +173,11 @@ under that heading folds away and the heading shows a `▸` marker. Press it aga
 document remembers its own folds across restarts, and the markdown on disk is never changed by
 folding — it is a reading aid, not an edit.
 
+## Reopening a document
+
+The caret position and the scroll of each tab are remembered with the session, so a long document
+reopens where you stopped reading rather than at the first line.
+
 ## Outline
 
 The outline lists every heading; click one to jump to it. While you scroll, the heading at the top of

@@ -111,6 +111,7 @@ contextBridge.exposeInMainWorld('api', {
   imagesAudit: () => ipcRenderer.invoke('images:audit'),
   linksAudit: () => ipcRenderer.invoke('links:audit'),
   docStructure: () => ipcRenderer.invoke('doc:structure'),
+  setViewState: (payload) => ipcRenderer.invoke('view:set', payload),
   exportSection: (markdown, format) => ipcRenderer.invoke('export:section', { markdown, format }),
   exportHistory: () => ipcRenderer.invoke('settings:get').then((settings) => settings.exportHistory || []),
   clearExportHistory: () => ipcRenderer.invoke('settings:set', { exportHistory: [] }),

@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.2.0
+
+Long documents reopen where you left them.
+
+- **Each tab remembers its caret and scroll.** The renderer reports them (debounced after a selection
+  change), `session.json` stores them per tab, and `doc:loaded` puts the caret back — clamped when the
+  document has become shorter.
+- 341 smoke checks (one new: `view-restore` moves the caret into a 40-paragraph document, persists a
+  scroll, reloads the document and asserts the caret returned to the same offset and the scroll reached
+  the tab state), 174 unit tests.
+- The hidden smoke window has no viewport, so the check asserts the persisted scroll value rather than
+  pixels; that limitation is documented in the developer notes.
+
 ## 2.1.0
 
 Exports are remembered.
