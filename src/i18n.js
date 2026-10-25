@@ -1217,3 +1217,16 @@ Object.assign(DICT.zh, {
 
 Object.assign(DICT.en, { 'settings.noMatches': 'No settings match.' });
 Object.assign(DICT.zh, { 'settings.noMatches': '没有匹配的设置。' });
+
+Object.assign(DICT.en, {
+  'settings.paletteUsage': 'Command history',
+  'settings.paletteClear': 'Clear',
+  'settings.paletteHint': 'The palette puts commands you use first; clearing resets that order.',
+  'settings.paletteCount': '{count} command(s) remembered',
+});
+Object.assign(DICT.zh, {
+  'settings.paletteUsage': '命令历史',
+  'settings.paletteClear': '清空',
+  'settings.paletteHint': '命令面板会优先显示你常用的命令；清空后恢复原始顺序。',
+  'settings.paletteCount': '已记住 {count} 条命令',
+});

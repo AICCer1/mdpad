@@ -2398,3 +2398,7 @@ html.table-dragging-column, html.table-dragging-column * { cursor: col-resize !i
 
 /* ---- command palette ---- */
 .palette-empty { padding: 14px 12px; color: var(--muted); font-size: 12.5px; }
+
+.palette-group { padding: 8px 12px 2px; font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+
+.settings-value { color: var(--muted); font-size: 12px; }

@@ -13164,6 +13164,41 @@ async function runSmoke() {
     paletteHeadings
   );
 
+  // 161. the palette shows what it remembers, and settings can forget it
+  const paletteUsage = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const cleared = await jsOf('window.__mdpad.paletteClearUsage()');
+    await jsOf("window.__mdpad.paletteRecord('exportPdf', 4)");
+    await sleep(300);
+    await jsOf('window.__mdpad.openPalette ? window.__mdpad.openPalette() : null');
+    await sleep(400);
+    const state = await jsOf('window.__mdpad.paletteState()');
+    const grouped = await jsOf('window.__mdpad.paletteGroup()');
+    const first = state && state.labels[0];
+    await jsOf("document.querySelector('#palette').hidden = true");
+    // settings shows the count and clears it
+    await jsOf(`document.querySelector('#open-settings').click()`);
+    await sleep(700);
+    const rowText = await jsOf("document.querySelector('#set-palette-usage').textContent");
+    await jsOf("document.querySelector('#set-palette-clear').click()");
+    await sleep(400);
+    const afterClear = await jsOf(`window.api.getSettings().then((s) => Object.keys(s.paletteUsage || {}).length)`);
+    const rowAfter = await jsOf("document.querySelector('#set-palette-usage').textContent");
+    await jsOf("document.querySelector('#settings-modal').hidden = true");
+    return { cleared, state, grouped, first, rowText, afterClear, rowAfter };
+  })();
+  step(
+    'palette-usage-group',
+    paletteUsage.cleared === true &&
+      paletteUsage.grouped === true &&
+      paletteUsage.state &&
+      /PDF/i.test(paletteUsage.first) &&
+      /1 command/.test(paletteUsage.rowText) &&
+      paletteUsage.afterClear === 0 &&
+      /0 command/.test(paletteUsage.rowAfter),
+    paletteUsage
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

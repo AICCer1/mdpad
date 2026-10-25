@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.92.0
+
+The palette shows what it remembers.
+
+- **With an empty search, used commands appear under a "Recently used" heading** — the learned order is
+  visible instead of being an invisible sort. The header is not selectable, so keyboard indices still
+  map one-to-one to commands.
+- **Settings → Advanced shows "N command(s) remembered" with a Clear button**, and the row updates as
+  you use the palette. Clearing resets the order and persists `{}`.
+- 330 smoke checks (one new: `palette-usage-group` seeds usage, asserts the group and the first result,
+  then clears it from Settings and asserts both the stored map and the row say zero), 171 unit tests.
+- One patch landed inside the `for (const sub of …)` header and broke the bundle
+  (`Expected ")" but found ";"`); the loop was rebuilt and the clear button inserted before it.
+
 ## 1.91.0
 
 Headings are palette targets.

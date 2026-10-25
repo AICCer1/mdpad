@@ -4511,6 +4511,12 @@ function applySectionState(state) {
   }
 }
 
+document.querySelector('#set-palette-clear')?.addEventListener('click', async () => {
+  paletteUsage = {};
+  await window.api.setSettings({ paletteUsage: {} }).catch(() => {});
+  refreshPaletteUsageRow();
+});
+
 for (const sub of document.querySelectorAll('#settings-modal .modal-sub')) {
   sub.addEventListener('click', () => {
     setSectionCollapsed(sub, !sub.classList.contains('collapsed'));
@@ -5003,6 +5009,7 @@ async function openSettings(section = 'appearance') {
   $('#set-highlight-paragraph').checked = settings.highlightParagraph === true;
   $('#set-writing-goal').value = String(Number(settings.writingGoal) || 0);
   $('#set-external-policy').value = ['ask', 'auto', 'ignore'].includes(settings.externalPolicy) ? settings.externalPolicy : 'ask';
+  refreshPaletteUsageRow();
   setParagraphHighlight(settings.highlightParagraph === true);
   typewriterEnabled = settings.typewriter === true;
   setParagraphHighlight(settings.highlightParagraph === true);
@@ -6081,10 +6088,18 @@ function applyTheme(theme) {
 
 let paletteUsage = {};
 
+function refreshPaletteUsageRow() {
+  const node = document.querySelector('#set-palette-usage');
+  if (!node) return;
+  const count = Object.keys(paletteUsage).length;
+  node.textContent = t('settings.paletteCount', lang, { count });
+}
+
 function recordPaletteUse(id) {
   if (!id) return;
   paletteUsage[id] = (paletteUsage[id] || 0) + 1;
   window.api.setSettings({ paletteUsage }).catch(() => {});
+  refreshPaletteUsageRow();
 }
 
 // Mark the part of a command name that matched, so a fuzzy-looking list explains itself.
@@ -6120,7 +6135,15 @@ function renderPalette() {
     empty.textContent = 'No commands match.';
     paletteList.appendChild(empty);
   }
+  let groupShown = false;
   paletteCommands.forEach((cmd, index) => {
+    if (!query && !groupShown && paletteUsage[cmd.id]) {
+      groupShown = true;
+      const group = document.createElement('div');
+      group.className = 'palette-group';
+      group.textContent = 'Recently used';
+      paletteList.appendChild(group);
+    }
     const row = document.createElement('div');
     row.className = `palette-row${index === paletteIndex ? ' active' : ''}`;
     const label = document.createElement('span');
@@ -7548,6 +7571,17 @@ window.__mdpad = {
     };
   },
   settingsSearchAudit: () => settingsSearchAudit(),
+  paletteRecord: (id, times = 1) => {
+    for (let index = 0; index < times; index += 1) recordPaletteUse(id);
+    return paletteUsage[id] || 0;
+  },
+  paletteUsageCounts: () => ({ ...paletteUsage }),
+  paletteClearUsage: async () => {
+    paletteUsage = {};
+    await window.api.setSettings({ paletteUsage: {} });
+    return true;
+  },
+  paletteGroup: () => Boolean(document.querySelector('#palette .palette-group')),
   paletteState: () => ({
     open: !document.querySelector('#palette').hidden,
     active: paletteIndex,

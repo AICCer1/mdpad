@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 329 end-to-end checks against a real window
+npm run smoke          # 330 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -585,3 +585,10 @@ view, and an empty result shows a message instead of a blank panel.
 heading nodes of level 1–3, at most twelve, each with `H{level}` as its hint and a `run` that focuses
 `pos + 1` and scrolls the node into view. `palette-headings` opens the palette, types "intro", presses
 Enter and asserts the caret landed in the heading.
+
+## Palette usage
+
+`renderPalette` inserts a non-selectable `.palette-group` header before the first used command when
+the query is empty (rows still map one-to-one to commands, so keyboard indices are unaffected).
+`refreshPaletteUsageRow` mirrors the remembered count into Settings → Advanced; the Clear button
+wipes `paletteUsage` and persists `{}`.

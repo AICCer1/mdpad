@@ -342,6 +342,9 @@ never lost by reflex.
 
 ### The command palette
 
+With an empty search, commands you have run appear under a **Recently used** heading. Settings →
+Advanced shows how many commands are remembered and can clear them.
+
 The palette also lists the **headings of the open document** (levels 1–3, up to twelve) with their
 level as a hint — type part of a section name and press Enter to jump there. Recent files appear
 with their folder and rank alongside everything else.
