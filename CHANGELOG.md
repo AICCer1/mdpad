@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.95.0
+
+Statistics can leave the app.
+
+- **The statistics panel exports CSV and Markdown**: document counts, structure issues and the last
+  fourteen days of writing. The CSV is one metric per row; the Markdown is a readable summary with a
+  table and the streak. Both are built from the same payload as the panels, so they cannot disagree.
+- `stats:save` drives the dialog; `stats:write` writes an explicit path and is what the test uses.
+- 333 smoke checks (one new: `stats-export` asserts the CSV header, a document metric, a dated history
+  row, the Markdown summary, both written files matching the generated text and both buttons), 171 unit
+  tests.
+- A self-inflicted rename (`statsExport` → `statsExportTest` to avoid a duplicate identifier) also
+  renamed the **hook** `statsExportTo`, so the test called a function that did not exist. The type probe
+  that finally found it is gone again.
+
 ## 1.94.0
 
 Tips are shown once.

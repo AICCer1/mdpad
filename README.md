@@ -30,6 +30,12 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 | Workspace | split a saved document into two real windows tiled on the two halves of the display (View menu, palette, Ctrl+Alt+2) and merge them back with the original window size (Ctrl+Alt+1), each window editing the same file with its own scroll position |
 | Polish | one design scale for control heights, radii and motion; toolbar active states, a tab indicator, one stroke icon set across the chrome (no emoji), thin theme-aware scrollbars, file-tree rows with relative modification times, a right-click menu to create, rename and delete files and folders (with confirmation), an action-first empty tree, an outline that counts headings and marks the section holding the caret, sidebar and outline hover/active states, a composed empty state, visible focus rings, a theme-swap transition guard and prefers-reduced-motion support; window minimum size with a narrow layout (sidebars shrink, export shortcuts leave the top bar, the toolbar fades to show it scrolls), responsive AI panel (readable scope control, scroll-hinted presets) and sidebars, consistent SVG toolbar icons grouped by purpose, command palette with shortcuts, match highlighting and usage ranking, recent files, shortcut help grouped by area, statistics with aligned tabular numbers, a backup list with relative ages and sizes, a drafts panel with per-row restore and delete, first-run guide (dismissible for good), collapsible Export/AI/Usage settings sections whose state is remembered, a filter that matches section names, with an unsaved-changes hint, a live export-name example and labelled history chips, WCAG contrast audit per theme, theme-aware overlay shadows, focus mode (View menu, Ctrl+Shift+K) that dims everything but the current block, including lighting a whole table from a cell, adapts to the theme and works with find, a Saving…/Saved/Unsaved indicator with separated status items, a zoom indicator with Ctrl+= / Ctrl+- / Ctrl+0, a spelling checker toggle with native suggestions on right click, statistics with selection size and last-saved time, light/dark/sepia themes plus **Follow system** (live), Esc closing every dialog and returning focus to the editor, ten editor fonts, three text widths and four accent colours, five typography presets (Book, Report, Minimal, Technical, Chinese) that set the three together, an Aa toolbar button and palette entry that open Appearance directly, a collapsible file tree that keeps a rail, F11 full screen that Esc exits, localised table/image bars, light/dark/sepia themes, English and 简体中文 |
 
+## Statistics export as CSV and Markdown
+
+The statistics panel can write the document counts, the structure issues and the **last 14 days** of
+writing as CSV (one metric per row) or Markdown (a readable summary with a table). Both are built
+from the same data the panels show, so they cannot disagree with the UI.
+
 ## Hints are shown once
 
 Three short tips (palette, shortcut list, dropping an image) appear in a strip above the editor,
@@ -88,7 +94,7 @@ missing translation or a mismatched placeholder fails the build.
 
 ```
 npm test              155 unit tests
-npm run smoke         332 end-to-end checks (dev or packaged)
+npm run smoke         333 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable

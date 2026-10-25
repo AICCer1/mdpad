@@ -1279,3 +1279,14 @@ Object.assign(DICT.zh, {
   'hint.dropImage': '把图片拖进页面即可插入，也可以直接从剪贴板粘贴。',
   'hint.gotIt': '知道了',
 });
+
+Object.assign(DICT.en, {
+  'stats.exportCsv': 'Export CSV',
+  'stats.exportMd': 'Export Markdown',
+  'stats.saved': 'Statistics saved',
+});
+Object.assign(DICT.zh, {
+  'stats.exportCsv': '导出 CSV',
+  'stats.exportMd': '导出 Markdown',
+  'stats.saved': '统计已保存',
+});

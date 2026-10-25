@@ -3152,6 +3152,81 @@ async function saveStructureReport(report) {
   return result;
 }
 
+// Statistics export: the document's structure and the last fourteen days, as data rather than a
+// screenshot of a panel.
+function statsFileName(extension) {
+  const base = (document.querySelector('#doc-name').textContent || 'document').replace(/\.[^.]+$/, '');
+  return base + '-statistics.' + extension;
+}
+
+async function statsPayload() {
+  const report = await window.api.docStructure();
+  const history = await window.api.writingHistory();
+  return { report, history };
+}
+
+function statsCsv(payload) {
+  const { report, history } = payload;
+  const rows = [
+    ['section', 'metric', 'value'],
+    ['document', 'words', report.words],
+    ['document', 'headings', report.counts.headings],
+    ['document', 'paragraphs', report.counts.paragraphs],
+    ['document', 'code blocks', report.counts.codeBlocks],
+    ['document', 'tables', report.counts.tables],
+    ['document', 'images', report.counts.images],
+    ['document', 'links', report.counts.links],
+    ['document', 'tasks', report.counts.tasks],
+    ['document', 'reading minutes', report.readingMinutes],
+    ['document', 'heading jumps', report.skips.length],
+    ['document', 'duplicate headings', report.duplicates.length],
+    ['history', 'streak', history.streak],
+    ['history', 'best day', history.best],
+    ['history', 'total (14 days)', history.total],
+  ];
+  for (const day of history.days) rows.push(['history', day.date, day.words]);
+  return rows.map((row) => row.join(',')).join('\n') + '\n';
+}
+
+function statsMarkdown(payload) {
+  const { report, history } = payload;
+  const lines = [
+    '# Statistics',
+    '',
+    '- Words: ' + report.words,
+    '- Headings: ' + report.counts.headings,
+    '- Paragraphs: ' + report.counts.paragraphs,
+    '- Code blocks: ' + report.counts.codeBlocks,
+    '- Tables: ' + report.counts.tables,
+    '- Images: ' + report.counts.images,
+    '- Links: ' + report.counts.links,
+    '- Task items: ' + report.counts.tasks,
+    '- Reading time: ~' + report.readingMinutes + ' min',
+    '',
+    '## Structure issues',
+    '',
+  ];
+  if (!report.skips.length && !report.duplicates.length) lines.push('No structural problems.');
+  for (const skip of report.skips) lines.push('- Heading "' + skip.text + '" jumps from H' + skip.from + ' to H' + skip.to);
+  for (const duplicate of report.duplicates) lines.push('- Duplicate heading "' + duplicate.text + '"');
+  lines.push('', '## Last 14 days', '', '| Date | Words |', '| --- | --- |');
+  for (const day of history.days) lines.push('| ' + day.date + ' | ' + day.words + ' |');
+  lines.push('', 'Streak: ' + history.streak + ' day(s) · Best: ' + history.best + ' · Total: ' + history.total);
+  lines.push('');
+  return lines.join('\n');
+}
+
+async function exportStats(kind) {
+  const payload = await statsPayload();
+  const content = kind === 'md' ? statsMarkdown(payload) : statsCsv(payload);
+  const result = await window.api.statsSave(content, statsFileName(kind === 'md' ? 'md' : 'csv'));
+  if (result && result.ok) showToast(t('stats.saved', lang), 4000, [
+    { label: 'Show in folder', run: () => window.api.revealExportedFile(result.path) },
+  ]);
+  else if (result && result.error) flash(result.error);
+  return result;
+}
+
 async function openStructureReport() {
   const modal = document.querySelector('#structure-report');
   const list = document.querySelector('#structure-issues');
@@ -7684,6 +7759,18 @@ window.__mdpad = {
     return true;
   },
   paletteGroup: () => Boolean(document.querySelector('#palette .palette-group')),
+  statsCsv: async () => statsCsv(await statsPayload()),
+  statsMarkdown: async () => statsMarkdown(await statsPayload()),
+  statsExportTo: async (kind, target) => {
+    try {
+      const payload = await statsPayload();
+      const content = kind === 'md' ? statsMarkdown(payload) : statsCsv(payload);
+      if (typeof window.api.statsWrite !== 'function') return { ok: false, error: 'statsWrite missing' };
+      return await window.api.statsWrite(target, content);
+    } catch (err) {
+      return { ok: false, error: err && err.message ? err.message : String(err) };
+    }
+  },
   hintState: () => ({
     visible: !document.querySelector('#hint-bar').hidden,
     text: document.querySelector('#hint-text').textContent,

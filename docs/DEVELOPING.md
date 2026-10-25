@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 332 end-to-end checks against a real window
+npm run smoke          # 333 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -606,3 +606,10 @@ in step by rebuilding it from the menu accelerators whenever a binding changes.
 `dismissHint` persists the flag through `settings:set` then advances. `settings:set` sanitises the map
 to booleans (max 50 keys) and `publicSettings` exposes it, so the state survives restarts and the test
 can read it back.
+
+## Statistics export
+
+`statsCsv` and `statsMarkdown` are pure builders over `{ report, history }` (from `doc:structure` and
+`writing:history`); `stats:save` shows the dialog and `stats:write` writes an explicit path, which is
+what the smoke test drives. Both files come from the same payload as the panels, so the three cannot
+drift apart.

@@ -1932,6 +1932,38 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
     return writingSummary({ days: {}, last: {}, goalDay: null });
   });
 
+  ipcMain.handle('stats:write', (event, { path: target, content } = {}) => {
+    if (!target) return { ok: false, error: 'No path' };
+    try {
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, String(content || ''), 'utf8');
+      return { ok: true, path: target, bytes: fs.statSync(target).size };
+    } catch (err) {
+      logLine('stats', 'write failed: ' + err.message);
+      return { ok: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('stats:save', async (event, { content, suggestedName } = {}) => {
+    const s = sessionFor(event);
+    const dir = s && s.file ? path.dirname(s.file) : app.getPath('documents');
+    const { canceled, filePath } = await dialog.showSaveDialog(s ? s.win : null, {
+      title: 'Export statistics',
+      defaultPath: path.join(dir, String(suggestedName || 'statistics.csv')),
+      filters: [
+        { name: 'CSV', extensions: ['csv'] },
+        { name: 'Markdown', extensions: ['md'] },
+      ],
+    });
+    if (canceled || !filePath) return { ok: false, canceled: true };
+    try {
+      fs.writeFileSync(filePath, String(content || ''), 'utf8');
+      return { ok: true, path: filePath };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
   ipcMain.handle('report:write', (event, { path: target, content, summary } = {}) => {
     if (!target) return { ok: false, error: 'No path' };
     try {
@@ -13286,6 +13318,70 @@ async function runSmoke() {
       hints.stored.shortcuts === true &&
       hints.stored.dropImage === true,
     hints
+  );
+
+  // 164. statistics export as CSV and Markdown, with the document and the writing history
+  const statsExportTest = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'stats-export.md');
+    fs.writeFileSync(
+      doc,
+      ['# Stats', '', '## One', '', 'a paragraph with several words in it', '', '## Two', '', '| A | B |', '| --- | --- |', '| 1 | 2 |', ''].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('several words')");
+      if (ready === true) break;
+    }
+    await jsOf('window.api.writingReset()');
+    const csv = await jsOf('window.__mdpad.statsCsv()');
+    const markdown = await jsOf('window.__mdpad.statsMarkdown()');
+    const csvPath = path.join(dir, 'stats.csv');
+    const mdPath = path.join(dir, 'stats.md');
+    const wroteCsv = await jsOf(`window.__mdpad.statsExportTo('csv', ${JSON.stringify(csvPath)})`);
+    const wroteMd = await jsOf(`window.__mdpad.statsExportTo('md', ${JSON.stringify(mdPath)})`);
+    const csvFile = fs.existsSync(csvPath) ? fs.readFileSync(csvPath, 'utf8') : '';
+    const mdFile = fs.existsSync(mdPath) ? fs.readFileSync(mdPath, 'utf8') : '';
+    // the stats modal offers both buttons
+    await jsOf("window.__mdpad.openStats ? window.__mdpad.openStats() : null");
+    const buttons = await jsOf(`({
+      csv: Boolean(document.querySelector('#stats-csv')),
+      md: Boolean(document.querySelector('#stats-md')),
+    })`);
+    await jsOf("document.querySelector('#stats-modal').hidden = true");
+    return { csv, markdown, wroteCsv, wroteMd, csvFile, mdFile, buttons };
+  })();
+  step(
+    'stats-export',
+    typeof statsExportTest.csv === 'string' &&
+      statsExportTest.csv.startsWith('section,metric,value') &&
+      /document,words,\d+/.test(statsExportTest.csv) &&
+      /document,tables,[1-9]/.test(statsExportTest.csv) &&
+      /history,days/.test(statsExportTest.csv) === false &&
+      statsExportTest.csv.split('\n').some((line) => /^history,\d{4}-\d{2}-\d{2},\d+/.test(line)) &&
+      typeof statsExportTest.markdown === 'string' &&
+      statsExportTest.markdown.startsWith('# Statistics') &&
+      /## Last 14 days/.test(statsExportTest.markdown) &&
+      /Streak: \d+ day/.test(statsExportTest.markdown) &&
+      statsExportTest.wroteCsv.ok === true &&
+      statsExportTest.wroteMd.ok === true &&
+      statsExportTest.csvFile === statsExportTest.csv &&
+      statsExportTest.mdFile === statsExportTest.markdown &&
+      statsExportTest.buttons.csv === true &&
+      statsExportTest.buttons.md === true,
+    {
+      head: statsExportTest.csv.split('\n').slice(0, 6),
+      mdHead: statsExportTest.markdown.split('\n').slice(0, 5),
+      
+      wroteCsv: statsExportTest.wroteCsv,
+      wroteMd: statsExportTest.wroteMd,
+      buttons: statsExportTest.buttons,
+      csvHead: String(statsExportTest.csv).slice(0, 80),
+    }
   );
 
   // 30k. the settings filter narrows the visible fields

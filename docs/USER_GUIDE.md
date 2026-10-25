@@ -369,6 +369,12 @@ A small strip above the document offers three tips on first use — the command 
 list, and dropping images. Dismissing one ("Got it" or ×) records it and shows the next; once all
 three are seen the strip never returns.
 
+### Exporting statistics
+
+The statistics panel has **Export CSV** and **Export Markdown**. Both include the document counts,
+the structure issues and the last fourteen days of writing, so a journal of progress can be kept
+outside the app.
+
 ## Theme
 
 Light, dark, sepia, or **Follow system** — the last one resolves to dark or light from Windows and
