@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.78.0
+
+External changes are your decision.
+
+- **Settings → "When the file changes on disk"**: **Ask me** (banner with Reload / Keep editing),
+  **Reload automatically**, or **Ignore**.
+- **Automatic reload only applies to a clean buffer.** If the editor has unsaved text, the change
+  falls through to the banner — a sync client can never quietly replace what you typed. This is the
+  first policy test that mattered: it writes the file from outside and asserts the buffer still holds
+  the local edit.
+- The watcher used to always ask; the policy is read per event, so changing the setting takes effect
+  without reopening the file.
+- 320 smoke checks (one new: `external-change-policy` exercises all three modes with real disk
+  writes and asserts both the buffer text and the banner), 167 unit tests.
+
 ## 1.77.0
 
 Fourteen days of writing, at a glance.

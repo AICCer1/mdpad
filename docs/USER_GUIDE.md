@@ -334,6 +334,18 @@ scrolls so the line you are typing stays near the middle of the window instead o
 bottom. It only acts while the caret moves in the editor, so reading and scrolling are untouched;
 turn it off to get the normal behaviour back.
 
+## External changes
+
+When another program changes the file you are reading (a sync client, a script, another editor),
+Settings → **When the file changes on disk** decides what happens:
+
+- **Ask me** — a banner says the file changed, with **Reload** and **Keep editing**.
+- **Reload automatically** — the buffer is replaced from disk, but **only when it has no unsaved
+  changes**; a dirty buffer still asks.
+- **Ignore** — nothing happens until you reload yourself.
+
+Your unsaved text is never replaced without a question.
+
 ## Daily word goal
 
 Set **Settings → Daily word goal** to a number (0 turns it off). The status bar then shows

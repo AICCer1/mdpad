@@ -1118,6 +1118,15 @@ class Session {
               this.refreshTitle();
               return;
             }
+            const policy = readSettings().externalPolicy || 'ask';
+            if (policy === 'ignore') return;
+            // Automatic reload only when nothing would be lost: a dirty buffer always asks.
+            if (policy === 'auto' && this.contents === this.savedContents) {
+              logLine('watch', 'auto reloaded ' + file);
+              this.reloadFromDisk();
+              this.sendStatus({ autoReloaded: true });
+              return;
+            }
             this.send('file:external', { size: onDisk.length });
           } catch {
             /* file may be mid-write */
@@ -2232,6 +2241,9 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
     if (patch.spellcheck !== undefined) next.spellcheck = patch.spellcheck === true;
     if (patch.typewriter !== undefined) next.typewriter = patch.typewriter === true;
     if (patch.highlightParagraph !== undefined) next.highlightParagraph = patch.highlightParagraph === true;
+    if (patch.externalPolicy !== undefined) {
+      next.externalPolicy = ['ask', 'auto', 'ignore'].includes(patch.externalPolicy) ? patch.externalPolicy : 'ask';
+    }
     if (patch.writingGoal !== undefined) next.writingGoal = Math.max(0, Math.min(100000, Math.floor(Number(patch.writingGoal) || 0)));
     if (patch.findOptions && typeof patch.findOptions === 'object') {
       next.findOptions = {
@@ -12459,6 +12471,56 @@ async function runSmoke() {
       /140 words/.test(writingHistory.last.title) &&
       writingHistory.last.height !== '2%',
     writingHistory
+  );
+
+  // 151. the external-change policy decides between asking, reloading and ignoring
+  const externalPolicy = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'external-policy.md');
+    fs.writeFileSync(doc, '# Original' + nl, 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('Original')");
+      if (ready === true) break;
+    }
+
+    // auto: a clean buffer reloads without a question
+    await jsOf("window.api.setSettings({ externalPolicy: 'auto' })");
+    fs.writeFileSync(doc, '# Auto reloaded' + nl, 'utf8');
+    await sleep(1800);
+    const auto = await jsOf('window.__mdpad.externalState()');
+
+    // ask: dirty buffer must never be replaced silently
+    await jsOf("window.api.setSettings({ externalPolicy: 'ask' })");
+    await jsOf("window.__mdpad.applyMarkdown('# Auto reloaded' + String.fromCharCode(10) + String.fromCharCode(10) + 'local edit')");
+    await sleep(400);
+    fs.writeFileSync(doc, '# Changed again' + nl, 'utf8');
+    await sleep(1800);
+    const asked = await jsOf('window.__mdpad.externalState()');
+    const clicked = await jsOf('(async () => { window.__mdpad.clickBannerPrimary(); await new Promise((r) => setTimeout(r, 700)); return window.__mdpad.externalState(); })()');
+
+    // ignore: nothing happens at all
+    await jsOf("window.api.setSettings({ externalPolicy: 'ignore' })");
+    fs.writeFileSync(doc, '# Ignored' + nl, 'utf8');
+    await sleep(1800);
+    const ignored = await jsOf('window.__mdpad.externalState()');
+    await jsOf("window.api.setSettings({ externalPolicy: 'ask' })");
+    return { auto, asked, clicked, ignored };
+  })();
+  step(
+    'external-change-policy',
+    /Auto reloaded/.test(externalPolicy.auto.markdown) &&
+      externalPolicy.auto.banner === false &&
+      externalPolicy.asked.banner === true &&
+      /changed on disk/i.test(externalPolicy.asked.text) &&
+      /local edit/.test(externalPolicy.asked.markdown) &&
+      /Changed again/.test(externalPolicy.clicked.markdown) &&
+      externalPolicy.ignored.markdown.includes('Changed again') &&
+      externalPolicy.ignored.banner === false,
+    externalPolicy
   );
 
   // 30k. the settings filter narrows the visible fields

@@ -432,6 +432,15 @@
       </div>
 
       <div class="field">
+        <label for="set-external-policy" data-i18n="settings.externalPolicy">When the file changes on disk</label>
+        <select id="set-external-policy">
+          <option value="ask" data-i18n="settings.externalAsk">Ask me</option>
+          <option value="auto" data-i18n="settings.externalAuto">Reload automatically</option>
+          <option value="ignore" data-i18n="settings.externalIgnore">Ignore</option>
+        </select>
+      </div>
+
+      <div class="field">
         <label for="set-writing-goal" data-i18n="settings.writingGoal">Daily word goal (0 = off)</label>
         <input id="set-writing-goal" type="number" min="0" max="100000" step="50">
       </div>

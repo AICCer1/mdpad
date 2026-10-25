@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 319 end-to-end checks against a real window
+npm run smoke          # 320 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -491,3 +491,10 @@ recomputed. The plugin returns `null` while `focusModeEnabled`, so the two highl
 `src/writing.js` holds `buildHistory(days, goal, today)`: 14 entries, streak, best, total. It is
 pure and unit-tested (`test/writing.test.js`, 7 cases) — gaps, a missing today, junk values and the
 no-goal rule. `writing:history` feeds it the ledger; the panel only renders.
+
+## External change policy
+
+`watchDocument` reads `externalPolicy` on each debounced event: `ignore` returns, `auto` calls
+`reloadFromDisk()` only when `contents === savedContents` (a dirty buffer falls through to the
+banner), everything else sends `file:external`. The test writes the file from the outside for all
+three policies and asserts the buffer text and the banner state.

@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         319 end-to-end checks (dev or packaged)
+npm run smoke         320 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -166,6 +166,12 @@ two or more list items) parses it; prose and a lone `#tag` stay literal.
 
 Settings → Appearance → **Keep the caret in the middle**: while you type, the view scrolls so the
 caret line sits around 45% of the window, instead of drifting to the bottom edge.
+
+## External changes, your call
+
+Settings → **When the file changes on disk** chooses **Ask me** (banner), **Reload automatically**
+or **Ignore**. Automatic reload only applies to a clean buffer — unsaved edits always ask, so a
+sync client can never quietly replace what you typed.
 
 ## Daily word goal
 

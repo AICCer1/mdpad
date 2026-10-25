@@ -1201,3 +1201,16 @@ Object.assign(DICT.zh, { 'settings.highlightParagraph': '高亮当前段落' });
 
 Object.assign(DICT.en, { 'settings.writingGoal': 'Daily word goal (0 = off)' });
 Object.assign(DICT.zh, { 'settings.writingGoal': '每日字数目标（0 为关闭）' });
+
+Object.assign(DICT.en, {
+  'settings.externalPolicy': 'When the file changes on disk',
+  'settings.externalAsk': 'Ask me',
+  'settings.externalAuto': 'Reload automatically',
+  'settings.externalIgnore': 'Ignore',
+});
+Object.assign(DICT.zh, {
+  'settings.externalPolicy': '文件在磁盘上被修改时',
+  'settings.externalAsk': '询问我',
+  'settings.externalAuto': '自动重新加载',
+  'settings.externalIgnore': '忽略',
+});

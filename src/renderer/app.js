@@ -4874,6 +4874,7 @@ async function openSettings(section = 'appearance') {
   $('#set-typewriter').checked = settings.typewriter === true;
   $('#set-highlight-paragraph').checked = settings.highlightParagraph === true;
   $('#set-writing-goal').value = String(Number(settings.writingGoal) || 0);
+  $('#set-external-policy').value = ['ask', 'auto', 'ignore'].includes(settings.externalPolicy) ? settings.externalPolicy : 'ask';
   setParagraphHighlight(settings.highlightParagraph === true);
   typewriterEnabled = settings.typewriter === true;
   setParagraphHighlight(settings.highlightParagraph === true);
@@ -4976,6 +4977,7 @@ async function saveSettings() {
     typewriter: $('#set-typewriter').checked,
     highlightParagraph: $('#set-highlight-paragraph').checked,
     writingGoal: Number($('#set-writing-goal').value) || 0,
+    externalPolicy: $('#set-external-policy').value,
   });
   aiConfirmThreshold = Number($('#set-ai-confirm').value);
   applyAppearance({ editorFont, lineWidth, accent });
@@ -7306,6 +7308,12 @@ window.__mdpad = {
     });
     return out;
   },
+  externalState: () => ({
+    banner: !document.querySelector('#banner').hidden,
+    text: document.querySelector('#banner-text').textContent,
+    markdown: window.__mdpad.getMarkdown(),
+  }),
+  clickBannerPrimary: () => document.querySelector('#banner-primary').click(),
   writingState: () => window.api.writingStats(),
   openWritingHistory: () => openWritingHistory().then(() => window.__mdpad.writingHistoryState()),
   writingHistoryState: () => ({
