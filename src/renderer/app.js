@@ -2816,6 +2816,55 @@ editor.on('update', updateActiveBlock);
 // ---- structure report --------------------------------------------------------
 
 // Set a heading's level by index, keeping its text and any marks on it.
+// Split the paragraph that starts with this text into several paragraphs at sentence boundaries.
+// Only plain text is split: an inline atom or a mark spanning a cut would need fragment surgery that
+// is not worth guessing at, so those paragraphs are left alone with a message.
+function splitParagraphBySnippet(snippet) {
+  const needle = String(snippet || '').trim().slice(0, 40);
+  if (!needle) return 0;
+  const paragraphType = editor.schema.nodes.paragraph;
+  let target = null;
+  editor.state.doc.descendants((node, pos) => {
+    if (target !== null) return false;
+    if (node.type.name === 'paragraph' && node.textContent.trim().startsWith(needle)) {
+      target = { node, pos };
+      return false;
+    }
+    return true;
+  });
+  if (!target) return 0;
+  const { node, pos } = target;
+  if (node.content.size !== node.textContent.length) {
+    flash('This paragraph mixes images or inline atoms; split it by hand');
+    return 0;
+  }
+  const text = node.textContent;
+  const sentences = text.match(/[^.!?。！？]+[.!?。！？]+["'”’)]?\s*/g) || [text];
+  if (sentences.length < 2) return 0;
+  // group sentences until the chunk is close to 600 characters
+  const groups = [];
+  let buffer = '';
+  for (const sentence of sentences) {
+    if (buffer && (buffer + sentence).length > 600) {
+      groups.push(buffer);
+      buffer = '';
+    }
+    buffer += sentence;
+  }
+  if (buffer) groups.push(buffer);
+  if (groups.length < 2) return 0;
+  let offset = 0;
+  const nodes = groups.map((group) => {
+    const fragment = node.cut(offset, offset + group.length);
+    offset += group.length;
+    return paragraphType.create(node.attrs, fragment);
+  });
+  const tr = editor.state.tr.replaceWith(pos, pos + node.nodeSize, nodes);
+  editor.view.dispatch(tr.scrollIntoView());
+  flash('Split into ' + nodes.length + ' paragraphs');
+  return nodes.length;
+}
+
 function setHeadingLevel(index, level) {
   const headingType = editor.schema.nodes.heading;
   if (!headingType) return false;
@@ -2917,7 +2966,8 @@ async function openStructureReport() {
       kind: 'paragraph',
       text: 'A paragraph of ' + report.longestParagraph.chars + ' characters (line ' + report.longestParagraph.line + ')',
       line: report.longestParagraph.line,
-      fixable: false,
+      snippet: report.longestParagraph.snippet,
+      fixable: true,
     });
   }
   if (!issues.length) {
@@ -2938,6 +2988,18 @@ async function openStructureReport() {
     kind.className = 'image-audit-kind';
     kind.textContent = issue.kind;
     row.append(name, kind);
+    if (issue.kind === 'paragraph' && issue.snippet) {
+      const split = document.createElement('button');
+      split.type = 'button';
+      split.className = 'image-audit-fix';
+      split.textContent = 'Split';
+      split.title = 'Break this paragraph at sentence boundaries';
+      split.addEventListener('click', async () => {
+        modal.hidden = true;
+        splitParagraphBySnippet(issue.snippet);
+      });
+      row.append(split);
+    }
     if (issue.heading && issue.kind === 'level') {
       const fix = document.createElement('button');
       fix.type = 'button';
@@ -7026,6 +7088,7 @@ window.__mdpad = {
     });
     return out;
   },
+  splitParagraph: (snippet) => splitParagraphBySnippet(snippet),
   clickStructureFix: (line) => {
     const row = [...document.querySelectorAll('#structure-issues .image-audit-row')].find(
       (item) => Number(item.dataset.line) === Number(line)

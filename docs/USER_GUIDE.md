@@ -107,7 +107,9 @@ The palette has **Structure report…**, the check to run before sending a long 
 
 - **Heading jumps**: a heading deeper than its predecessor by more than one level (H2 → H4).
 - **Duplicate headings**: the same title twice; the export anchors would collide.
-- **Long paragraphs**: anything over 1200 characters, with its line number.
+- **Long paragraphs**: anything over 1200 characters, with its line number and a **Split** button
+  that breaks it at sentence boundaries (nothing is lost; one undo step). Paragraphs containing
+  inline images are left for you to split by hand, with a message saying why.
 
 Every heading issue can be acted on directly: a **level** jump has **Fix** (the heading moves to
 one level below its predecessor), a **duplicate** has **Rename…** (pre-filled with the current

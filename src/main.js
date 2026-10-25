@@ -1838,6 +1838,10 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
       previousLevel = heading.level;
     }
     const longest = paragraphs.reduce((best, item) => (!best || item.chars > best.chars ? item : best), null);
+    if (longest) {
+      const paragraphText = lines.slice(longest.line - 1).join('\n').trim();
+      longest.snippet = paragraphText.slice(0, 80);
+    }
     const words = (text.match(/\S+/g) || []).length;
     return {
       words,
@@ -11912,6 +11916,78 @@ async function runSmoke() {
       /## Notes two/.test(structureFix.afterRename.markdown) &&
       /## Notes\b/.test(structureFix.afterRename.markdown),
     structureFix
+  );
+
+  // 144. a runaway paragraph can be split into readable ones without losing text
+  const paragraphSplit = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const sentences = [];
+    for (let index = 1; index <= 24; index += 1) {
+      sentences.push('Sentence number ' + index + ' carries the argument forward with enough words to matter.');
+    }
+    const longParagraph = sentences.join(' ');
+    const doc = path.join(dir, 'paragraph-split.md');
+    fs.writeFileSync(doc, ['# Split', '', longParagraph, '', 'end', ''].join(nl), 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('Sentence number 24')");
+      if (ready === true) break;
+    }
+    const before = await jsOf('window.api.docStructure()');
+    const panel = await jsOf('window.__mdpad.openStructureReport()');
+    const clicked = await jsOf(`(async () => {
+      const row = [...document.querySelectorAll('#structure-issues .image-audit-row')].find(
+        (item) => item.dataset.kind === 'paragraph'
+      );
+      if (!row) return false;
+      const button = row.querySelector('.image-audit-fix');
+      if (!button) return false;
+      button.click();
+      await new Promise((r) => setTimeout(r, 900));
+      return true;
+    })()`);
+    const after = await jsOf('window.api.docStructure()');
+    const markdown = await jsOf('window.__mdpad.getMarkdown()');
+    const paragraphs = await jsOf(`(() => {
+      const counts = [];
+      window.__mdpad.editor.state.doc.descendants((node) => {
+        if (node.type.name === 'paragraph') counts.push(node.textContent.length);
+        return true;
+      });
+      return counts;
+    })()`);
+    await jsOf('document.querySelector(\'#structure-report\').hidden = true');
+    return {
+      before: { chars: before.longestParagraph.chars, paragraphs: before.counts.paragraphs },
+      panel: panel && panel.rows.map((row) => row.kind),
+      clicked,
+      after: { chars: after.longestParagraph ? after.longestParagraph.chars : 0, paragraphs: after.counts.paragraphs },
+      markdown,
+      paragraphs,
+      originalLength: longParagraph.length,
+    };
+  })();
+  step(
+    'paragraph-split',
+    paragraphSplit.before.chars > 1200 &&
+      Array.isArray(paragraphSplit.panel) &&
+      paragraphSplit.panel.includes('paragraph') &&
+      paragraphSplit.clicked === true &&
+      paragraphSplit.after.paragraphs > paragraphSplit.before.paragraphs &&
+      paragraphSplit.after.chars <= 1200 &&
+      Array.isArray(paragraphSplit.paragraphs) &&
+      paragraphSplit.paragraphs.every((length) => length <= 1200) &&
+      paragraphSplit.markdown.replace(/\\s+/g, ' ').includes('Sentence number 24') &&
+      paragraphSplit.markdown.replace(/\\s+/g, ' ').trim().length >= paragraphSplit.originalLength,
+    {
+      before: paragraphSplit.before,
+      panel: paragraphSplit.panel,
+      after: paragraphSplit.after,
+      lengths: paragraphSplit.paragraphs,
+    }
   );
 
   // 30k. the settings filter narrows the visible fields

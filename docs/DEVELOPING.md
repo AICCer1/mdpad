@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 312 end-to-end checks against a real window
+npm run smoke          # 313 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -445,3 +445,10 @@ index, so no markdown-to-ProseMirror position mapping is needed.
 replace it (`setNodeMarkup` / `replaceWith`) in one transaction; the report is re-opened after
 each action. `structure-fix` drives the real buttons and dialog, then asserts both the report and
 the resulting markdown.
+
+## Splitting a paragraph
+
+`splitParagraphBySnippet` finds the paragraph whose text starts with the snippet from the report,
+groups its sentences into chunks of about 600 characters and rebuilds the paragraph with
+`node.cut(offset, offset + length)` per chunk, so marks inside the paragraph are preserved. It
+refuses when the paragraph contains inline atoms (`content.size !== textContent.length`).

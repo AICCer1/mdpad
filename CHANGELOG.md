@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.71.0
+
+Long paragraphs can be split, not just pointed at.
+
+- **A paragraph issue in the structure report has a "Split" button**: the paragraph is rebuilt as
+  several paragraphs at sentence boundaries, grouped into chunks near 600 characters. Text and marks
+  survive (`node.cut(offset, offset + length)` per chunk) and the whole split is one undo step.
+- **Paragraphs containing inline images or atoms are refused with a message** rather than mangled —
+  `content.size !== textContent.length` is the signal.
+- The report now carries a snippet of the offending paragraph so the right node is found without
+  mapping markdown line numbers to editor positions.
+- 313 smoke checks (one new: `paragraph-split` builds a 1800-character paragraph, clicks the real
+  Split button, asserts every resulting paragraph is under 1200 characters, the last sentence is
+  still there and the text length did not shrink), 160 unit tests.
+
 ## 1.70.1
 
 The startup check now measures the right thing.
