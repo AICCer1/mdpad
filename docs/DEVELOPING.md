@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 321 end-to-end checks against a real window
+npm run smoke          # 322 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -513,3 +513,9 @@ tab through the real close button and asserts the toast, the draft and the resto
 process, and the verify phase asserts the two drafts are present, hold their own tokens and are
 different — the regression from round 16 (background tab draft written from the active buffer)
 stays guarded.
+
+## Failed exports
+
+`exportTo` wraps `exportToUnsafe`: it records whether the target existed, and on failure removes the
+file only when this attempt created it. `export-failures-all` covers four formats × two impossible
+paths plus a read-only overwrite (`refused: true`, `intact: true`).

@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         321 end-to-end checks (dev or packaged)
+npm run smoke         322 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -166,6 +166,12 @@ two or more list items) parses it; prose and a lone `#tag` stay literal.
 
 Settings → Appearance → **Keep the caret in the middle**: while you type, the view scrolls so the
 caret line sits around 45% of the window, instead of drifting to the bottom edge.
+
+## A failed export leaves nothing behind
+
+All four formats are tested against a path whose parent is a file and against a path that is a
+directory: each answers with an error, creates no file, and a **read-only existing file survives
+the attempted overwrite untouched**. A partial file from a failed attempt is removed.
 
 ## Crash recovery is tested across tabs
 

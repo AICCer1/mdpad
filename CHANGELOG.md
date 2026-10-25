@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.81.0
+
+A failed export leaves nothing behind.
+
+- **All four formats now have failure tests**: a target whose parent is a file (ENOTDIR/EEXIST) and a
+  target that is a directory (EISDIR) — every one answers `{exported:false, error}` and creates no
+  file.
+- **`exportTo` removes a file that its own attempt created** before rethrowing; a file that existed
+  before the attempt is never deleted. The read-only case is asserted explicitly: the overwrite is
+  refused and the original text is intact (`refused: true, intact: true`).
+- **One test insertion landed in the wrong test** — the "read-only" block was appended to the
+  `input-rules` check because both end with `return results; })();`, which broke the suite with
+  `jsOf is not defined`. It was moved to the right place and both checks pass.
+- 322 smoke checks (one new: `export-failures-all` with nine failure paths), 167 unit tests.
+
 ## 1.80.0
 
 Crash recovery is now tested across tabs.

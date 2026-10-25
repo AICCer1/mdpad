@@ -445,6 +445,12 @@ The export panel summarises the document: words and headings, then images, table
 formulas and task items. If an image or a local link points at a file that is not there, it says
 so in red before you pick a format — fixing it is easier than noticing it in the PDF.
 
+### When an export fails
+
+A failed export (unwritable folder, a path that is a directory, a read-only target, a full disk)
+reports the reason and **leaves no half-written file**: if the attempt created the file, it is
+removed; a file that existed before is never deleted, and a read-only one is not modified.
+
 ## Export templates
 
 | Template | Look |

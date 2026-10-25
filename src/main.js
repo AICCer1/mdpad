@@ -1058,7 +1058,32 @@ class Session {
     };
   }
 
+  // A half-written export is worse than no export. Remove the file this attempt created (but never
+  // touch a file that existed before the attempt).
   async exportTo(filePath, kind, diagrams = this.exportDiagrams || null) {
+    const existedBefore = (() => {
+      try {
+        return fs.existsSync(filePath);
+      } catch {
+        return true;
+      }
+    })();
+    try {
+      return await this.exportToUnsafe(filePath, kind, diagrams);
+    } catch (err) {
+      if (!existedBefore) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch {
+          /* nothing was created */
+        }
+      }
+      throw err;
+    }
+  }
+
+
+  async exportToUnsafe(filePath, kind, diagrams = this.exportDiagrams || null) {
     const name = path.basename(this.file || 'Untitled', path.extname(this.file || 'Untitled'));
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     this.sendStatus({ exporting: kind, target: path.basename(filePath) });
@@ -12594,6 +12619,64 @@ async function runSmoke() {
       /unsaved words/.test(closeDirty.markdown),
     closeDirty
   );
+
+  // 153. every export format answers with an error when the target cannot be written
+  const exportFailures = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const session = sessions.get(win.webContents.id);
+    const doc = path.join(dir, 'export-failures.md');
+    fs.writeFileSync(doc, ['# Export failures', '', 'text', ''].join(String.fromCharCode(10)), 'utf8');
+    await session.loadDocument(doc);
+    await sleep(700);
+    session.contents = fs.readFileSync(doc, 'utf8');
+
+    const blocker = path.join(dir, 'no-write-here');
+    fs.writeFileSync(blocker, 'a file, not a folder', 'utf8');
+    const results = {};
+    for (const kind of ['html', 'pdf', 'docx', 'epub']) {
+      const insideFile = path.join(blocker, 'out.' + kind);
+      const asDirectory = path.join(dir, 'dir-target-' + kind + '.' + kind);
+      try {
+        fs.mkdirSync(asDirectory, { recursive: true });
+      } catch {
+        /* exists */
+      }
+      const first = await jsOf(`window.api.exportToPath(${JSON.stringify(kind)}, ${JSON.stringify(insideFile)})`);
+      const second = await jsOf(`window.api.exportToPath(${JSON.stringify(kind)}, ${JSON.stringify(asDirectory)})`);
+      results[kind] = {
+        insideFile: { ok: first && first.exported === false, error: first && first.error, file: fs.existsSync(insideFile) },
+        asDirectory: { ok: second && second.exported === false, error: second && second.error },
+      };
+    }
+    // a read-only existing file must survive a failed overwrite untouched
+    const keep = path.join(dir, 'keep-me.html');
+    fs.writeFileSync(keep, 'KEEP THIS', 'utf8');
+    fs.chmodSync(keep, 0o444);
+    const overwrite = await jsOf(`window.api.exportToPath('html', ${JSON.stringify(keep)})`);
+    const keepText = fs.readFileSync(keep, 'utf8');
+    fs.chmodSync(keep, 0o666);
+    results.readOnlyTarget = {
+      refused: Boolean(overwrite && overwrite.exported === false && overwrite.error),
+      intact: keepText === 'KEEP THIS',
+    };
+    return results;
+  })();
+  const exportFailureProblems = Object.entries(exportFailures).filter(
+    ([key, value]) =>
+      (key === 'readOnlyTarget'
+        ? !(value.refused && value.intact)
+        : !value.insideFile.ok ||
+      typeof value.insideFile.error !== 'string' ||
+      !value.insideFile.error ||
+      value.insideFile.file ||
+            !value.asDirectory.ok ||
+            typeof value.asDirectory.error !== 'string' ||
+            !value.asDirectory.error)
+  );
+  step('export-failures-all', exportFailureProblems.length === 0, {
+    results: exportFailures,
+    problems: exportFailureProblems.map(([kind]) => kind),
+  });
 
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
