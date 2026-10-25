@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         313 end-to-end checks (dev or packaged)
+npm run smoke         314 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -168,7 +168,7 @@ Structure issues can be fixed **in place**: **Fix** demotes a jumped heading to 
 predecessor, **Rename…** gives a duplicate heading a unique title, and **Split** breaks an over-long
 paragraph at sentence boundaries (text preserved, one undo step). The report itself lists heading
 jumps (H2 straight to H4), duplicate headings and paragraphs over 1200 characters, with the counts a
-submission asks for.
+submission asks for. **Save report…** writes that as a markdown checklist (counts, issues, line numbers) next to the document, so a review can be archived or handed on.
 
 Heading issues are fixed in place too: **Fix** demotes a jumped heading to one level below its
 predecessor, and **Rename…** gives a duplicate heading a unique title. The report is also

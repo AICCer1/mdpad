@@ -2930,6 +2930,60 @@ function focusNthHeading(index) {
   return true;
 }
 
+// The report as a markdown checklist, so it can be archived or handed to someone else.
+function buildStructureMarkdown(report, filePath) {
+  const name = filePath ? filePath.split(/[\\/]/).pop() : 'Untitled';
+  const lines = [];
+  lines.push('# Structure report — ' + name, '');
+  lines.push(
+    'Generated ' + new Date().toISOString().slice(0, 16).replace('T', ' ') +
+      ' · ' + report.words + ' words · ' + report.headings.length + ' headings · ~' + report.readingMinutes + ' min read'
+  );
+  lines.push('');
+  lines.push('## Counts', '');
+  lines.push('- Headings: ' + report.counts.headings);
+  lines.push('- Paragraphs: ' + report.counts.paragraphs);
+  lines.push('- Code blocks: ' + report.counts.codeBlocks);
+  lines.push('- Tables: ' + report.counts.tables);
+  lines.push('- Images: ' + report.counts.images);
+  lines.push('- Links: ' + report.counts.links);
+  lines.push('- Task items: ' + report.counts.tasks);
+  lines.push('');
+  lines.push('## Checklist', '');
+  let issues = 0;
+  for (const skip of report.skips) {
+    issues += 1;
+    lines.push('- [ ] Heading "' + skip.text + '" jumps from H' + skip.from + ' to H' + skip.to + ' (line ' + skip.line + ')');
+  }
+  for (const duplicate of report.duplicates) {
+    issues += 1;
+    lines.push('- [ ] Duplicate heading "' + duplicate.text + '" (line ' + duplicate.line + ')');
+  }
+  if (report.longestParagraph && report.longestParagraph.chars > 1200) {
+    issues += 1;
+    lines.push('- [ ] Paragraph of ' + report.longestParagraph.chars + ' characters (line ' + report.longestParagraph.line + ')');
+  }
+  if (!issues) lines.push('- [x] No structural problems found');
+  lines.push('');
+  return { text: lines.join('\n'), issues };
+}
+
+async function saveStructureReport(report) {
+  const audit = report || (await window.api.docStructure());
+  const built = buildStructureMarkdown(audit, audit.file);
+  const base = audit.file ? audit.file.split(/[\\/]/).pop().replace(/\.[^.]+$/, '') : 'document';
+  const result = await window.api.saveReport(built.text, base + '-structure.md');
+  if (result && result.ok) {
+    flash('Report saved: ' + (result.path || '').split(/[\\/]/).pop());
+    showToast('Structure report saved', 4000, [
+      { label: 'Show in folder', run: () => window.api.revealExportedFile(result.path) },
+    ]);
+  } else if (result && result.error) {
+    flash('Could not save the report: ' + result.error);
+  }
+  return result;
+}
+
 async function openStructureReport() {
   const modal = document.querySelector('#structure-report');
   const list = document.querySelector('#structure-issues');
@@ -3046,6 +3100,10 @@ async function openStructureReport() {
   }
   modal.hidden = false;
 }
+
+document.querySelector('#structure-save')?.addEventListener('click', async () => {
+  await saveStructureReport();
+});
 
 document.querySelector('#structure-close')?.addEventListener('click', () => {
   document.querySelector('#structure-report').hidden = true;
@@ -7089,6 +7147,12 @@ window.__mdpad = {
     return out;
   },
   splitParagraph: (snippet) => splitParagraphBySnippet(snippet),
+  structureMarkdown: () => window.api.docStructure().then((report) => buildStructureMarkdown(report, report.file).text),
+  saveStructureReportTo: (target) =>
+    window.api.docStructure().then((report) => {
+      const built = buildStructureMarkdown(report, report.file);
+      return window.api.writeReportTo(target, built.text);
+    }),
   clickStructureFix: (line) => {
     const row = [...document.querySelectorAll('#structure-issues .image-audit-row')].find(
       (item) => Number(item.dataset.line) === Number(line)

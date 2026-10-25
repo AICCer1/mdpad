@@ -115,7 +115,9 @@ Every heading issue can be acted on directly: a **level** jump has **Fix** (the 
 one level below its predecessor), a **duplicate** has **Rename…** (pre-filled with the current
 title), and **Go** puts the caret in the heading. The report refreshes after every change.
 
-The summary counts words, headings, paragraphs and an estimated reading time.
+The summary counts words, headings, paragraphs and an estimated reading time, and **Save report…**
+writes the whole thing as a markdown checklist next to the document — counts, every issue with its
+line number — so the review can be archived or handed to an editor.
 
 ## Link audit
 

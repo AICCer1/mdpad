@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.72.0
+
+The structure report can leave the app.
+
+- **"Save report…"** writes a markdown checklist next to the document: counts (headings, paragraphs,
+  code blocks, tables, images, links, tasks), every issue as `- [ ]` with its line number, and the
+  document's word count and reading time at the top.
+- The markdown is built by a **pure function** over the `doc:structure` data; the save dialog and an
+  explicit-path write are separate IPC calls (`report:save`, `report:write`), so the export is
+  testable without driving a native dialog.
+- After saving, a toast offers **Show in folder**.
+- 314 smoke checks (one new: `structure-export` asserts the panel button exists, the generated
+  markdown contains the checklist items, and the written file contains them too), 160 unit tests.
+
 ## 1.71.0
 
 Long paragraphs can be split, not just pointed at.

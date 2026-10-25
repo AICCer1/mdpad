@@ -1767,6 +1767,35 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
   // let the writer unlink the dead ones without losing the text.
   // A structure report: what a writer would check before submitting — heading order, duplicates,
   // runaway paragraphs, and the counts that describe the shape of the document.
+  ipcMain.handle('report:write', (event, { path: target, content } = {}) => {
+    if (!target) return { ok: false, error: 'No path' };
+    try {
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, String(content || ''), 'utf8');
+      return { ok: true, path: target, bytes: fs.statSync(target).size };
+    } catch (err) {
+      logLine('report', 'write failed: ' + err.message);
+      return { ok: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('report:save', async (event, { content, suggestedName } = {}) => {
+    const s = sessionFor(event);
+    const dir = s && s.file ? path.dirname(s.file) : app.getPath('documents');
+    const { canceled, filePath } = await dialog.showSaveDialog(s ? s.win : null, {
+      title: 'Save structure report',
+      defaultPath: path.join(dir, String(suggestedName || 'structure-report.md')),
+      filters: [{ name: 'Markdown', extensions: ['md'] }],
+    });
+    if (canceled || !filePath) return { ok: false, canceled: true };
+    try {
+      fs.writeFileSync(filePath, String(content || ''), 'utf8');
+      return { ok: true, path: filePath };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
   ipcMain.handle('doc:structure', (event) => {
     const s = sessionFor(event);
     const text = String((s && s.contents) || '');
@@ -11987,6 +12016,53 @@ async function runSmoke() {
       panel: paragraphSplit.panel,
       after: paragraphSplit.after,
       lengths: paragraphSplit.paragraphs,
+    }
+  );
+
+  // 145. the structure report exports as a markdown checklist
+  const reportExport = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'report-export.md');
+    fs.writeFileSync(
+      doc,
+      ['# Book', '', '## Chapter', '', '#### Jump', '', '## Notes', '', 'a', '', '## Notes', '', 'b', ''].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('Jump')");
+      if (ready === true) break;
+    }
+    await jsOf('window.__mdpad.openStructureReport()');
+    const hasButton = await jsOf("Boolean(document.querySelector('#structure-save'))");
+    const markdown = await jsOf('window.__mdpad.structureMarkdown()');
+    const target = path.join(dir, 'structure-report.md');
+    const written = await jsOf(`window.__mdpad.saveStructureReportTo(${JSON.stringify(target)})`);
+    const fileText = fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : '';
+    await jsOf('document.querySelector(\'#structure-report\').hidden = true');
+    return { hasButton, markdown, written, fileText };
+  })();
+  step(
+    'structure-export',
+    reportExport.hasButton === true &&
+      typeof reportExport.markdown === 'string' &&
+      reportExport.markdown.startsWith('# Structure report') &&
+      reportExport.markdown.includes('## Counts') &&
+      reportExport.markdown.includes('## Checklist') &&
+      reportExport.markdown.includes('- [ ] Heading "Jump" jumps from H2 to H4') &&
+      reportExport.markdown.includes('- [ ] Duplicate heading "Notes"') &&
+      reportExport.written &&
+      reportExport.written.ok === true &&
+      reportExport.fileText.includes('- [ ] Duplicate heading "Notes"') &&
+      reportExport.fileText.includes('Paragraphs:'),
+    {
+      hasButton: reportExport.hasButton,
+      head: typeof reportExport.markdown === 'string' ? reportExport.markdown.slice(0, 300) : reportExport.markdown,
+      written: reportExport.written,
+      fileHead: reportExport.fileText.slice(0, 200),
     }
   );
 
