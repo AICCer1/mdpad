@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         311 end-to-end checks (dev or packaged)
+npm run smoke         312 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -164,7 +164,9 @@ two or more list items) parses it; prose and a lone `#tag` stay literal.
 
 ## Structure report
 
-The palette has **Structure report…**: heading jumps (H2 straight to H4), duplicate headings and
+Structure issues can be fixed **in place**: **Fix** demotes a jumped heading to one level below its
+predecessor, and **Rename…** gives a duplicate heading a unique title. The report is also
+diagnosis: heading jumps (H2 straight to H4), duplicate headings and
 over-long paragraphs, with a **Go** button that jumps to the heading and the counts a submission
 asks for (words, headings, paragraphs, reading time, tables, images, links, tasks).
 

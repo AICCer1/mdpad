@@ -2815,6 +2815,53 @@ editor.on('update', updateActiveBlock);
 
 // ---- structure report --------------------------------------------------------
 
+// Set a heading's level by index, keeping its text and any marks on it.
+function setHeadingLevel(index, level) {
+  const headingType = editor.schema.nodes.heading;
+  if (!headingType) return false;
+  let target = null;
+  let count = 0;
+  editor.state.doc.descendants((node, pos) => {
+    if (target !== null) return false;
+    if (node.type.name === 'heading') {
+      if (count === index) {
+        target = { pos, node };
+        return false;
+      }
+      count += 1;
+    }
+    return true;
+  });
+  if (!target) return false;
+  const attrs = { ...target.node.attrs, level: Math.max(1, Math.min(6, level)) };
+  editor.view.dispatch(editor.state.tr.setNodeMarkup(target.pos, headingType, attrs));
+  return true;
+}
+
+// Rename a heading by index; the text is replaced as a whole, so old marks do not leak into the new title.
+function renameHeading(index, text) {
+  let target = null;
+  let count = 0;
+  editor.state.doc.descendants((node, pos) => {
+    if (target !== null) return false;
+    if (node.type.name === 'heading') {
+      if (count === index) {
+        target = { pos, node };
+        return false;
+      }
+      count += 1;
+    }
+    return true;
+  });
+  if (!target) return false;
+  const content = text
+    ? editor.schema.text(text)
+    : editor.schema.text('');
+  const heading = target.node.type.create({ ...target.node.attrs }, content ? [content] : []);
+  editor.view.dispatch(editor.state.tr.replaceWith(target.pos, target.pos + target.node.nodeSize, heading));
+  return true;
+}
+
 function focusNthHeading(index) {
   let count = 0;
   let target = null;
@@ -2851,6 +2898,8 @@ async function openStructureReport() {
       text: 'Heading "' + skip.text + '" jumps from H' + skip.from + ' to H' + skip.to,
       line: skip.line,
       heading: report.headings.find((heading) => heading.line === skip.line),
+      from: skip.from,
+      to: skip.to,
       fixable: true,
     });
   }
@@ -2889,6 +2938,37 @@ async function openStructureReport() {
     kind.className = 'image-audit-kind';
     kind.textContent = issue.kind;
     row.append(name, kind);
+    if (issue.heading && issue.kind === 'level') {
+      const fix = document.createElement('button');
+      fix.type = 'button';
+      fix.className = 'image-audit-fix';
+      fix.textContent = 'Fix';
+      fix.title = 'Set this heading one level below the previous one';
+      fix.addEventListener('click', async () => {
+        setHeadingLevel(issue.heading.index, Math.max(1, Math.min(6, issue.from + 1)));
+        await openStructureReport();
+      });
+      row.append(fix);
+    }
+    if (issue.heading && issue.kind === 'duplicate') {
+      const rename = document.createElement('button');
+      rename.type = 'button';
+      rename.className = 'image-audit-fix';
+      rename.textContent = 'Rename…';
+      rename.title = 'Give this heading a unique title';
+      rename.addEventListener('click', async () => {
+        const next = await askName({
+          title: 'Heading text',
+          value: issue.heading.text,
+          hint: 'Duplicate headings make export anchors collide.',
+          confirmLabel: 'Rename',
+        });
+        if (!next || next === issue.heading.text) return;
+        renameHeading(issue.heading.index, next);
+        await openStructureReport();
+      });
+      row.append(rename);
+    }
     if (issue.heading) {
       const jump = document.createElement('button');
       jump.type = 'button';
@@ -6945,6 +7025,16 @@ window.__mdpad = {
       return true;
     });
     return out;
+  },
+  clickStructureFix: (line) => {
+    const row = [...document.querySelectorAll('#structure-issues .image-audit-row')].find(
+      (item) => Number(item.dataset.line) === Number(line)
+    );
+    if (!row) return false;
+    const action = row.querySelector('.image-audit-fix');
+    if (!action) return false;
+    action.click();
+    return true;
   },
   openStructureReport: () => openStructureReport().then(() => window.__mdpad.structureState()),
   structureState: () => ({

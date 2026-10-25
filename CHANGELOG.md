@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.70.1
+
+The startup check now measures the right thing.
+
+- **`bootMs` is measured from when Electron is ready**, covering only this app's work (window,
+  settings, renderer); `startupMs` keeps starting at OS process creation, which includes Electron's
+  own boot and the virus scanner's first look at a freshly built binary. The packaged smoke failed
+  at 5.4 s against a 5 s limit on a binary built seconds earlier, then passed at 4.9 s unchanged —
+  that variance is the scanner, not the app.
+- **The strict budget moved to `bootMs`** (3 s packaged, 6 s dev); `startupMs` keeps a loose 9 s /
+  12 s ceiling so a gross regression still fails. Measured in dev: 291 ms boot, 314 ms total.
+- `PERFORMANCE.md` records both numbers and why they differ.
+
+## 1.70.0
+
+The structure report can fix what it finds.
+
+- **A heading jump gets a "Fix" button**: the heading is demoted to one level below its predecessor
+  (H4 after H2 becomes H3) in a single transaction.
+- **A duplicate heading gets "Rename…"**: the name dialog opens pre-filled with the current title and
+  the heading text is replaced as a whole, so old marks cannot leak into the new one.
+- The report refreshes after each action, so the list shrinks as you work through it.
+- 312 smoke checks (one new: `structure-fix` clicks the real Fix button, asserts the markdown went
+  from `####` to `###` and the report to zero jumps, then drives the rename dialog and asserts zero
+  duplicates), 160 unit tests.
+- Two mistakes in that test: the first version clicked a hard-coded line number instead of the
+  reported one, and a `/## Notes\b/` assertion had reached the file as `/## Notes\\b/` (literal
+  backslash) because of shell escaping — the same trap as earlier rounds, now avoided with
+  `String.fromCharCode(92)`.
+
 ## 1.69.0
 
 A structure report for long texts.

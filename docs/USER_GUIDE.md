@@ -109,8 +109,11 @@ The palette has **Structure report…**, the check to run before sending a long 
 - **Duplicate headings**: the same title twice; the export anchors would collide.
 - **Long paragraphs**: anything over 1200 characters, with its line number.
 
-Every heading issue has a **Go** button that puts the caret in that heading. The summary counts
-words, headings, paragraphs and an estimated reading time.
+Every heading issue can be acted on directly: a **level** jump has **Fix** (the heading moves to
+one level below its predecessor), a **duplicate** has **Rename…** (pre-filled with the current
+title), and **Go** puts the caret in the heading. The report refreshes after every change.
+
+The summary counts words, headings, paragraphs and an estimated reading time.
 
 ## Link audit
 

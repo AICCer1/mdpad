@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 311 end-to-end checks against a real window
+npm run smoke          # 312 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -438,3 +438,10 @@ and asserts the markdown afterwards.
 paragraph lengths and counts. Duplicates are found by lower-cased text; a jump is a heading more
 than one level deeper than the previous one. The panel's Go button focuses the nth heading by
 index, so no markdown-to-ProseMirror position mapping is needed.
+
+## Fixing structure issues
+
+`setHeadingLevel(index, level)` and `renameHeading(index, text)` find the nth heading node and
+replace it (`setNodeMarkup` / `replaceWith`) in one transaction; the report is re-opened after
+each action. `structure-fix` drives the real buttons and dialog, then asserts both the report and
+the resulting markdown.

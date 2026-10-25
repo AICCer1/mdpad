@@ -61,6 +61,14 @@ npm run perf
 
 Prints one JSON object and writes `%TEMP%\mdpad-perf.json`, `mdpad-perf.pdf`, `mdpad-perf.html`.
 
+## Startup
+
+Two numbers are recorded. `startupMs` starts at OS process creation, so Electron's own boot and
+the virus scanner's first look at a freshly built binary are inside it; it moves by hundreds of
+milliseconds between identical builds. `bootMs` starts when Electron is ready and covers only
+this app: window creation, settings, renderer bundle. The strict budget is on `bootMs` (3 s
+packaged, 6 s dev); `startupMs` keeps a loose ceiling (9 s / 12 s) for gross regressions.
+
 ## Large documents
 
 `editor.commands.setContent(markdown, { contentType: "markdown" })` is **quadratic** in document
