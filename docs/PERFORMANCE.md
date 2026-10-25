@@ -101,6 +101,18 @@ Result: **4.0 ms per keystroke, 5.1 ms worst case** in the smoke suite (a bare i
 ~6 ms at the end of the document, ~1.5 ms for a no-op transaction). Small documents are
 unaffected — the class only applies above 200 KB.
 
+## Exporting a large document
+
+Measured with `--bench-export` on this machine (`npm run perf-export` runs it):
+
+| document | HTML | DOCX | EPUB | PDF |
+| --- | --- | --- | --- | --- |
+| 0.5 MB (700 sections) | 54 ms / 1.0 MB | 288 ms / 32 KB | 81 ms / 271 KB | 1.1 s / 1.9 MB |
+| 2 MB (1200 sections) | 434 ms / 3.4 MB | 1.4 s / 135 KB | 481 ms / 308 KB | **8.1 s / 12.1 MB** |
+
+DOCX and EPUB peak around 420–460 MB of heap at 2 MB; PDF rendering dominates the time. That is
+why the export panel warns above 300 000 characters instead of letting the user discover the wait.
+
 ## Trend log
 
 `npm run perf-trend` runs the perf report and appends one row per run to

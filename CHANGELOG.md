@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.82.0
+
+Large exports are measured, and warned about first.
+
+- **Measured with a new `--bench-export` mode** (`npm run perf-export`): a 2 MB document takes
+  **8.1 s** for PDF (12.1 MB output), 1.4 s for DOCX and 481 ms for EPUB, with heap peaks around
+  420–460 MB for the zip formats.
+- **The export panel now warns above 300 000 characters**: "Large document — export can take several
+  seconds (about 8 s for a 2 MB PDF)", next to the counts, so the wait is expected rather than
+  mistaken for a hang.
+- `PERFORMANCE.md` records the numbers for 0.5 MB and 2 MB documents.
+- 323 smoke checks (one new: `export-large-hint` builds a 400-section document, waits for the load,
+  opens the export panel and asserts the warning is rendered), 167 unit tests.
+
 ## 1.81.0
 
 A failed export leaves nothing behind.

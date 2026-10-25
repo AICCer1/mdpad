@@ -3365,6 +3365,33 @@ async function runPerfReport() {
 
 // Opening a large file is the moment a writing app feels slow. This measures the three phases
 // separately (read, IPC, renderer parse+layout) instead of one opaque number.
+async function runBenchExport() {
+  const target = process.env.MDPAD_PERF_OPEN;
+  const win = createWindow({ show: false, width: 1180, height: 900 });
+  await new Promise((resolve) => win.webContents.once('did-finish-load', resolve));
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  const session = sessions.get(win.webContents.id);
+  await session.loadDocument(target);
+  await new Promise((resolve) => setTimeout(resolve, 3000));
+  const out = { bytes: fs.statSync(target).size, formats: {} };
+  for (const kind of ['html', 'docx', 'epub', 'pdf']) {
+    const file = path.join(app.getPath('temp'), 'mdpad-bench-export.' + kind);
+    const started = Date.now();
+    try {
+      await session.exportTo(file, kind);
+      out.formats[kind] = {
+        ms: Date.now() - started,
+        bytes: fs.statSync(file).size,
+        heapMb: Math.round(process.memoryUsage().heapUsed / 1048576),
+      };
+    } catch (err) {
+      out.formats[kind] = { ms: Date.now() - started, error: err.message };
+    }
+  }
+  console.log('BENCH_EXPORT ' + JSON.stringify(out));
+  app.exit(0);
+}
+
 async function runBenchTyping() {
   const target = process.env.MDPAD_PERF_OPEN;
   const win = createWindow({ show: false, width: 1180, height: 900 });
@@ -12678,6 +12705,46 @@ async function runSmoke() {
     problems: exportFailureProblems.map(([kind]) => kind),
   });
 
+  // 154. a large document warns about export time before the user commits to it
+  const exportLargeHint = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const parts = ['# Large export hint'];
+    for (let section = 1; section <= 400; section += 1) {
+      parts.push('', '## Section ' + section, '');
+      parts.push('A paragraph that repeats to make the file large enough for the warning. '.repeat(12));
+    }
+    const doc = path.join(dir, 'export-large-hint.md');
+    const text = parts.join(nl);
+    fs.writeFileSync(doc, text, 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    const expected = Buffer.byteLength(text, 'utf8');
+    for (let attempt = 0; attempt < 200; attempt += 1) {
+      const timing = await jsOf('window.__mdpad.loadTiming()');
+      if (timing && timing.chars === expected) break;
+      await sleep(80);
+    }
+    const inspect = await jsOf('window.__mdpad.exportInspect()');
+    const panel = await jsOf(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      window.__mdpad.openExportPanel('pdf');
+      await sleep(900);
+      return window.__mdpad.exportInspectText();
+    })()`);
+    await jsOf("document.querySelector('#export-modal').hidden = true");
+    return { inspect, panel, bytes: expected };
+  })();
+  step(
+    'export-large-hint',
+    exportLargeHint.bytes > 300000 &&
+      exportLargeHint.inspect &&
+      exportLargeHint.inspect.chars > 300000 &&
+      typeof exportLargeHint.panel === 'string' &&
+      /Large document/.test(exportLargeHint.panel),
+    exportLargeHint
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -13506,6 +13573,10 @@ app.whenReady().then(async () => {
   }
   if (process.argv.includes('--perf-report')) {
     await runPerfReport();
+    return;
+  }
+  if (process.argv.includes('--bench-export')) {
+    await runBenchExport();
     return;
   }
   if (process.argv.includes('--bench-typing')) {

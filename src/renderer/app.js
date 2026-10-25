@@ -308,6 +308,9 @@ async function refreshExportInspect() {
   if (info.tasks) blocks.push(`${info.tasks} task${info.tasks === 1 ? '' : 's'}`);
   if (blocks.length) parts.push(blocks.join(' · '));
   const warnings = [];
+  if (info.chars > 300000) {
+    warnings.push('Large document — export can take several seconds (about 8 s for a 2 MB PDF)');
+  }
   if (info.unresolvedImages) warnings.push(`${info.unresolvedImages} image(s) not found`);
   if (info.unresolvedLinks) warnings.push(`${info.unresolvedLinks} link(s) not found`);
   const node = document.createElement('div');
