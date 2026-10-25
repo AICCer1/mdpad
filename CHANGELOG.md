@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.90.0
+
+The command palette learns from the keyboard.
+
+- **Running a command with Enter now counts as using it.** Previously only clicks updated the ranking,
+  so a keyboard user's habits were invisible to the ordering.
+- **Ranking is prefix first, then habit**: a command whose label starts with the query always beats a
+  mere substring match, and usage breaks ties.
+- **Arrow keys wrap** around the list, the active row is scrolled into view, and a search with no
+  results says "No commands match." instead of showing an empty panel.
+- 328 smoke checks (one new: `palette-keyboard` opens the palette with real keys, asserts the prefix
+  order and the wrap from first to last, checks the empty state and closes with Escape), 171 unit
+  tests.
+
 ## 1.89.0
 
 Settings from the keyboard.

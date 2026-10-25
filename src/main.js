@@ -13073,6 +13073,55 @@ async function runSmoke() {
     settingsKeyboard
   );
 
+  // 159. the command palette ranks by prefix and habit, wraps with arrows and records keyboard use
+  const paletteKeyboard = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    await jsOf(`window.__mdpad.openPalette ? window.__mdpad.openPalette() : document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }))`);
+    await sleep(500);
+    const opened = await jsOf('window.__mdpad.paletteState()');
+    const filtered = await jsOf("window.__mdpad.paletteType('the')");
+    const prefixFirst = filtered.labels[0] && /^the/i.test(filtered.labels[0]);
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Down' });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Down' });
+    await sleep(150);
+    const afterDown = await jsOf('window.__mdpad.paletteState()');
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Up' });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Up' });
+    await sleep(150);
+    const afterUp = await jsOf('window.__mdpad.paletteState()');
+    // wrap: from the first item, Up goes to the last
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Up' });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Up' });
+    await sleep(150);
+    const wrapped = await jsOf('window.__mdpad.paletteState()');
+    const before = await jsOf('window.api.getSettings()');
+    const usageBefore = (before.paletteUsage || {})[filtered.labels[0]] || 0;
+    const emptySearch = await jsOf("window.__mdpad.paletteType('zzzz-nothing')");
+    const emptyState = emptySearch.empty === true && emptySearch.total === 0;
+    await jsOf("window.__mdpad.paletteType('')");
+    const closed = await jsOf(`(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      return document.querySelector('#palette').hidden;
+    })()`);
+    return { opened, filtered, prefixFirst, afterDown, afterUp, wrapped, usageBefore, emptyState, closed };
+  })();
+  step(
+    'palette-keyboard',
+    paletteKeyboard.opened &&
+      paletteKeyboard.opened.open === true &&
+      paletteKeyboard.opened.active === 0 &&
+      paletteKeyboard.opened.marked === 1 &&
+      paletteKeyboard.filtered &&
+      paletteKeyboard.filtered.total > 0 &&
+      paletteKeyboard.prefixFirst === true &&
+      paletteKeyboard.afterDown.active === 1 &&
+      paletteKeyboard.afterUp.active === 0 &&
+      paletteKeyboard.wrapped.active === paletteKeyboard.wrapped.total - 1 &&
+      paletteKeyboard.emptyState === true &&
+      paletteKeyboard.closed === true,
+    paletteKeyboard
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

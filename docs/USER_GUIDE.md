@@ -340,6 +340,12 @@ Type in the filter, then use **↓ / ↑** to move through the matching fields a
 the control. **Escape** clears the search first — press it again to close the panel — so a search is
 never lost by reflex.
 
+### The command palette
+
+**Ctrl+K** opens it. Type to filter, **↓ / ↑** to move (the list wraps), **Enter** to run, **Esc** to
+close. Commands that start with what you typed come first, then the ones you use most often —
+running a command with Enter counts as using it.
+
 ## Theme
 
 Light, dark, sepia, or **Follow system** — the last one resolves to dark or light from Windows and

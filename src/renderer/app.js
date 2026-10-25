@@ -6073,13 +6073,23 @@ function renderPalette() {
   const query = paletteInput.value.trim().toLowerCase();
   const all = commandList();
   const matches = all.filter((cmd) => cmd.label.toLowerCase().includes(query));
-  if (!query) {
-    // With nothing typed, the commands this user actually runs come first.
-    matches.sort((a, b) => (paletteUsage[b.id] || 0) - (paletteUsage[a.id] || 0));
-  }
+  // Prefix matches first ("th" → "Theme"), then the commands this user actually runs, then the
+  // original order for stable ties.
+  const score = (cmd) => {
+    const label = cmd.label.toLowerCase();
+    const prefix = query && label.startsWith(query) ? 2 : query && label.includes(query) ? 1 : 0;
+    return prefix * 1000 + (paletteUsage[cmd.id] || 0) * 10;
+  };
+  matches.sort((a, b) => score(b) - score(a) || a.label.localeCompare(b.label));
   paletteCommands = matches;
   if (paletteIndex >= paletteCommands.length) paletteIndex = Math.max(0, paletteCommands.length - 1);
   paletteList.textContent = '';
+  if (!paletteCommands.length) {
+    const empty = document.createElement('div');
+    empty.className = 'palette-empty';
+    empty.textContent = 'No commands match.';
+    paletteList.appendChild(empty);
+  }
   paletteCommands.forEach((cmd, index) => {
     const row = document.createElement('div');
     row.className = `palette-row${index === paletteIndex ? ' active' : ''}`;
@@ -6100,6 +6110,11 @@ function renderPalette() {
     });
     paletteList.appendChild(row);
   });
+}
+
+function scrollPaletteActive() {
+  const active = paletteList.querySelector('.palette-row.active');
+  if (active && active.scrollIntoView) active.scrollIntoView({ block: 'nearest' });
 }
 
 function openPalette() {
@@ -6125,6 +6140,7 @@ function runPaletteSelection() {
   const cmd = paletteCommands[paletteIndex];
   if (!cmd) return;
   closePalette();
+  recordPaletteUse(cmd.id);
   cmd.run();
 }
 
@@ -6135,12 +6151,16 @@ paletteInput.addEventListener('input', () => {
 paletteInput.addEventListener('keydown', (event) => {
   if (event.key === 'ArrowDown') {
     event.preventDefault();
-    paletteIndex = Math.min(paletteIndex + 1, paletteCommands.length - 1);
+    if (paletteCommands.length) paletteIndex = (paletteIndex + 1) % paletteCommands.length;
     renderPalette();
+    scrollPaletteActive();
   } else if (event.key === 'ArrowUp') {
     event.preventDefault();
-    paletteIndex = Math.max(paletteIndex - 1, 0);
+    if (paletteCommands.length) {
+      paletteIndex = (paletteIndex - 1 + paletteCommands.length) % paletteCommands.length;
+    }
     renderPalette();
+    scrollPaletteActive();
   } else if (event.key === 'Enter') {
     event.preventDefault();
     runPaletteSelection();
@@ -7498,6 +7518,21 @@ window.__mdpad = {
     };
   },
   settingsSearchAudit: () => settingsSearchAudit(),
+  paletteState: () => ({
+    open: !document.querySelector('#palette').hidden,
+    active: paletteIndex,
+    total: paletteCommands.length,
+    labels: paletteCommands.slice(0, 6).map((cmd) => cmd.label),
+    activeLabel: paletteCommands[paletteIndex] ? paletteCommands[paletteIndex].label : null,
+    empty: Boolean(paletteList.querySelector('.palette-empty')),
+    marked: document.querySelectorAll('#palette .palette-row.active').length,
+  }),
+  paletteType: (text) => {
+    const input = document.querySelector('#palette-input');
+    input.value = text;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    return window.__mdpad.paletteState();
+  },
   settingsActive: () => ({
     index: settingsActiveIndex,
     marked: document.querySelectorAll('#settings-modal .field.is-search-active').length,

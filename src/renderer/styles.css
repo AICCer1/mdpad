@@ -2395,3 +2395,6 @@ html.table-dragging-column, html.table-dragging-column * { cursor: col-resize !i
   outline-offset: 4px;
   border-radius: var(--r-sm, 6px);
 }
+
+/* ---- command palette ---- */
+.palette-empty { padding: 14px 12px; color: var(--muted); font-size: 12.5px; }
