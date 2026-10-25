@@ -1195,3 +1195,6 @@ Object.assign(DICT.zh, {
 
 Object.assign(DICT.en, { 'settings.typewriter': 'Keep the caret in the middle' });
 Object.assign(DICT.zh, { 'settings.typewriter': '光标保持居中' });
+
+Object.assign(DICT.en, { 'settings.highlightParagraph': 'Highlight the current paragraph' });
+Object.assign(DICT.zh, { 'settings.highlightParagraph': '高亮当前段落' });

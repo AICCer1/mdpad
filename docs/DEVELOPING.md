@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 316 end-to-end checks against a real window
+npm run smoke          # 317 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -472,3 +472,9 @@ and the exported checklist gains a "Previous report … now N (−M)" line. The 
 by the difference between the caret and 45% of the pane height, so it never fights a user scroll
 — it only acts while the editor has focus. The setting is a plain boolean (`typewriter`) that
 survives restarts and reaches other windows through the settings broadcast.
+
+## Paragraph highlight
+
+`ParagraphHighlight` is a decoration plugin (`is-current-block-soft`) with a module-level flag;
+`setParagraphHighlight` flips the flag and dispatches an empty transaction so decorations are
+recomputed. The plugin returns `null` while `focusModeEnabled`, so the two highlights never stack.

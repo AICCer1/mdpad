@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.75.0
+
+The paragraph you are writing can be marked.
+
+- **Settings → Appearance → "Highlight the current paragraph"** gives the block holding the caret a
+  faint accent tint and a thin left rule, theme-aware and off by default.
+- **Focus mode takes precedence**: the plugin returns no decoration while focus mode is on, so the
+  soft tint cannot stack with the dimming and turn the text muddy.
+- **The smoke check asserts exactly one highlighted block and that it follows the caret**, then turns
+  focus mode on and asserts the soft highlight is gone — geometry of the behaviour, not a class name.
+- A duplicated helper (from a partially applied patch) broke the bundle with "symbol has already been
+  declared"; the region around `typewriterFollow` was rewritten by hand afterwards.
+- 317 smoke checks, 160 unit tests.
+
 ## 1.74.0
 
 Typewriter mode.

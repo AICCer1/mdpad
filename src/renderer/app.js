@@ -601,6 +601,38 @@ const FocusDecoration = Extension.create({
   },
 });
 
+// A soft highlight for the block the caret is in. It steps aside when focus mode is on: that
+// mode already dims everything else, and stacking both would make the text muddy.
+let highlightParagraphEnabled = false;
+const paragraphHighlightKey = new PluginKey('mdpadParagraphHighlight');
+
+const ParagraphHighlight = Extension.create({
+  name: 'mdpadParagraphHighlight',
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: paragraphHighlightKey,
+        props: {
+          decorations(state) {
+            if (!highlightParagraphEnabled || focusModeEnabled) return null;
+            const { $from } = state.selection;
+            if ($from.depth < 1) return null;
+            try {
+              return DecorationSet.create(state.doc, [
+                Decoration.node($from.before(1), $from.after(1), {
+                  class: 'is-current-block-soft',
+                }),
+              ]);
+            } catch {
+              return null;
+            }
+          },
+        },
+      }),
+    ];
+  },
+});
+
 const AiTarget = Extension.create({
   name: 'aiTarget',
   addProseMirrorPlugins() {
@@ -648,6 +680,7 @@ const editor = new Editor({
   element: host,
   extensions: [
     FocusDecoration,
+      ParagraphHighlight,
     StarterKit.configure({ codeBlock: false, link: false, heading: { levels: [1, 2, 3, 4, 5, 6] } }),
     // Pasting a URL over a selection should link that selection instead of replacing it.
     Link.configure({ openOnClick: false, autolink: true, linkOnPaste: true }),
@@ -4767,7 +4800,10 @@ async function openSettings(section = 'appearance') {
   $('#set-theme').value = settings.theme || 'light';
   $('#set-spellcheck').checked = settings.spellcheck !== false;
   $('#set-typewriter').checked = settings.typewriter === true;
+  $('#set-highlight-paragraph').checked = settings.highlightParagraph === true;
+  setParagraphHighlight(settings.highlightParagraph === true);
   typewriterEnabled = settings.typewriter === true;
+  setParagraphHighlight(settings.highlightParagraph === true);
   editor.view.dom.classList.toggle('typewriter', typewriterEnabled);
   $('#set-language').value = normalizeLang(settings.language || 'en');
   $('#set-font').value = FONTS.includes(settings.editorFont) ? settings.editorFont : 'serif';
@@ -4865,6 +4901,7 @@ async function saveSettings() {
     accent,
     spellcheck: $('#set-spellcheck').checked,
     typewriter: $('#set-typewriter').checked,
+    highlightParagraph: $('#set-highlight-paragraph').checked,
   });
   aiConfirmThreshold = Number($('#set-ai-confirm').value);
   applyAppearance({ editorFont, lineWidth, accent });
@@ -6379,9 +6416,15 @@ function showBanner(text, primaryLabel, primaryFn, secondaryLabel, secondaryFn) 
   banner.hidden = false;
 }
 
-// A change made in another window arrives here; apply everything the shell renders from settings.
 // Typewriter scrolling: keep the caret around the middle of the viewport while typing.
 let typewriterEnabled = false;
+
+function setParagraphHighlight(on) {
+  highlightParagraphEnabled = on === true;
+  if (editor && editor.view) {
+    editor.view.dispatch(editor.state.tr.setMeta('mdpadHighlight', on));
+  }
+}
 
 function typewriterFollow() {
   if (!typewriterEnabled || !editorPane) return;
@@ -6395,6 +6438,7 @@ function typewriterFollow() {
   editorPane.scrollTop += delta;
 }
 
+// A change made in another window arrives here; apply everything the shell renders from settings.
 function applyRemoteSettings(settings) {
   if (!settings) return;
   readThemeSetting = settings.theme || 'light';
@@ -7187,6 +7231,20 @@ window.__mdpad = {
       return true;
     });
     return out;
+  },
+  setParagraphHighlight: (on) => {
+    setParagraphHighlight(on);
+    return highlightParagraphEnabled;
+  },
+  paragraphHighlightState: () => {
+    const soft = [...document.querySelectorAll('.tiptap .is-current-block-soft')];
+    const active = [...document.querySelectorAll('.tiptap .is-active-block')];
+    return {
+      enabled: highlightParagraphEnabled,
+      softCount: soft.length,
+      softText: soft.map((node) => node.textContent.slice(0, 24)),
+      activeCount: active.length,
+    };
   },
   typewriterState: () => ({
     enabled: typewriterEnabled,

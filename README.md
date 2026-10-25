@@ -34,7 +34,7 @@ Or install the built artifact: `release/mdpad Setup <version>.exe`.
 
 ```
 npm test              155 unit tests
-npm run smoke         316 end-to-end checks (dev or packaged)
+npm run smoke         317 end-to-end checks (dev or packaged)
 npm run crash         SIGKILL -> restart -> draft recovery
 npm run restart-check clean quit -> relaunch -> two windows and their tabs restored
 npm run release-check build -> package -> packaged smoke -> crash -> portable
@@ -166,6 +166,12 @@ two or more list items) parses it; prose and a lone `#tag` stay literal.
 
 Settings → Appearance → **Keep the caret in the middle**: while you type, the view scrolls so the
 caret line sits around 45% of the window, instead of drifting to the bottom edge.
+
+## Current paragraph highlight
+
+Settings → Appearance → **Highlight the current paragraph** tints the block holding the caret with
+an accent wash and a thin left rule. It steps aside when focus mode is on — that mode already dims
+everything else — and the whole thing respects `prefers-reduced-motion`.
 
 ## Structure report
 

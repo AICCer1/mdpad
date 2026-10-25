@@ -334,6 +334,12 @@ scrolls so the line you are typing stays near the middle of the window instead o
 bottom. It only acts while the caret moves in the editor, so reading and scrolling are untouched;
 turn it off to get the normal behaviour back.
 
+## Current paragraph highlight
+
+Settings → Appearance → **Highlight the current paragraph** gives the block you are editing a faint
+accent tint and a thin left rule, which helps on a wide screen. Focus mode takes precedence: when
+it is on, the soft tint is removed and the usual dimming applies instead.
+
 ## Zoom and spelling
 
 **Ctrl+=** zooms in, **Ctrl+–** zooms out and **Ctrl+0** resets. While the page is zoomed, a small

@@ -2155,6 +2155,7 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
     if (patch.filesCollapsed !== undefined) next.filesCollapsed = patch.filesCollapsed === true;
     if (patch.spellcheck !== undefined) next.spellcheck = patch.spellcheck === true;
     if (patch.typewriter !== undefined) next.typewriter = patch.typewriter === true;
+    if (patch.highlightParagraph !== undefined) next.highlightParagraph = patch.highlightParagraph === true;
     if (patch.findOptions && typeof patch.findOptions === 'object') {
       next.findOptions = {
         caseSensitive: patch.findOptions.caseSensitive === true,
@@ -12229,6 +12230,57 @@ async function runSmoke() {
       off: typewriter.off,
       offRatio: ratio(typewriter.off),
     }
+  );
+
+  // 148. the current paragraph can be highlighted, and focus mode takes over from it
+  const paragraphHighlight = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'paragraph-highlight.md');
+    fs.writeFileSync(
+      doc,
+      ['# Highlight', '', 'First paragraph with a sentence.', '', 'Second paragraph, also short.', '', 'Third one.', ''].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('Second paragraph')");
+      if (ready === true) break;
+    }
+    await jsOf('window.__mdpad.setParagraphHighlight(true)');
+    await jsOf("window.__mdpad.focusText('Second paragraph')");
+    await sleep(500);
+    const first = await jsOf('window.__mdpad.paragraphHighlightState()');
+    await jsOf("window.__mdpad.focusText('Third one')");
+    await sleep(400);
+    const moved = await jsOf('window.__mdpad.paragraphHighlightState()');
+    // focus mode wins: the soft highlight must step aside
+    await jsOf("window.__mdpad.editor.commands.toggleFocusMode ? window.__mdpad.editor.commands.toggleFocusMode() : null");
+    const focusOn = await jsOf('window.__mdpad.focusModeSet ? window.__mdpad.focusModeSet(true) : null');
+    await sleep(400);
+    const withFocus = await jsOf('window.__mdpad.paragraphHighlightState()');
+    await jsOf('window.__mdpad.focusModeSet ? window.__mdpad.focusModeSet(false) : null');
+    await jsOf('window.__mdpad.setParagraphHighlight(false)');
+    await sleep(300);
+    const off = await jsOf('window.__mdpad.paragraphHighlightState()');
+    return { first, moved, withFocus, focusOn, off };
+  })();
+  step(
+    'paragraph-highlight',
+    paragraphHighlight.first &&
+      paragraphHighlight.first.enabled === true &&
+      paragraphHighlight.first.softCount === 1 &&
+      /Second paragraph/.test(paragraphHighlight.first.softText.join(' ')) &&
+      paragraphHighlight.moved &&
+      paragraphHighlight.moved.softCount === 1 &&
+      /Third one/.test(paragraphHighlight.moved.softText.join(' ')) &&
+      paragraphHighlight.withFocus &&
+      (paragraphHighlight.withFocus.activeCount === 0 || paragraphHighlight.withFocus.softCount === 0) &&
+      paragraphHighlight.off &&
+      paragraphHighlight.off.softCount === 0,
+    paragraphHighlight
   );
 
   // 30k. the settings filter narrows the visible fields

@@ -2360,3 +2360,14 @@ html.table-dragging-column, html.table-dragging-column * { cursor: col-resize !i
 
 /* A caret marker makes typewriter mode visible without moving the text. */
 .tiptap.typewriter { scroll-padding-block: 45vh; }
+
+/* ---- current paragraph ---- */
+.tiptap .is-current-block-soft {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border-radius: var(--r-sm, 6px);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 28%, transparent);
+  transition: background 140ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tiptap .is-current-block-soft { transition: none; }
+}
