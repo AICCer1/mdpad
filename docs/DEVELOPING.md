@@ -675,3 +675,10 @@ selection change); main keeps `session.viewByTab` and `tabsForSnapshot` writes i
 `maximized` flag. `restoreSessionTabs` sends `session:missing` with up to five paths, which the
 renderer turns into a toast naming them. Unit tests cover the planner; `restore-missing-tabs` checks
 the wording for one and for several files.
+
+## Window bounds
+
+`fitBounds` keeps a window when at least 200×32 px of its title bar is on some display, stays put when
+it spans monitors, shrinks it when it is larger than the display it mostly occupies, and otherwise
+moves it into that display (or the primary) keeping its size. Malformed or infinite values return
+`null`, which makes `createWindow` use its defaults. The rules are unit-tested without Electron.

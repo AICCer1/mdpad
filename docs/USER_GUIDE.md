@@ -173,6 +173,12 @@ under that heading folds away and the heading shows a `▸` marker. Press it aga
 document remembers its own folds across restarts, and the markdown on disk is never changed by
 folding — it is a reading aid, not an edit.
 
+## Window position
+
+The window reopens at its saved size and place when that place still exists. After unplugging a
+monitor or changing resolution, the window is moved or shrunk into a visible area instead of
+reopening off-screen.
+
 ## Reopening a document
 
 If a file moved while the app was closed, its tab cannot come back — a notice names the missing

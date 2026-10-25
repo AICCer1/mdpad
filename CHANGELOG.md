@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.4.0
+
+The window comes back where it can be seen.
+
+- **A window saved on an unplugged monitor is moved into the primary work area with its size kept** —
+  before, the whole position was discarded and the app reopened at the default size.
+- **Oversized windows are shrunk to the display** they mostly occupy, so their edges and resize handles
+  stay reachable; before, a 3000×2000 window was restored as such on a 1920×1040 screen.
+- **A title bar that would sit above the screen comes back down**, and a window with only a one-pixel
+  sliver visible is treated as unreachable. Multi-monitor windows that are genuinely reachable stay put.
+- 183 unit tests (nine new bounds cases, including a single 800×600 display and non-finite values);
+  342 smoke checks unchanged.
+
 ## 2.3.0
 
 A tab that cannot come back says so.
