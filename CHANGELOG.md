@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.73.0
+
+The report remembers the last one.
+
+- **Every saved structure report is summarised** (`reports.json`: issues, words, headings, time), and
+  the next report shows the delta: the panel says "previous report: 2 issue(s)" and the exported
+  checklist gains a line like `Previous report (2026-10-25): 2 issue(s), now 0 (−2)`.
+- `doc:structure` returns that summary as `previous`, so the comparison is data, not text scraping.
+- **A temporal-dead-zone bug fixed on the way**: the delta line was inserted before `issues` was
+  computed, so the export threw "Cannot access 'i' before initialization" — the block now sits after
+  the counting.
+- 315 smoke checks (one new: `report-history` saves a report, fixes both issues through the real
+  buttons and dialog, saves again, and asserts the delta line and the zero-issue checklist), 160 unit
+  tests.
+
 ## 1.72.0
 
 The structure report can leave the app.

@@ -61,7 +61,7 @@ npm install            # deps + vendor assets
 npm start              # build renderer, open the window
 npm run dev            # esbuild --watch
 npm test               # 142 unit tests, no Electron
-npm run smoke          # 314 end-to-end checks against a real window
+npm run smoke          # 315 end-to-end checks against a real window
 npm run crash          # SIGKILL mid-edit, restart, verify draft recovery
 npm run restart-check  # clean quit, relaunch, verify windows/tabs came back
 npm run dist           # NSIS installer + portable exe
@@ -458,3 +458,10 @@ refuses when the paragraph contains inline atoms (`content.size !== textContent.
 `buildStructureMarkdown` is a pure function over the `doc:structure` data; `report:save` shows the
 save dialog, `report:write` writes an explicit path (used by the test). The markdown has a counts
 section and a `- [ ]` checklist, so it reads as a review document rather than a log.
+
+## Report history
+
+`reports.json` in the data folder keeps one summary per document path (`issues`, `words`,
+`headings`, `at`). `doc:structure` returns it as `previous`, the panel shows the last issue count
+and the exported checklist gains a "Previous report … now N (−M)" line. The index is written by
+`report:save` / `report:write` from the summary the renderer computes.

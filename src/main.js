@@ -1767,11 +1767,44 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
   // let the writer unlink the dead ones without losing the text.
   // A structure report: what a writer would check before submitting — heading order, duplicates,
   // runaway paragraphs, and the counts that describe the shape of the document.
-  ipcMain.handle('report:write', (event, { path: target, content } = {}) => {
+  function reportIndexFile() {
+    return path.join(userDir(), 'reports.json');
+  }
+
+  function readReportIndex() {
+    const raw = storage.readIfExists(reportIndexFile());
+    if (!raw) return {};
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function rememberReport(file, summary) {
+    if (!file || !summary) return;
+    const index = readReportIndex();
+    index[file] = {
+      issues: Number(summary.issues) || 0,
+      words: Number(summary.words) || 0,
+      headings: Number(summary.headings) || 0,
+      at: new Date().toISOString(),
+    };
+    try {
+      fs.mkdirSync(userDir(), { recursive: true });
+      fs.writeFileSync(reportIndexFile(), JSON.stringify(index, null, 2), 'utf8');
+    } catch (err) {
+      logLine('report', 'index write failed: ' + err.message);
+    }
+  }
+
+  ipcMain.handle('report:write', (event, { path: target, content, summary } = {}) => {
     if (!target) return { ok: false, error: 'No path' };
     try {
       fs.mkdirSync(path.dirname(target), { recursive: true });
       fs.writeFileSync(target, String(content || ''), 'utf8');
+      rememberReport(sessionFor(event) && sessionFor(event).file, summary);
       return { ok: true, path: target, bytes: fs.statSync(target).size };
     } catch (err) {
       logLine('report', 'write failed: ' + err.message);
@@ -1779,7 +1812,7 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
     }
   });
 
-  ipcMain.handle('report:save', async (event, { content, suggestedName } = {}) => {
+  ipcMain.handle('report:save', async (event, { content, suggestedName, summary } = {}) => {
     const s = sessionFor(event);
     const dir = s && s.file ? path.dirname(s.file) : app.getPath('documents');
     const { canceled, filePath } = await dialog.showSaveDialog(s ? s.win : null, {
@@ -1790,6 +1823,7 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
     if (canceled || !filePath) return { ok: false, canceled: true };
     try {
       fs.writeFileSync(filePath, String(content || ''), 'utf8');
+      rememberReport(s && s.file, summary);
       return { ok: true, path: filePath };
     } catch (err) {
       return { ok: false, error: err.message };
@@ -1890,6 +1924,7 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
       duplicates,
       skips,
       longestParagraph: longest,
+      previous: s && s.file ? readReportIndex()[s.file] || null : null,
     };
   });
 
@@ -12063,6 +12098,84 @@ async function runSmoke() {
       head: typeof reportExport.markdown === 'string' ? reportExport.markdown.slice(0, 300) : reportExport.markdown,
       written: reportExport.written,
       fileHead: reportExport.fileText.slice(0, 200),
+    }
+  );
+
+  // 146. the second report records what changed since the first one
+  const reportHistory = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'report-history.md');
+    fs.writeFileSync(
+      doc,
+      ['# Book', '', '## Chapter', '', '#### Jump', '', '## Notes', '', 'a', '', '## Notes', '', 'b', ''].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('Jump')");
+      if (ready === true) break;
+    }
+    const firstTarget = path.join(dir, 'report-first.md');
+    const first = await jsOf(`window.__mdpad.saveStructureReportTo(${JSON.stringify(firstTarget)})`);
+    const firstIssues = 2;
+
+    // fix both issues through the real actions, then report again
+    const fixed = await jsOf(`(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const report = await window.api.docStructure();
+      window.__mdpad.openStructureReport();
+      await sleep(400);
+      window.__mdpad.clickStructureFix(report.skips[0].line);
+      await sleep(400);
+      const next = await window.api.docStructure();
+      window.__mdpad.openStructureReport();
+      await sleep(400);
+      window.__mdpad.clickStructureFix(next.duplicates[0].line);
+      await sleep(300);
+      window.__mdpad.fillName('Notes two');
+      window.__mdpad.confirmName();
+      await sleep(600);
+      return window.api.docStructure();
+    })()`);
+    const secondTarget = path.join(dir, 'report-second.md');
+    const second = await jsOf(`window.__mdpad.saveStructureReportTo(${JSON.stringify(secondTarget)})`);
+    const afterReport = await jsOf('window.api.docStructure()');
+    const secondText = fs.existsSync(secondTarget) ? fs.readFileSync(secondTarget, 'utf8') : '';
+    await jsOf('document.querySelector(\'#structure-report\').hidden = true');
+    return {
+      first,
+      firstIssues,
+      fixed: { skips: fixed.skips.length, duplicates: fixed.duplicates.length, previous: fixed.previous },
+      second,
+      previous: afterReport.previous,
+      secondText,
+    };
+  })();
+  step(
+    'report-history',
+    reportHistory.first &&
+      reportHistory.first.ok === true &&
+      reportHistory.fixed.skips === 0 &&
+      reportHistory.fixed.duplicates === 0 &&
+      reportHistory.fixed.previous &&
+      reportHistory.fixed.previous.issues === reportHistory.firstIssues &&
+      reportHistory.second &&
+      reportHistory.second.ok === true &&
+      reportHistory.previous &&
+      reportHistory.previous.issues === 0 &&
+      reportHistory.previous.words > 0 &&
+      reportHistory.secondText.includes('Previous report') &&
+      reportHistory.secondText.includes('now 0 (−2)') &&
+      reportHistory.secondText.includes('- [x] No structural problems found'),
+    {
+      first: reportHistory.first,
+      fixed: reportHistory.fixed,
+      second: reportHistory.second,
+      previous: reportHistory.previous,
+      head: reportHistory.secondText.slice(0, 400),
     }
   );
 

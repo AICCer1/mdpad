@@ -117,7 +117,7 @@ title), and **Go** puts the caret in the heading. The report refreshes after eve
 
 The summary counts words, headings, paragraphs and an estimated reading time, and **Save report…**
 writes the whole thing as a markdown checklist next to the document — counts, every issue with its
-line number — so the review can be archived or handed to an editor.
+line number — so the review can be archived or handed to an editor. The next report remembers the last one and says how many issues there were before and what changed since. The next report remembers the last one: the panel and the file say how many issues there were before and what changed since.
 
 ## Link audit
 

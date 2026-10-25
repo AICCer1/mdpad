@@ -2963,16 +2963,34 @@ function buildStructureMarkdown(report, filePath) {
     issues += 1;
     lines.push('- [ ] Paragraph of ' + report.longestParagraph.chars + ' characters (line ' + report.longestParagraph.line + ')');
   }
+  if (report.previous) {
+    const change = report.previous.issues === issues
+      ? 'unchanged'
+      : (report.previous.issues > issues ? '−' : '+') + Math.abs(report.previous.issues - issues);
+    lines.push(
+      'Previous report (' + String(report.previous.at || '').slice(0, 10) + '): ' + report.previous.issues +
+        ' issue(s), now ' + issues + ' (' + change + ')', ''
+    );
+  }
   if (!issues) lines.push('- [x] No structural problems found');
   lines.push('');
   return { text: lines.join('\n'), issues };
 }
 
+function structureSummary(report) {
+  return {
+    issues: report.skips.length + report.duplicates.length + (report.longestParagraph && report.longestParagraph.chars > 1200 ? 1 : 0),
+    words: report.words,
+    headings: report.headings.length,
+  };
+}
+
 async function saveStructureReport(report) {
   const audit = report || (await window.api.docStructure());
   const built = buildStructureMarkdown(audit, audit.file);
+  const summary = structureSummary(audit);
   const base = audit.file ? audit.file.split(/[\\/]/).pop().replace(/\.[^.]+$/, '') : 'document';
-  const result = await window.api.saveReport(built.text, base + '-structure.md');
+  const result = await window.api.saveReport(built.text, base + '-structure.md', summary);
   if (result && result.ok) {
     flash('Report saved: ' + (result.path || '').split(/[\\/]/).pop());
     showToast('Structure report saved', 4000, [
@@ -2991,7 +3009,10 @@ async function openStructureReport() {
   const report = await window.api.docStructure();
   summary.textContent =
     report.words + ' words · ' + report.headings.length + ' headings · ' +
-    report.counts.paragraphs + ' paragraphs · ~' + report.readingMinutes + ' min read';
+    report.counts.paragraphs + ' paragraphs · ~' + report.readingMinutes + ' min read' +
+    (report.previous
+      ? ' · previous report: ' + report.previous.issues + ' issue(s)'
+      : '');
   list.textContent = '';
 
   const issues = [];
@@ -7147,11 +7168,12 @@ window.__mdpad = {
     return out;
   },
   splitParagraph: (snippet) => splitParagraphBySnippet(snippet),
+  structureSummaryFor: () => window.api.docStructure().then((report) => structureSummary(report)),
   structureMarkdown: () => window.api.docStructure().then((report) => buildStructureMarkdown(report, report.file).text),
   saveStructureReportTo: (target) =>
     window.api.docStructure().then((report) => {
       const built = buildStructureMarkdown(report, report.file);
-      return window.api.writeReportTo(target, built.text);
+      return window.api.writeReportTo(target, built.text, structureSummary(report));
     }),
   clickStructureFix: (line) => {
     const row = [...document.querySelectorAll('#structure-issues .image-audit-row')].find(
