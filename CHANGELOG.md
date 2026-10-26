@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.11.0
+
+A report that fits the writer, not the other way round.
+
+- **Style hints and repetition can be switched off** in the structure report, and the **sentence limit**
+  is adjustable (8–120 words, default 40). The choice is remembered and applies immediately.
+- **A disabled check is not computed**: `doc:structure` deletes the section from the payload, so the
+  report and its markdown simply do not mention it.
+- 348 smoke checks (one new: `report-options` asserts the default limit, then that turning style and
+  repetition off removes both from the payload, changes the limit to 20 and the UI reflects it), 208
+  unit tests.
+- The work exposed two patch mistakes worth naming: a `return` rename hit `exportStats` instead of
+  `doc:structure`, and the options were not loaded when the report opened. Both were caught by the
+  new check, not by reading the code.
+
 ## 2.10.0
 
 Style hints, kept quiet on purpose.

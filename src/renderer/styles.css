@@ -2459,3 +2459,8 @@ html.table-dragging-column, html.table-dragging-column * { cursor: col-resize !i
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
+
+/* ---- structure report options ---- */
+.structure-options { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; padding: 4px 2px 8px; font-size: 12px; color: var(--muted); }
+.structure-options label { display: flex; gap: 6px; align-items: center; }
+.structure-options input[type="number"] { width: 58px; }

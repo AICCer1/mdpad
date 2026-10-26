@@ -402,6 +402,12 @@ A small strip above the document offers three tips on first use — the command 
 list, and dropping images. Dismissing one ("Got it" or ×) records it and shows the next; once all
 three are seen the strip never returns.
 
+### Report options
+
+At the top of the structure report you can switch **Style hints** and **Repetition** off and set the
+**sentence limit** (8–120 words, default 40). The settings are remembered per profile and apply to the
+next report immediately; a disabled check is not computed at all.
+
 ### Style hints
 
 The structure report also lists **hedge words** that weaken a sentence and **possible passive

@@ -290,6 +290,16 @@ function rememberRecent(file) {
 
 const THEMES = new Set(['light', 'dark', 'sepia', 'system']);
 
+// Report options are read at report time so a change applies to the next report without a restart.
+function reportOptionsForDoc() {
+  const options = readSettings().reportOptions || {};
+  return {
+    style: options.style !== false,
+    repetition: options.repetition !== false,
+    sentenceLimit: Math.max(8, Math.min(120, Math.floor(Number(options.sentenceLimit) || 40))),
+  };
+}
+
 function publicSettings() {
   const s = readSettings();
   const ai = s.ai || {};
@@ -324,6 +334,11 @@ function publicSettings() {
     exportFont: FONT_KEYS.includes(s.exportFont) ? s.exportFont : 'serif',
     exportMargin: EXPORT_MARGINS.includes(s.exportMargin) ? s.exportMargin : 'normal',
     exportPageNumbers: s.exportPageNumbers !== false,
+    reportOptions: {
+      style: !s.reportOptions || s.reportOptions.style !== false,
+      repetition: !s.reportOptions || s.reportOptions.repetition !== false,
+      sentenceLimit: Math.max(8, Math.min(120, Math.floor(Number((s.reportOptions || {}).sentenceLimit) || 40))),
+    },
     spellcheck: s.spellcheck !== false,
     findOptions:
       s.findOptions && typeof s.findOptions === 'object'
@@ -2162,7 +2177,7 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
       longest.snippet = paragraphText.slice(0, 80);
     }
     const words = (text.match(/\S+/g) || []).length;
-    return {
+    const payload = {
       words,
       lines: lines.length,
       chars: text.length,
@@ -2189,7 +2204,8 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
           .replace(/[*_~]{1,3}([^*_~\n]+)[*_~]{1,3}/g, '$1')
           .replace(/^\s*#{1,6}\s+.*$/gm, ' ')
           .replace(/^\s*[-*+]\s+/gm, '')
-          .replace(/^\s*\d+\.\s+/gm, '')
+          .replace(/^\s*\d+\.\s+/gm, ''),
+        { limit: reportOptionsForDoc().sentenceLimit }
       ),
       repetition: analyzeRepetition(
         text
@@ -2205,6 +2221,10 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
       ),
       previous: s && s.file ? readReportIndex()[s.file] || null : null,
     };
+    const options = reportOptionsForDoc();
+    if (!options.style) delete payload.style;
+    if (!options.repetition) delete payload.repetition;
+    return payload;
   });
 
   ipcMain.handle('links:audit', (event) => {
@@ -2486,6 +2506,13 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
         .map((item) => ({ path: item.path, kind: String(item.kind || 'html'), at: Number(item.at) || Date.now() }));
     }
     if (patch.exportPageNumbers !== undefined) next.exportPageNumbers = patch.exportPageNumbers !== false;
+    if (patch.reportOptions && typeof patch.reportOptions === 'object') {
+      next.reportOptions = {
+        style: patch.reportOptions.style !== false,
+        repetition: patch.reportOptions.repetition !== false,
+        sentenceLimit: Math.max(8, Math.min(120, Math.floor(Number(patch.reportOptions.sentenceLimit) || 40))),
+      };
+    }
     if (patch.externalPolicy !== undefined) {
       next.externalPolicy = ['ask', 'auto', 'ignore'].includes(patch.externalPolicy) ? patch.externalPolicy : 'ask';
     }
@@ -14308,6 +14335,64 @@ async function runSmoke() {
       !styleHints.passive.some((entry) => /sky is red/.test(entry.text)) &&
       !styleHints.passive.some((entry) => /was tired/.test(entry.text)),
     styleHints
+  );
+
+  // 179. the structure report can drop style or repetition and change the sentence limit
+  const reportOptionsTest = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'report-options.md');
+    const longSentence = Array.from({ length: 45 }, (_, index) => 'word' + index).join(' ') + '.';
+    fs.writeFileSync(
+      doc,
+      ['# Options', '', 'This is very good and really simple.', '', longSentence, '', 'The report was written yesterday.', ''].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('word44')");
+      if (ready === true) break;
+    }
+    await sleep(400);
+    const all = await jsOf('window.api.docStructure()');
+    await jsOf("window.api.setSettings({ reportOptions: { style: false, repetition: false, sentenceLimit: 20 } })");
+    await sleep(300);
+    const reduced = await jsOf('window.api.docStructure()');
+    await jsOf(`document.querySelector('#open-settings') && null`);
+    await jsOf("window.__mdpad.openStructureReport ? window.__mdpad.openStructureReport() : null");
+    await sleep(700);
+    const ui = await jsOf('window.__mdpad.reportOptionsState()');
+    await jsOf("document.querySelector('#structure-report').hidden = true");
+    // put the defaults back
+    await jsOf("window.api.setSettings({ reportOptions: { style: true, repetition: true, sentenceLimit: 40 } })");
+    return { all, reduced, ui };
+  })();
+  step(
+    'report-options',
+    reportOptionsTest.all &&
+      reportOptionsTest.all.style &&
+      reportOptionsTest.all.repetition &&
+      reportOptionsTest.all.sentences.limit === 40 &&
+      reportOptionsTest.reduced &&
+      reportOptionsTest.reduced.style === undefined &&
+      reportOptionsTest.reduced.repetition === undefined &&
+      reportOptionsTest.reduced.sentences.limit === 20 &&
+      reportOptionsTest.reduced.sentences.long.length === 1 &&
+      reportOptionsTest.ui &&
+      reportOptionsTest.ui.styleChecked === false &&
+      reportOptionsTest.ui.limit === 20,
+    {
+      all: { style: Boolean(reportOptionsTest.all.style), limit: reportOptionsTest.all.sentences.limit },
+      reduced: {
+        style: reportOptionsTest.reduced.style,
+        repetition: reportOptionsTest.reduced.repetition,
+        limit: reportOptionsTest.reduced.sentences.limit,
+        long: reportOptionsTest.reduced.sentences.long.length,
+      },
+      ui: reportOptionsTest.ui,
+    }
   );
 
   // 30k. the settings filter narrows the visible fields

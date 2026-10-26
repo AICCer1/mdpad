@@ -3674,7 +3674,30 @@ async function exportSection(format) {
   return result;
 }
 
+let reportOptions = { style: true, repetition: true, sentenceLimit: 40 };
+
+async function loadReportOptions() {
+  const settings = await window.api.getSettings().catch(() => ({}));
+  reportOptions = settings.reportOptions || reportOptions;
+  const style = document.querySelector('#structure-style');
+  const repetition = document.querySelector('#structure-repetition');
+  const limit = document.querySelector('#structure-limit');
+  if (style) style.checked = reportOptions.style !== false;
+  if (repetition) repetition.checked = reportOptions.repetition !== false;
+  if (limit) limit.value = String(reportOptions.sentenceLimit || 40);
+}
+
+async function saveReportOptions() {
+  reportOptions = {
+    style: document.querySelector('#structure-style').checked,
+    repetition: document.querySelector('#structure-repetition').checked,
+    sentenceLimit: Number(document.querySelector('#structure-limit').value) || 40,
+  };
+  await window.api.setSettings({ reportOptions }).catch(() => {});
+}
+
 async function openStructureReport() {
+  await loadReportOptions();
   const modal = document.querySelector('#structure-report');
   const list = document.querySelector('#structure-issues');
   const summary = document.querySelector('#structure-summary');
@@ -8305,6 +8328,17 @@ window.__mdpad = {
     labels: [...document.querySelectorAll('#toast .toast-action')].map((button) => button.textContent),
     run: (action) => runExportAction(action, target),
   }),
+  reportOptionsState: () => ({
+    options: { ...reportOptions },
+    styleChecked: document.querySelector('#structure-style') ? document.querySelector('#structure-style').checked : null,
+    repetitionChecked: document.querySelector('#structure-repetition') ? document.querySelector('#structure-repetition').checked : null,
+    limit: document.querySelector('#structure-limit') ? Number(document.querySelector('#structure-limit').value) : null,
+  }),
+  setReportOptions: async (next) => {
+    await window.api.setSettings({ reportOptions: next });
+    await loadReportOptions();
+    return window.__mdpad.reportOptionsState();
+  },
   sentenceHighlightState: () => ({
     enabled: highlightSentenceEnabled,
     decorated: [...document.querySelectorAll('.tiptap .is-current-sentence')].map((el) => el.textContent),

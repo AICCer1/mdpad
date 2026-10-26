@@ -725,3 +725,10 @@ strips fences, inline code and heading lines first.
 `be-verb + optional adverb + participle`, where participles are `-ed`/`-en` words or an irregular list;
 an adjective list and the three-letter minimum keep "was tired" and "is red" out. Known limitation:
 participial adjectives not on the list ("was excited") will still be reported.
+
+## Report options
+
+`reportOptionsForDoc()` reads `reportOptions` from settings at report time (style, repetition, sentence
+limit clamped to 8–120). `doc:structure` builds the payload, then deletes the disabled sections and
+returns it, so the renderer never has to filter. The modal loads the options on open and saves on change,
+then reopens the report.
