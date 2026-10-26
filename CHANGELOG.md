@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.16.0
+
+Put a template where you are, not in a new tab.
+
+- **Insert template…** inserts any built-in or custom template at the caret, with variables filled. The
+  markdown is converted to HTML first, so headings, lists and tables arrive formatted instead of as
+  `##` text; the caret lands where `{cursor}` was.
+- 353 smoke checks (one new: `insert-template` puts the meeting skeleton into an existing document and
+  asserts the text survived, the heading rendered as an `<h2>` and the caret moved), 219 unit tests.
+- Two dead ends worth recording: `insertContent` does not accept markdown (only `setContent` does), and
+  the smoke details builder crashed on an error object before the assertion could report the real
+  failure.
+
 ## 2.15.0
 
 Templates that know what day it is.

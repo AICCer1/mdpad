@@ -513,6 +513,11 @@ day's total, so the number reflects writing effort rather than the current size 
 
 ### New from template
 
+**Insert template…** (palette) inserts a template at the caret in the current document — meeting notes
+in the middle of a project log, for example. The markdown is converted before insertion, so headings and
+tables arrive formatted, and the caret lands where `{cursor}` was.
+
+
 Template bodies understand four placeholders: **{date}**, **{time}**, **{title}** (the current document
 name) and **{cursor}**, which is removed and leaves the caret ready to type. Anything else, such as
 `{project}`, is kept exactly as written so your own conventions survive.

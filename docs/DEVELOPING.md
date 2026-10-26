@@ -760,3 +760,10 @@ file and reopens the chooser.
 It returns `{body, cursor}` where `cursor` is the offset of the removed `{cursor}` placeholder; unknown
 placeholders pass through untouched. The renderer keeps the offset in `pendingTemplateCaret` and applies
 it once `doc:loaded` installs the content.
+
+## Inserting a template
+
+`insertContent` only accepts HTML or ProseMirror JSON — a `contentType: "markdown"` option is honoured by
+`setContent` but not by insertion, and the result was literal `##` text. `markdown:toHtml` converts the
+body with the same `renderBody` the exporter uses, and the renderer falls back to plain text if that ever
+fails. The caret moves to the `{cursor}` offset or the end of the inserted block.

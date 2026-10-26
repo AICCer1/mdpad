@@ -442,9 +442,14 @@ async function renderExportHistory() {
 }
 
 // A new document rarely starts from nothing; four skeletons cover most writing sessions.
-async function openTemplateChooser() {
+let templateMode = 'new';
+
+async function openTemplateChooser(mode = 'new') {
+  templateMode = mode === 'insert' ? 'insert' : 'new';
   const modal = document.querySelector('#template-chooser');
   const list = document.querySelector('#template-list');
+  const title = document.querySelector('#template-chooser .modal-title');
+  if (title) title.textContent = templateMode === 'insert' ? 'Insert template' : t('template.title', lang);
   list.textContent = '';
   const custom = await window.api.templatesList().catch(() => []);
   const entries = [...listTemplates(lang), ...custom];
@@ -469,7 +474,10 @@ async function openTemplateChooser() {
     }
     button.addEventListener('click', async () => {
       modal.hidden = true;
-      if (String(template.id).startsWith('custom:')) {
+      const custom = String(template.id).startsWith('custom:');
+      if (templateMode === 'insert') {
+        await insertTemplate(custom ? 'custom' : template.id, custom ? template.body : null);
+      } else if (custom) {
         await createFromTemplate('custom', template.body);
       } else {
         await createFromTemplate(template.id);
@@ -478,6 +486,32 @@ async function openTemplateChooser() {
     list.appendChild(button);
   }
   modal.hidden = false;
+}
+
+// Inserting reuses the same templates and variables; only the target differs (the caret, not a new tab).
+async function insertTemplate(id, body = null) {
+  const now = new Date();
+  const title = (document.querySelector('#doc-name').textContent || 'Untitled').replace(/\.[^.]+$/, '').trim() || 'Untitled';
+  const vars = { date: now.toISOString().slice(0, 10), time: now.toTimeString().slice(0, 5), title };
+  const filled = id === 'custom' ? applyVariables(String(body || ''), vars) : fillTemplate(id, { ...vars, lang });
+  const from = editor.state.selection.from;
+  let inserted = false;
+  try {
+    // insertContent only understands HTML/JSON, so the markdown is converted where the exporter lives.
+    const converted = await window.api.markdownToHtml(filled.body);
+    if (converted && converted.ok && converted.html) {
+      editor.chain().focus().insertContent(converted.html).run();
+      inserted = true;
+    }
+  } catch {
+    inserted = false;
+  }
+  if (!inserted) editor.chain().focus().insertContent(filled.body).run();
+  const max = editor.state.doc.content.size;
+  const target = Math.max(1, Math.min(max, from + (filled.cursor == null ? filled.body.length : filled.cursor)));
+  editor.commands.setTextSelection(target);
+  flash('Template inserted');
+  return { body: filled.body, cursor: filled.cursor, from, to: target };
 }
 
 async function createFromTemplate(id, body = null) {
@@ -6758,6 +6792,8 @@ function commandList() {
     { id: 'open', hint: 'Ctrl+O', label: p('palette.open'), run: () => actions.open() },
     { id: 'openFolder', hint: 'Ctrl+Shift+O', label: p('palette.openFolder'), run: () => actions.openFolder() },
     { id: 'newTab', hint: 'Ctrl+T', label: p('palette.newTab'), run: () => actions.new() },
+    { id: 'newFromTemplate', label: t('template.newFrom', lang), run: () => openTemplateChooser('new') },
+    { id: 'insertTemplate', label: 'Insert template…', run: () => openTemplateChooser('insert') },
     { id: 'closeTab', hint: 'Ctrl+W', label: p('palette.closeTab'), run: async () => {
         const activeTab = tabsState.find((tab) => tab.active);
         if (activeTab) await window.api.closeTab(activeTab.id);
@@ -8154,7 +8190,8 @@ window.__mdpad = {
     open: !document.querySelector('#template-chooser').hidden,
     rows: [...document.querySelectorAll('#template-list .template-row')].map((row) => row.dataset.template),
   }),
-  openTemplateChooser: () => openTemplateChooser(),
+  openTemplateChooser: (mode) => openTemplateChooser(mode || 'new'),
+  insertTemplate: (id, body) => insertTemplate(id, body),
   createFromTemplate: (id) => createFromTemplate(id),
   exportPanelState: () => ({
     open: !document.querySelector('#export-modal').hidden,

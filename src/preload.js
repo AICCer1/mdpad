@@ -35,6 +35,7 @@ contextBridge.exposeInMainWorld('api', {
   open: () => ipcRenderer.invoke('doc:open'),
   newDoc: () => ipcRenderer.invoke('doc:new'),
   newFromTemplate: (body) => ipcRenderer.invoke('doc:newFromTemplate', { body }),
+  markdownToHtml: (text) => ipcRenderer.invoke('markdown:toHtml', { text }),
   templatesList: () => ipcRenderer.invoke('templates:list'),
   templatesSave: (name, body) => ipcRenderer.invoke('templates:save', { name, body }),
   templatesDelete: (id) => ipcRenderer.invoke('templates:delete', { id }),

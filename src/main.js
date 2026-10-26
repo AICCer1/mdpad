@@ -1877,6 +1877,14 @@ function registerIpc() {
     }
   });
 
+  ipcMain.handle('markdown:toHtml', (event, { text } = {}) => {
+    try {
+      return { ok: true, html: exporter.renderBody(String(text || ''), null) };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
   ipcMain.handle('doc:newFromTemplate', (event, { body } = {}) => {
     const session = sessionFor(event);
     if (!session) return { ok: false };
@@ -14665,6 +14673,53 @@ async function runSmoke() {
       created: templateVars.created,
       markdown: String(templateVars.markdown).slice(0, 120),
       caret: templateVars.caret,
+    }
+  );
+
+  // 184. a template can be inserted at the caret instead of opening a new document
+  const insertTemplateTest = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'insert-template.md');
+    fs.writeFileSync(doc, ['# Existing', '', 'alpha paragraph', ''].join(nl), 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('alpha paragraph')");
+      if (ready === true) break;
+    }
+    await sleep(400);
+    await jsOf(`(() => {
+      const ed = window.__mdpad.editor;
+      ed.commands.setTextSelection(ed.state.doc.content.size - 1);
+      ed.commands.focus();
+    })()`);
+    const before = await jsOf('window.__mdpad.getMarkdown()');
+    const inserted = await jsOf("window.__mdpad.insertTemplate('meeting')");
+    await sleep(500);
+    const markdown = await jsOf('window.__mdpad.getMarkdown()');
+    const headings = await jsOf("[...document.querySelectorAll('.tiptap h2')].map((node) => node.textContent)");
+    const caret = await jsOf('window.__mdpad.editor.state.selection.from');
+    const tabsAfter = await jsOf('window.api.listTabs()');
+    return { before, inserted, markdown, headings, caret, tabCount: tabsAfter.length };
+  })();
+  step(
+    'insert-template',
+    insertTemplateTest.inserted &&
+      typeof insertTemplateTest.inserted.body === 'string' &&
+      /## Agenda/.test(insertTemplateTest.inserted.body) &&
+      /alpha paragraph/.test(insertTemplateTest.markdown) &&
+      /## Agenda/.test(insertTemplateTest.markdown) &&
+      Array.isArray(insertTemplateTest.headings) &&
+      insertTemplateTest.headings.includes('Agenda') &&
+      insertTemplateTest.caret > 1,
+    {
+      inserted: String((insertTemplateTest.inserted && insertTemplateTest.inserted.body) || insertTemplateTest.inserted || '').slice(0, 120),
+      markdown: String(insertTemplateTest.markdown).slice(0, 120),
+      headings: insertTemplateTest.headings,
+      caret: insertTemplateTest.caret,
+      tabs: insertTemplateTest.tabCount,
     }
   );
 
