@@ -513,6 +513,11 @@ day's total, so the number reflects writing effort rather than the current size 
 
 ### New from template
 
+Settings → Advanced → **Manage templates…** opens a list of your custom templates with their first
+line, a **Rename** field and a delete button. Renaming keeps the content and refuses to replace an
+existing template.
+
+
 **Insert template…** (palette) inserts a template at the caret in the current document — meeting notes
 in the middle of a project log, for example. The markdown is converted before insertion, so headings and
 tables arrive formatted, and the caret lands where `{cursor}` was.

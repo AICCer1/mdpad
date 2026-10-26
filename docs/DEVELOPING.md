@@ -767,3 +767,9 @@ it once `doc:loaded` installs the content.
 `setContent` but not by insertion, and the result was literal `##` text. `markdown:toHtml` converts the
 body with the same `renderBody` the exporter uses, and the renderer falls back to plain text if that ever
 fails. The caret moves to the `{cursor}` offset or the end of the inserted block.
+
+## Template manager
+
+`templates:rename` moves `<profile>/templates/<old>.md` to the new name and refuses when the target
+already exists, so a rename can never overwrite another template. The manager modal renders the first
+non-empty line as a preview and re-opens itself after a rename or delete.

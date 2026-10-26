@@ -489,6 +489,60 @@ async function openTemplateChooser(mode = 'new') {
 }
 
 // Inserting reuses the same templates and variables; only the target differs (the caret, not a new tab).
+async function openTemplateManager() {
+  const modal = document.querySelector('#template-manager');
+  const list = document.querySelector('#template-manager-list');
+  const templates = await window.api.templatesList().catch(() => []);
+  list.textContent = '';
+  if (!templates.length) {
+    const empty = document.createElement('div');
+    empty.className = 'name-hint';
+    empty.textContent = t('template.empty', lang);
+    list.appendChild(empty);
+  }
+  for (const template of templates) {
+    const row = document.createElement('div');
+    row.className = 'template-manage-row';
+    const name = document.createElement('span');
+    name.className = 'template-manage-name';
+    name.textContent = template.name;
+    const preview = document.createElement('span');
+    preview.className = 'template-manage-preview';
+    preview.textContent = template.body.split('\n').find((line) => line.trim()) || '';
+    const rename = document.createElement('button');
+    rename.type = 'button';
+    rename.textContent = t('template.rename', lang);
+    rename.addEventListener('click', async () => {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = template.name;
+      input.className = 'template-manage-input';
+      const save = document.createElement('button');
+      save.type = 'button';
+      save.textContent = t('template.save', lang);
+      save.addEventListener('click', async () => {
+        const result = await window.api.templatesRename(template.id, input.value);
+        if (!result || !result.ok) flash((result && result.error) || 'Could not rename the template');
+        openTemplateManager();
+      });
+      row.textContent = '';
+      row.append(input, save);
+      input.focus();
+    });
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.textContent = '×';
+    remove.title = 'Delete this template';
+    remove.addEventListener('click', async () => {
+      await window.api.templatesDelete(template.id);
+      openTemplateManager();
+    });
+    row.append(name, preview, rename, remove);
+    list.appendChild(row);
+  }
+  modal.hidden = false;
+}
+
 async function insertTemplate(id, body = null) {
   const now = new Date();
   const title = (document.querySelector('#doc-name').textContent || 'Untitled').replace(/\.[^.]+$/, '').trim() || 'Untitled';
@@ -5279,6 +5333,12 @@ function applySectionState(state) {
   }
 }
 
+document.querySelector('#set-manage-templates')?.addEventListener('click', () => openTemplateManager());
+
+document.querySelector('#template-manager-close')?.addEventListener('click', () => {
+  document.querySelector('#template-manager').hidden = true;
+});
+
 document.querySelector('#set-palette-clear')?.addEventListener('click', async () => {
   paletteUsage = {};
   await window.api.setSettings({ paletteUsage: {} }).catch(() => {});
@@ -8191,6 +8251,15 @@ window.__mdpad = {
     rows: [...document.querySelectorAll('#template-list .template-row')].map((row) => row.dataset.template),
   }),
   openTemplateChooser: (mode) => openTemplateChooser(mode || 'new'),
+  openTemplateManager: () => openTemplateManager(),
+  templateManagerState: () => ({
+    open: !document.querySelector('#template-manager').hidden,
+    rows: [...document.querySelectorAll('#template-manager-list .template-manage-row')].map((row) => ({
+      name: (row.querySelector('.template-manage-name') || {}).textContent || '',
+      preview: (row.querySelector('.template-manage-preview') || {}).textContent || '',
+    })),
+    empty: Boolean(document.querySelector('#template-manager-list .name-hint')),
+  }),
   insertTemplate: (id, body) => insertTemplate(id, body),
   createFromTemplate: (id) => createFromTemplate(id),
   exportPanelState: () => ({

@@ -1369,3 +1369,18 @@ Object.assign(DICT.zh, {
   'template.cancel': '取消',
   'template.newFrom': '从模板新建…',
 });
+
+Object.assign(DICT.en, {
+  'template.manage': 'Manage templates…',
+  'template.manageTitle': 'Templates',
+  'template.rename': 'Rename',
+  'template.save': 'Save',
+  'template.empty': 'No custom templates yet. Use “Save document as template…” from the palette.',
+});
+Object.assign(DICT.zh, {
+  'template.manage': '管理模板…',
+  'template.manageTitle': '模板',
+  'template.rename': '重命名',
+  'template.save': '保存',
+  'template.empty': '还没有自定义模板。可在命令面板使用「保存为模板」。',
+});

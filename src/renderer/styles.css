@@ -2484,3 +2484,9 @@ html.table-dragging-column, html.table-dragging-column * { cursor: col-resize !i
 .template-row.is-custom { display: flex; justify-content: space-between; align-items: center; }
 .template-remove { color: var(--muted); padding: 0 4px; font-size: 14px; line-height: 1; }
 .template-remove:hover { color: var(--text); }
+
+.template-manage-row { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+.template-manage-name { font-weight: 600; }
+.template-manage-preview { flex: 1 1 auto; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.template-manage-row button { padding: 2px 8px; font-size: 11.5px; }
+.template-manage-input { flex: 1 1 auto; min-width: 120px; }

@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.17.0
+
+Templates you can manage, not just pick.
+
+- **Settings → Advanced → Manage templates…** lists custom templates with their first line and offers
+  rename and delete in place. Renaming keeps the content and **refuses to overwrite** an existing name.
+- 354 smoke checks (one new: `template-manager` saves two templates, asserts the list and preview, renames
+  one and deletes the other), 219 unit tests.
+- The check initially expected the preview to be the template body; it is the first line, which is what a
+  reader needs.
+
 ## 2.16.0
 
 Put a template where you are, not in a new tab.

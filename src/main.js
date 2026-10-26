@@ -1864,6 +1864,23 @@ function registerIpc() {
     }
   });
 
+  ipcMain.handle('templates:rename', (event, { id, name } = {}) => {
+    const from = String(id || '').replace(/^custom:/, '');
+    const clean = String(name || '').trim().replace(/[\\/:*?"<>|]/g, '-').slice(0, 60);
+    if (!from || !clean) return { ok: false, error: 'A name is required' };
+    try {
+      const dir = templatesDir();
+      const source = path.join(dir, from + '.md');
+      const target = path.join(dir, clean + '.md');
+      if (!fs.existsSync(source)) return { ok: false, reason: 'missing' };
+      if (source !== target && fs.existsSync(target)) return { ok: false, error: 'A template with that name already exists' };
+      fs.renameSync(source, target);
+      return { ok: true, id: 'custom:' + clean, name: clean };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
   ipcMain.handle('templates:delete', (event, { id } = {}) => {
     const name = String(id || '').replace(/^custom:/, '');
     if (!name) return { ok: false };
@@ -14720,6 +14737,51 @@ async function runSmoke() {
       headings: insertTemplateTest.headings,
       caret: insertTemplateTest.caret,
       tabs: insertTemplateTest.tabCount,
+    }
+  );
+
+  // 185. templates can be managed in one place: preview, rename, delete
+  const templateManagerTest = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    await jsOf("window.api.templatesDelete('custom:Alpha')");
+    await jsOf("window.api.templatesDelete('custom:Beta')");
+    await jsOf("window.api.templatesSave('Alpha', '# Alpha template\\n\\nfirst line preview')");
+    await jsOf("window.api.templatesSave('Beta', '# Beta template\\n\\nsecond')");
+    await jsOf('window.__mdpad.openTemplateManager()');
+    await sleep(500);
+    const opened = await jsOf('window.__mdpad.templateManagerState()');
+    const renamed = await jsOf("window.api.templatesRename('custom:Alpha', 'Alpha v2')");
+    await jsOf('window.__mdpad.openTemplateManager()');
+    await sleep(400);
+    const afterRename = await jsOf('window.__mdpad.templateManagerState()');
+    const deleted = await jsOf("window.api.templatesDelete('custom:Beta')");
+    await jsOf('window.__mdpad.openTemplateManager()');
+    await sleep(400);
+    const afterDelete = await jsOf('window.__mdpad.templateManagerState()');
+    await jsOf("document.querySelector('#template-manager').hidden = true");
+    await jsOf("window.api.templatesDelete('custom:Alpha v2')");
+    return { opened, renamed, afterRename, deleted, afterDelete };
+  })();
+  step(
+    'template-manager',
+    templateManagerTest.opened &&
+      templateManagerTest.opened.open === true &&
+      templateManagerTest.opened.rows.length >= 2 &&
+      templateManagerTest.opened.rows.some(
+        (row) => row.name === 'Alpha' && /# Alpha template/.test(row.preview)
+      ) &&
+      templateManagerTest.renamed &&
+      templateManagerTest.renamed.ok === true &&
+      templateManagerTest.afterRename.rows.some((row) => row.name === 'Alpha v2') &&
+      !templateManagerTest.afterRename.rows.some((row) => row.name === 'Alpha') &&
+      templateManagerTest.deleted &&
+      templateManagerTest.deleted.ok === true &&
+      templateManagerTest.afterDelete.rows.length === templateManagerTest.afterRename.rows.length - 1,
+    {
+      opened: templateManagerTest.opened,
+      renamed: templateManagerTest.renamed,
+      afterRename: templateManagerTest.afterRename,
+      afterDelete: templateManagerTest.afterDelete,
     }
   );
 
