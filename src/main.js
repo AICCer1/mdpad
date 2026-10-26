@@ -1824,6 +1824,59 @@ function registerIpc() {
     return s.loadDocument(filePaths[0]);
   });
 
+  // Custom templates are plain markdown files in the profile: portable, editable, and easy to back up.
+  const templatesDir = () => path.join(userDir(), 'templates');
+
+  ipcMain.handle('templates:list', () => {
+    try {
+      const dir = templatesDir();
+      if (!fs.existsSync(dir)) return [];
+      return fs
+        .readdirSync(dir)
+        .filter((name) => name.endsWith('.md'))
+        .slice(0, 50)
+        .map((name) => {
+          const file = path.join(dir, name);
+          const raw = storage.readIfExists(file) || '';
+          return {
+            id: 'custom:' + name.replace(/\.md$/, ''),
+            name: name.replace(/\.md$/, ''),
+            body: raw.slice(0, 200000),
+          };
+        });
+    } catch (err) {
+      logLine('templates', 'list failed: ' + err.message);
+      return [];
+    }
+  });
+
+  ipcMain.handle('templates:save', (event, { name, body } = {}) => {
+    const clean = String(name || '').trim().replace(/[\\/:*?"<>|]/g, '-').slice(0, 60);
+    if (!clean) return { ok: false, error: 'A name is required' };
+    try {
+      const dir = templatesDir();
+      fs.mkdirSync(dir, { recursive: true });
+      const file = path.join(dir, clean + '.md');
+      fs.writeFileSync(file, String(body || ''), 'utf8');
+      return { ok: true, id: 'custom:' + clean, name: clean, path: file };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('templates:delete', (event, { id } = {}) => {
+    const name = String(id || '').replace(/^custom:/, '');
+    if (!name) return { ok: false };
+    try {
+      const file = path.join(templatesDir(), name + '.md');
+      if (!fs.existsSync(file)) return { ok: false, reason: 'missing' };
+      fs.unlinkSync(file);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
   ipcMain.handle('doc:newFromTemplate', (event, { body } = {}) => {
     const session = sessionFor(event);
     if (!session) return { ok: false };
@@ -14490,7 +14543,7 @@ async function runSmoke() {
     const state = await jsOf('window.__mdpad.templateState()');
     // choose the weekly report
     const created = await jsOf("window.__mdpad.createFromTemplate('weekly')");
-    await sleep(600);
+    await sleep(1200);
     const markdown = await jsOf('window.__mdpad.getMarkdown()');
     const tabs = await jsOf('window.api.listTabs()');
     const meta = await jsOf('window.api.info()');
@@ -14515,6 +14568,64 @@ async function runSmoke() {
       markdown: String(templatesTest.markdown).slice(0, 120),
       file: templatesTest.file,
       tabs: templatesTest.tabs && templatesTest.tabs.length,
+    }
+  );
+
+  // 182. the current document can become a template, and custom templates live in the profile
+  const customTemplate = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'custom-template.md');
+    fs.writeFileSync(doc, ['# Team Report', '', '## Wins', '', '- shipped the thing', '', '## Risks', ''].join(nl), 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('shipped the thing')");
+      if (ready === true) break;
+    }
+    await sleep(400);
+    const saved = await jsOf("window.__mdpad.saveAsTemplate('Team Report')");
+    const list = await jsOf('window.__mdpad.customTemplateState()');
+    await jsOf('window.__mdpad.openTemplateChooser()');
+    await sleep(500);
+    const rows = await jsOf('window.__mdpad.templateState()');
+    await jsOf("document.querySelector('#template-chooser').hidden = true");
+    const body = list && list[0] ? list[0].chars : 0;
+    const created = await jsOf("window.__mdpad.createFromCustom('custom:Team Report')");
+    await sleep(600);
+    const markdown = await jsOf('window.__mdpad.getMarkdown()');
+    const removed = await jsOf("window.api.templatesDelete('custom:Team Report')");
+    const after = await jsOf('window.__mdpad.customTemplateState()');
+    return { saved, list, rows, body, created, markdown, removed, after };
+  })();
+  step(
+    'custom-template',
+    customTemplate.saved &&
+      customTemplate.saved.ok === true &&
+      customTemplate.saved.name === 'Team Report' &&
+      Array.isArray(customTemplate.list) &&
+      customTemplate.list.length === 1 &&
+      customTemplate.list[0].id === 'custom:Team Report' &&
+      customTemplate.list[0].chars > 20 &&
+      customTemplate.rows &&
+      customTemplate.rows.rows.includes('custom:Team Report') &&
+      customTemplate.created &&
+      customTemplate.created.id === 'custom' &&
+      /## Wins/.test(customTemplate.markdown) &&
+      customTemplate.removed &&
+      customTemplate.removed.ok === true &&
+      Array.isArray(customTemplate.after) &&
+      customTemplate.after.length === 0,
+    {
+      saved: customTemplate.saved,
+      list: customTemplate.list,
+      rows: customTemplate.rows && customTemplate.rows.rows,
+      created: customTemplate.created && customTemplate.created.id,
+      removed: customTemplate.removed,
+      after: customTemplate.after,
+      markdown: String(customTemplate.markdown || '').slice(0, 120),
+      created: customTemplate.created,
     }
   );
 

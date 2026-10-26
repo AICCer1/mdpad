@@ -446,22 +446,50 @@ async function openTemplateChooser() {
   const modal = document.querySelector('#template-chooser');
   const list = document.querySelector('#template-list');
   list.textContent = '';
-  for (const template of listTemplates(lang)) {
+  const custom = await window.api.templatesList().catch(() => []);
+  const entries = [...listTemplates(lang), ...custom];
+  for (const template of entries) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'template-row';
     button.textContent = template.name;
     button.dataset.template = template.id;
+    if (String(template.id).startsWith('custom:')) {
+      button.classList.add('is-custom');
+      const remove = document.createElement('span');
+      remove.className = 'template-remove';
+      remove.textContent = '×';
+      remove.title = 'Delete this template';
+      remove.addEventListener('click', async (event) => {
+        event.stopPropagation();
+        await window.api.templatesDelete(template.id);
+        openTemplateChooser();
+      });
+      button.appendChild(remove);
+    }
     button.addEventListener('click', async () => {
       modal.hidden = true;
-      await createFromTemplate(template.id);
+      if (String(template.id).startsWith('custom:')) {
+        await createFromTemplate('custom', template.body);
+      } else {
+        await createFromTemplate(template.id);
+      }
     });
     list.appendChild(button);
   }
   modal.hidden = false;
 }
 
-async function createFromTemplate(id) {
+async function createFromTemplate(id, body = null) {
+  if (id === 'custom') {
+    await flushChange();
+    const result = await window.api.newFromTemplate(String(body || ''));
+    if (!result || !result.ok) {
+      flash('Could not create the document');
+      return null;
+    }
+    return { id: 'custom', body };
+  }
   const filled = fillTemplate(id, {
     date: new Date().toISOString().slice(0, 10),
     lang,
@@ -473,6 +501,21 @@ async function createFromTemplate(id) {
     return null;
   }
   return { id: filled.id, name: filled.name, body: filled.body };
+}
+
+async function saveAsTemplate(name) {
+  const body = currentMarkdown();
+  const result = await window.api.templatesSave(name, body);
+  if (result && result.ok) showToast('Template saved: ' + result.name, 5000, []);
+  else flash(result && result.error ? result.error : 'Could not save the template');
+  return result;
+}
+
+async function promptTemplateName() {
+  const suggested =
+    (document.querySelector('#doc-name').textContent || 'Template').replace(/\.[^.]+$/, '').trim() || 'Template';
+  const name = window.prompt ? window.prompt('Template name', suggested) : suggested;
+  return name;
 }
 
 async function openExportPanel(format = 'pdf') {
@@ -8069,6 +8112,16 @@ window.__mdpad = {
       width: image.naturalWidth,
       bytes: image.getAttribute('src') ? image.getAttribute('src').length : 0,
     };
+  },
+  customTemplateState: async () => {
+    const list = await window.api.templatesList();
+    return list.map((entry) => ({ id: entry.id, name: entry.name, chars: entry.body.length }));
+  },
+  saveAsTemplate: (name) => saveAsTemplate(name),
+  createFromCustom: async (id) => {
+    const list = await window.api.templatesList();
+    const entry = list.find((item) => item.id === id);
+    return createFromTemplate('custom', entry ? entry.body : '');
   },
   templateState: () => ({
     open: !document.querySelector('#template-chooser').hidden,

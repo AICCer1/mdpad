@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.14.0
+
+Your team’s weekly format can be a template.
+
+- **Save document as template…** writes the current document to `<profile>/templates/<name>.md`; custom
+  templates appear in the same chooser as the four built-ins, with a × to delete them. Plain files, so
+  they can be edited, versioned or copied between machines.
+- Limits are explicit: 50 files, 200 KB per template, names sanitised to a safe file name.
+- 351 smoke checks (one new: `custom-template` saves the open document, asserts the file, the list, the
+  chooser row, creating a document from it and deleting it again), 214 unit tests.
+- A bug worth naming: the test passed the template body through a JSON literal that turned `undefined`
+  into the string "undefined", so the new document was empty. Creating from a custom template now
+  resolves the body inside the renderer.
+
 ## 2.13.0
 
 Start a document from a skeleton, not from nothing.

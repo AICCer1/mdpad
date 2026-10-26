@@ -513,6 +513,12 @@ day's total, so the number reflects writing effort rather than the current size 
 
 ### New from template
 
+**Save document as template…** (palette) stores the current document under
+`<profile>/templates/<name>.md`; the name comes from the document name. Custom templates show up in the
+chooser below the built-in four, with a × to delete them. Because they are plain files, they can be
+edited, versioned or copied to another machine.
+
+
 The command palette has **New from template…** with four choices: blank, weekly report, meeting notes,
 and a long-form skeleton. Each fills a title with today’s date and the headings the format needs; the
 document is untitled so the first save asks where it goes.

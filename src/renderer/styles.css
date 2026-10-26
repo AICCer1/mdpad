@@ -2480,3 +2480,7 @@ html.table-dragging-column, html.table-dragging-column * { cursor: col-resize !i
   background: var(--panel); color: var(--text); cursor: pointer;
 }
 .template-row:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+
+.template-row.is-custom { display: flex; justify-content: space-between; align-items: center; }
+.template-remove { color: var(--muted); padding: 0 4px; font-size: 14px; line-height: 1; }
+.template-remove:hover { color: var(--text); }

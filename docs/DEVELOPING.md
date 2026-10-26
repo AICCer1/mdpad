@@ -746,3 +746,10 @@ produces no chip.
 product, so they live in a tested module rather than in the renderer. `doc:newFromTemplate` creates an
 untitled tab with the body and activates it; the renderer does not apply the markdown again, because
 `doc:loaded` already carries it.
+
+## Custom templates
+
+`templates:list/save/delete` manage `<profile>/templates/*.md`, capped at 50 files and 200 KB per body.
+Names are sanitised to a safe file name. The chooser merges `listTemplates()` with the custom list;
+custom rows carry `custom:<name>` ids, `createFromCustom` resolves the body once, and the × deletes the
+file and reopens the chooser.
