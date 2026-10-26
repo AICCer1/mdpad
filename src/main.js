@@ -14629,6 +14629,45 @@ async function runSmoke() {
     }
   );
 
+  // 183. templates understand {date}, {time}, {title} and {cursor}, and leave unknown ones alone
+  const templateVars = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const saved = await jsOf(
+      "window.__mdpad.saveAsTemplate('Vars Probe')"
+    );
+    const custom = await jsOf('window.api.templatesSave(\'Vars Probe\', "# {title} — {date} {time}\\n\\n- {cursor}\\n\\n{project}\\n")');
+    const created = await jsOf("window.__mdpad.createFromCustom('custom:Vars Probe')");
+    await sleep(900);
+    const markdown = await jsOf('window.__mdpad.getMarkdown()');
+    const caret = await jsOf(`(() => {
+      const ed = window.__mdpad.editor;
+      const { from } = ed.state.selection;
+      return { from, text: ed.state.doc.textBetween(0, from, ' ') };
+    })()`);
+    await jsOf("window.api.templatesDelete('custom:Vars Probe')");
+    return { saved, custom, created, markdown, caret };
+  })();
+  step(
+    'template-vars',
+    templateVars.custom &&
+      templateVars.custom.ok === true &&
+      templateVars.created &&
+      templateVars.created.id === 'custom' &&
+      typeof templateVars.created.cursor === 'number' &&
+      /# Untitled — \d{4}-\d{2}-\d{2} \d{2}:\d{2}/m.test(templateVars.markdown) &&
+      /\{project\}/.test(templateVars.markdown) &&
+      !/\{cursor\}/.test(templateVars.markdown) &&
+      templateVars.caret &&
+      templateVars.caret.from === templateVars.created.cursor + 1 &&
+      /-\s*$/.test(templateVars.caret.text),
+    {
+      custom: templateVars.custom,
+      created: templateVars.created,
+      markdown: String(templateVars.markdown).slice(0, 120),
+      caret: templateVars.caret,
+    }
+  );
+
   // 30k. the settings filter narrows the visible fields
   const filterTest = await win.webContents.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

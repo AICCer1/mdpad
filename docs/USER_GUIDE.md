@@ -513,6 +513,11 @@ day's total, so the number reflects writing effort rather than the current size 
 
 ### New from template
 
+Template bodies understand four placeholders: **{date}**, **{time}**, **{title}** (the current document
+name) and **{cursor}**, which is removed and leaves the caret ready to type. Anything else, such as
+`{project}`, is kept exactly as written so your own conventions survive.
+
+
 **Save document as template…** (palette) stores the current document under
 `<profile>/templates/<name>.md`; the name comes from the document name. Custom templates show up in the
 chooser below the built-in four, with a × to delete them. Because they are plain files, they can be

@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.15.0
+
+Templates that know what day it is.
+
+- **`{date}`, `{time}`, `{title}` and `{cursor}`** work in built-in and custom templates. The cursor
+  placeholder is removed and the caret lands there, ready to type.
+- **Unknown placeholders are preserved** (`{project}` stays `{project}`): a template is the writer’s
+  convention, not the app’s.
+- The long-form skeleton now uses `{title}` for its first heading.
+- 352 smoke checks (one new: `template-vars` writes a custom template with all four placeholders, creates
+  a document from it and asserts the filled date/time, the kept unknown placeholder and the caret
+  offset), 219 unit tests.
+- A bug the check caught: custom templates skipped the variable pass entirely, so a saved template kept
+  its `{date}` literally. Both paths now share one helper.
+
 ## 2.14.0
 
 Your team’s weekly format can be a template.

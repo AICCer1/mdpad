@@ -5,7 +5,7 @@
 
 import { Editor, Extension, markInputRule } from '@tiptap/core';
 import { sentenceBounds } from '../sentence.js';
-import { listTemplates, fillTemplate } from '../templates.js';
+import { listTemplates, fillTemplate, applyVariables } from '../templates.js';
 import { Plugin, PluginKey, Selection } from '@tiptap/pm/state';
 import { wrapIn, lift } from 'prosemirror-commands';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
@@ -483,24 +483,39 @@ async function openTemplateChooser() {
 async function createFromTemplate(id, body = null) {
   if (id === 'custom') {
     await flushChange();
-    const result = await window.api.newFromTemplate(String(body || ''));
+    const now = new Date();
+    const documentTitle = (document.querySelector('#doc-name').textContent || 'Untitled').replace(/\.[^.]+$/, '').trim() || 'Untitled';
+    const filled = applyVariables(String(body || ''), {
+      date: now.toISOString().slice(0, 10),
+      time: now.toTimeString().slice(0, 5),
+      title: documentTitle,
+    });
+    pendingTemplateCaret = filled.cursor;
+    const result = await window.api.newFromTemplate(filled.body);
     if (!result || !result.ok) {
+      pendingTemplateCaret = null;
       flash('Could not create the document');
       return null;
     }
-    return { id: 'custom', body };
+    return { id: 'custom', body: filled.body, cursor: filled.cursor };
   }
+  const now = new Date();
+  const documentTitle = (document.querySelector('#doc-name').textContent || 'Untitled').replace(/\.[^.]+$/, '').trim() || 'Untitled';
   const filled = fillTemplate(id, {
-    date: new Date().toISOString().slice(0, 10),
+    date: now.toISOString().slice(0, 10),
+    time: now.toTimeString().slice(0, 5),
+    title: documentTitle,
     lang,
   });
   await flushChange();
+  pendingTemplateCaret = filled.cursor;
   const result = await window.api.newFromTemplate(filled.body);
   if (!result || !result.ok) {
+    pendingTemplateCaret = null;
     flash('Could not create the document');
     return null;
   }
-  return { id: filled.id, name: filled.name, body: filled.body };
+  return { id: filled.id, name: filled.name, body: filled.body, cursor: filled.cursor };
 }
 
 async function saveAsTemplate(name) {
@@ -830,6 +845,7 @@ const paragraphHighlightKey = new PluginKey('mdpadParagraphHighlight');
 // the caret. Same decoration technique as the paragraph soft highlight.
 const sentenceHighlightKey = new PluginKey('mdpadSentenceHighlight');
 let highlightSentenceEnabled = false;
+let pendingTemplateCaret = null;
 
 const SentenceHighlight = Extension.create({
   name: 'mdpadSentenceHighlight',
@@ -7637,6 +7653,17 @@ window.api.onLoaded(async ({ id, file, contents, draft, view }) => {
   }
   activeTabId = nextId;
   syncEmptyHint();
+  if (pendingTemplateCaret != null) {
+    const max = editor.state.doc.content.size;
+    const target = Math.max(1, Math.min(max, pendingTemplateCaret + 1));
+    pendingTemplateCaret = null;
+    try {
+      editor.commands.setTextSelection(target);
+      editor.commands.focus();
+    } catch {
+      /* an empty document has no valid position */
+    }
+  }
   if (view && typeof view.scrollTop === 'number') tabScroll.set(nextId, Math.max(0, view.scrollTop));
   if (view && typeof view.cursor === 'number') {
     const max = editor.state.doc.content.size;

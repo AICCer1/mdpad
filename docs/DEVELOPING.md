@@ -753,3 +753,10 @@ untitled tab with the body and activates it; the renderer does not apply the mar
 Names are sanitised to a safe file name. The chooser merges `listTemplates()` with the custom list;
 custom rows carry `custom:<name>` ids, `createFromCustom` resolves the body once, and the × deletes the
 file and reopens the chooser.
+
+## Template variables
+
+`applyVariables(text, {date, time, title})` is shared by built-in (`fillTemplate`) and custom templates.
+It returns `{body, cursor}` where `cursor` is the offset of the removed `{cursor}` placeholder; unknown
+placeholders pass through untouched. The renderer keeps the offset in `pendingTemplateCaret` and applies
+it once `doc:loaded` installs the content.

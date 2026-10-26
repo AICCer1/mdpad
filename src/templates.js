@@ -3,7 +3,9 @@
 // Skeletons for a new document. Kept pure so the wording and structure can be tested, and so the
 // renderer never builds markdown by hand.
 //
-// {date} and {time} are filled by the caller so the module stays deterministic.
+// {date}, {time}, {title} and {cursor} are filled by the caller so the module stays deterministic.
+// An unknown placeholder such as {project} is left in place: silently deleting it would lose the
+// writer's own convention.
 
 const TEMPLATES = [
   {
@@ -68,7 +70,7 @@ const TEMPLATES = [
     id: 'longform',
     name: { en: 'Long-form skeleton', zh: '长文骨架' },
     body: [
-      '# Title',
+      '# {title}',
       '',
       'One sentence that says what this piece argues.',
       '',
@@ -96,10 +98,26 @@ function listTemplates(lang = 'en') {
   return TEMPLATES.map((template) => ({ id: template.id, name: (template.name[lang] || template.name.en) }));
 }
 
-function fillTemplate(id, { date = '', lang = 'en' } = {}) {
-  const template = TEMPLATES.find((entry) => entry.id === id) || TEMPLATES[0];
-  const body = template.body.split('{date}').join(date);
-  return { id: template.id, name: template.name[lang] || template.name.en, body };
+// Shared by built-in and custom templates: same placeholders, same rules.
+function applyVariables(text, { date = '', time = '', title = 'Untitled' } = {}) {
+  let body = String(text || '')
+    .split('{date}').join(date)
+    .split('{time}').join(time)
+    .split('{title}').join(title);
+  const at = body.indexOf('{cursor}');
+  body = body.split('{cursor}').join('');
+  return { body, cursor: at < 0 ? null : at };
 }
 
-module.exports = { listTemplates, fillTemplate, TEMPLATES };
+function fillTemplate(id, { date = '', time = '', title = 'Untitled', lang = 'en' } = {}) {
+  const template = TEMPLATES.find((entry) => entry.id === id) || TEMPLATES[0];
+  const filled = applyVariables(template.body, { date, time, title });
+  return {
+    id: template.id,
+    name: template.name[lang] || template.name.en,
+    body: filled.body,
+    cursor: filled.cursor,
+  };
+}
+
+module.exports = { listTemplates, fillTemplate, applyVariables, TEMPLATES };
