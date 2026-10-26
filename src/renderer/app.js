@@ -3882,6 +3882,22 @@ function sectionMarkdown() {
   return { markdown: lines.slice(headingLine, end).join('\n').trim() + '\n', title: heading.text };
 }
 
+async function exportAllFormats() {
+  document.querySelector('#export-modal').hidden = true;
+  const result = await window.api.exportBatch();
+  if (!result || result.canceled) return result;
+  if (result.ok) {
+    const ok = result.files.filter((entry) => !entry.error).length;
+    showToast('Exported ' + ok + ' formats', 9000, [
+      { label: 'Open manifest', run: () => window.api.openExportedFile(result.mdPath) },
+      { label: 'Show in folder', run: () => window.api.revealExportedFile(result.jsonPath) },
+    ]);
+  } else if (result.error) {
+    flash(result.error);
+  }
+  return result;
+}
+
 async function exportSection(format) {
   const section = sectionMarkdown();
   if (!section) {
@@ -8644,6 +8660,8 @@ window.__mdpad = {
     exportActionToast(target, name);
     return [...document.querySelectorAll('#toast .toast-action')].map((button) => button.textContent);
   },
+  exportAllFormats: () => exportAllFormats(),
+  exportBatchTo: (dir, formats) => window.api.exportBatchTo(dir, formats),
   exportScopeState: () => ({
     scope: exportScope,
     hint: (document.querySelector('#export-scope-hint') || {}).textContent || '',

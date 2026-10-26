@@ -773,3 +773,10 @@ fails. The caret moves to the `{cursor}` offset or the end of the inserted block
 `templates:rename` moves `<profile>/templates/<old>.md` to the new name and refuses when the target
 already exists, so a rename can never overwrite another template. The manager modal renders the first
 non-empty line as a preview and re-opens itself after a rename or delete.
+
+## Batch export
+
+`exportBatch(session, dir, formats)` runs each exporter through `session.exportTo`, records bytes, time
+and SHA256, and writes both a JSON and a Markdown manifest. Failures are captured per format, so one
+broken diagram cannot lose the other three files. `export:batch` picks the folder; `export:batchTo` takes
+an explicit directory for tests.

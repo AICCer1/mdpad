@@ -2459,6 +2459,79 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
     return session.exportTo(target, kind, null, String(markdown || session.contents || ''));
   });
 
+  // One action, all formats, one manifest: the hand-off bundle for reviewers and editors.
+  async function exportBatch(session, directory, formats = ['html', 'pdf', 'docx', 'epub']) {
+    const dir = directory || (session.file ? path.dirname(session.file) : app.getPath('documents'));
+    const base = session.file ? path.basename(session.file, path.extname(session.file)) : 'Untitled';
+    fs.mkdirSync(dir, { recursive: true });
+    const results = [];
+    for (const kind of formats) {
+      const target = path.join(dir, base + '.' + kind);
+      const started = Date.now();
+      try {
+        const result = await session.exportTo(target, kind);
+        const bytes = fs.statSync(target).size;
+        results.push({
+          kind,
+          file: path.basename(target),
+          path: target,
+          bytes,
+          ms: Date.now() - started,
+          sha256: crypto.createHash('sha256').update(fs.readFileSync(target)).digest('hex'),
+        });
+      } catch (err) {
+        results.push({ kind, file: path.basename(target), path: target, error: err.message, ms: Date.now() - started });
+      }
+    }
+    const manifest = {
+      document: session.file || null,
+      title: base,
+      exportedAt: new Date().toISOString(),
+      files: results,
+    };
+    const jsonPath = path.join(dir, base + '-manifest.json');
+    fs.writeFileSync(jsonPath, JSON.stringify(manifest, null, 2), 'utf8');
+    const lines = [
+      '# ' + base + ' — export manifest',
+      '',
+      '- Source: ' + (session.file || 'untitled'),
+      '- Exported: ' + manifest.exportedAt,
+      '',
+      '| Format | File | Size | SHA256 |',
+      '| --- | --- | --- | --- |',
+    ];
+    for (const entry of results) {
+      lines.push(
+        '| ' + entry.kind.toUpperCase() + ' | ' + entry.file + ' | ' +
+          (entry.bytes ? (entry.bytes / 1024).toFixed(0) + ' KB' : 'failed') + ' | ' +
+          (entry.sha256 || entry.error || '') + ' |'
+      );
+    }
+    lines.push('');
+    const mdPath = path.join(dir, base + '-manifest.md');
+    fs.writeFileSync(mdPath, lines.join('\n'), 'utf8');
+    return { ok: results.some((entry) => !entry.error), dir, jsonPath, mdPath, files: results };
+  }
+
+  ipcMain.handle('export:batchTo', async (event, { dir, formats } = {}) => {
+    const session = sessionFor(event);
+    if (!session) return { ok: false, error: 'no session' };
+    return exportBatch(session, dir, formats);
+  });
+
+  ipcMain.handle('export:batch', async (event) => {
+    const session = sessionFor(event);
+    if (!session) return { ok: false, error: 'no session' };
+    const dir = session.file ? path.dirname(session.file) : app.getPath('documents');
+    const { canceled, filePath } = await dialog.showOpenDialog(session.win, {
+      title: 'Export every format into…',
+      defaultPath: dir,
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    if (canceled || !filePath) return { ok: false, canceled: true };
+    return exportBatch(session, filePath);
+  });
+
   ipcMain.handle('export:inspect', (event) => {
     const s = sessionFor(event);
     const text = String((s && s.contents) || '');
@@ -14782,6 +14855,58 @@ async function runSmoke() {
       renamed: templateManagerTest.renamed,
       afterRename: templateManagerTest.afterRename,
       afterDelete: templateManagerTest.afterDelete,
+    }
+  );
+
+  // 186. every format can be exported at once, with a manifest that names and checksums each file
+  const batchExport = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'batch-source.md');
+    fs.writeFileSync(doc, ['# Batch', '', 'one paragraph for the bundle', ''].join(nl), 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('one paragraph')");
+      if (ready === true) break;
+    }
+    await sleep(400);
+    const outDir = path.join(dir, 'bundle');
+    fs.rmSync(outDir, { recursive: true, force: true });
+    const result = await jsOf(`window.api.exportBatchTo(${JSON.stringify(outDir)}, ['html', 'docx', 'epub', 'pdf'])`);
+    const json = fs.existsSync(path.join(outDir, 'batch-source-manifest.json'))
+      ? JSON.parse(fs.readFileSync(path.join(outDir, 'batch-source-manifest.json'), 'utf8'))
+      : null;
+    const md = fs.existsSync(path.join(outDir, 'batch-source-manifest.md'))
+      ? fs.readFileSync(path.join(outDir, 'batch-source-manifest.md'), 'utf8')
+      : '';
+    const files = ['html', 'docx', 'epub', 'pdf'].map((kind) => path.join(outDir, 'batch-source.' + kind));
+    return {
+      result,
+      json,
+      md,
+      present: files.filter((file) => fs.existsSync(file)).length,
+      sizes: files.map((file) => (fs.existsSync(file) ? fs.statSync(file).size : 0)),
+    };
+  })();
+  step(
+    'batch-export',
+    batchExport.result &&
+      batchExport.result.ok === true &&
+      batchExport.present === 4 &&
+      batchExport.sizes.every((size) => size > 0) &&
+      batchExport.json &&
+      batchExport.json.files.length === 4 &&
+      batchExport.json.files.every((entry) => /^[0-9a-f]{64}$/.test(entry.sha256 || '')) &&
+      /export manifest/.test(batchExport.md) &&
+      /batch-source\.pdf/.test(batchExport.md),
+    {
+      ok: batchExport.result && batchExport.result.ok,
+      present: batchExport.present,
+      sizes: batchExport.sizes,
+      files: batchExport.json && batchExport.json.files.map((entry) => entry.kind),
+      manifest: batchExport.md.slice(0, 120),
     }
   );
 

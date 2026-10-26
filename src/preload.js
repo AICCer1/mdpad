@@ -120,6 +120,8 @@ contextBridge.exposeInMainWorld('api', {
   docStructure: () => ipcRenderer.invoke('doc:structure'),
   setViewState: (payload) => ipcRenderer.invoke('view:set', payload),
   exportSection: (markdown, format) => ipcRenderer.invoke('export:section', { markdown, format }),
+  exportBatch: () => ipcRenderer.invoke('export:batch'),
+  exportBatchTo: (dir, formats) => ipcRenderer.invoke('export:batchTo', { dir, formats }),
   exportHistory: () => ipcRenderer.invoke('settings:get').then((settings) => settings.exportHistory || []),
   clearExportHistory: () => ipcRenderer.invoke('settings:set', { exportHistory: [] }),
   exportSectionTo: (path, markdown, format) => ipcRenderer.invoke('export:sectionTo', { path, markdown, format }),

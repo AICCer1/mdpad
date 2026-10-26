@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.18.0
+
+One folder, every format, one manifest.
+
+- **Export every format…** writes HTML, PDF, DOCX and EPUB into a chosen folder and adds
+  `<name>-manifest.json` and `<name>-manifest.md` with size, duration and **SHA256** per file — the
+  hand-off bundle for reviewers.
+- **A failed format does not abort the rest**: the error is recorded in the manifest and the other files
+  still finish.
+- 355 smoke checks (one new: `batch-export` exports all four, asserts the files are non-empty, the
+  manifest has four entries with valid SHA256 and the Markdown lists the PDF), 219 unit tests.
+
 ## 2.17.0
 
 Templates you can manage, not just pick.

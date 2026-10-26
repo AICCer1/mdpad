@@ -448,7 +448,12 @@ The toast that follows an export has three buttons: **Open** (in your default ap
 and **Copy path**. If the file has been moved or the folder cannot be opened, the status line says so
 instead of silently doing nothing.
 
-### Choosing what to export
+### Export every format
+
+**Export every format…** (palette) asks for a folder and writes HTML, PDF, DOCX and EPUB there, plus
+`<name>-manifest.json` and `<name>-manifest.md` listing each file with its size and SHA256. A format
+that fails is recorded with its error; the others still finish.
+
 
 **Page numbers** adds the document title and `n / total` to each PDF page. Turning it off makes a
 large PDF export about 14% faster, at the cost of page numbers.
