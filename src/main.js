@@ -1824,6 +1824,16 @@ function registerIpc() {
     return s.loadDocument(filePaths[0]);
   });
 
+  ipcMain.handle('doc:newFromTemplate', (event, { body } = {}) => {
+    const session = sessionFor(event);
+    if (!session) return { ok: false };
+    const id = session.newTabId();
+    const contents = String(body || '');
+    session.tabs.set(id, { id, file: null, contents, savedContents: '', dirtySeed: contents.length > 0 });
+    session.watchDocument(null);
+    return { ok: true, ...session.activateTab(id) };
+  });
+
   ipcMain.handle('doc:new', (event) => {
     const s = sessionFor(event);
     s.stashActive();
@@ -14468,6 +14478,43 @@ async function runSmoke() {
       firstAvg: reportTrendTest.first.sentences.avgWords,
       secondAvg: reportTrendTest.second.sentences.avgWords,
       passive: reportTrendTest.second.style.passiveCount,
+    }
+  );
+
+  // 181. a new document can start from a skeleton instead of nothing
+  const templatesTest = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    await jsOf("document.querySelector('#template-chooser').hidden = true");
+    const opened = await jsOf('window.__mdpad.openTemplateChooser ? window.__mdpad.openTemplateChooser() : null');
+    await sleep(300);
+    const state = await jsOf('window.__mdpad.templateState()');
+    // choose the weekly report
+    const created = await jsOf("window.__mdpad.createFromTemplate('weekly')");
+    await sleep(600);
+    const markdown = await jsOf('window.__mdpad.getMarkdown()');
+    const tabs = await jsOf('window.api.listTabs()');
+    const meta = await jsOf('window.api.info()');
+    await jsOf("document.querySelector('#template-chooser').hidden = true");
+    return { opened, state, created, markdown, tabs, file: meta.file };
+  })();
+  step(
+    'templates',
+    templatesTest.state &&
+      templatesTest.state.open === true &&
+      templatesTest.state.rows.join(',') === 'blank,weekly,meeting,longform' &&
+      templatesTest.created &&
+      templatesTest.created.id === 'weekly' &&
+      /^# Weekly report — \d{4}-\d{2}-\d{2}/m.test(templatesTest.markdown) &&
+      /## Next week/.test(templatesTest.markdown) &&
+      templatesTest.file === null &&
+      Array.isArray(templatesTest.tabs) &&
+      templatesTest.tabs.length >= 1,
+    {
+      rows: templatesTest.state && templatesTest.state.rows,
+      created: templatesTest.created,
+      markdown: String(templatesTest.markdown).slice(0, 120),
+      file: templatesTest.file,
+      tabs: templatesTest.tabs && templatesTest.tabs.length,
     }
   );
 

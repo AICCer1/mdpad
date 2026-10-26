@@ -509,7 +509,14 @@ Set **Settings → Daily word goal** to a number (0 turns it off). The status ba
 first time it happens that day. Only words you add count: deleting a paragraph does not reduce the
 day's total, so the number reflects writing effort rather than the current size of the file.
 
-## Writing history
+## Writing
+
+### New from template
+
+The command palette has **New from template…** with four choices: blank, weekly report, meeting notes,
+and a long-form skeleton. Each fills a title with today’s date and the headings the format needs; the
+document is untitled so the first save asks where it goes.
+ history
 
 Click the "Today … / …" indicator in the status bar (or use the palette) to see the last 14 days
 as bars, with your streak and your best day. Bars turn the accent colour on days that met the

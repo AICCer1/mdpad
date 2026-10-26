@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.13.0
+
+Start a document from a skeleton, not from nothing.
+
+- **New from template…** in the palette offers a blank document, a **weekly report**, **meeting notes**
+  and a **long-form skeleton**. Each fills the date and the headings the format needs, and opens as an
+  untitled tab so the first save still asks where it goes.
+- **The templates are a tested module** (`src/templates.js`) with names in both languages, unique ids and
+  six unit tests; the renderer only renders the chooser.
+- 350 smoke checks (one new: `templates` opens the chooser, asserts the four rows, creates the weekly
+  report and checks the date heading, an untitled tab and the tab count), 214 unit tests.
+- One bug worth naming: the renderer applied the body a second time through a helper that does not
+  exist, so creation reported an error even though the document was correct.
+
 ## 2.12.0
 
 Reports now have a memory.

@@ -739,3 +739,10 @@ then reopens the report.
 `reportTrend(report)` compares them with `report.previous` and returns `{items, worse}`; the modal renders
 chips, the markdown renders "Trend vs previous report". A missing metric from an older report simply
 produces no chip.
+
+## Document templates
+
+`src/templates.js` exports `listTemplates(lang)` and `fillTemplate(id, {date, lang})`; the bodies are the
+product, so they live in a tested module rather than in the renderer. `doc:newFromTemplate` creates an
+untitled tab with the body and activates it; the renderer does not apply the markdown again, because
+`doc:loaded` already carries it.

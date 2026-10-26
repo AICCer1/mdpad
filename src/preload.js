@@ -34,6 +34,7 @@ contextBridge.exposeInMainWorld('api', {
   saveAs: () => ipcRenderer.invoke('doc:saveAs'),
   open: () => ipcRenderer.invoke('doc:open'),
   newDoc: () => ipcRenderer.invoke('doc:new'),
+  newFromTemplate: (body) => ipcRenderer.invoke('doc:newFromTemplate', { body }),
   reloadFile: () => ipcRenderer.invoke('doc:reload'),
   normalizeDoc: (contents) => ipcRenderer.invoke('doc:normalize', { contents }),
   exportHtml: () => ipcRenderer.invoke('doc:exportHtml'),

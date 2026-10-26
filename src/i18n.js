@@ -1358,3 +1358,14 @@ Object.assign(DICT.zh, {
 
 Object.assign(DICT.en, { 'stats.longestSentence': 'Longest sentence (words)' });
 Object.assign(DICT.zh, { 'stats.longestSentence': '最长句子（词）' });
+
+Object.assign(DICT.en, {
+  'template.title': 'New from template',
+  'template.cancel': 'Cancel',
+  'template.newFrom': 'New from template…',
+});
+Object.assign(DICT.zh, {
+  'template.title': '从模板新建',
+  'template.cancel': '取消',
+  'template.newFrom': '从模板新建…',
+});

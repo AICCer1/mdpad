@@ -5,6 +5,7 @@
 
 import { Editor, Extension, markInputRule } from '@tiptap/core';
 import { sentenceBounds } from '../sentence.js';
+import { listTemplates, fillTemplate } from '../templates.js';
 import { Plugin, PluginKey, Selection } from '@tiptap/pm/state';
 import { wrapIn, lift } from 'prosemirror-commands';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
@@ -438,6 +439,40 @@ async function renderExportHistory() {
   });
   list.appendChild(clear);
   return entries;
+}
+
+// A new document rarely starts from nothing; four skeletons cover most writing sessions.
+async function openTemplateChooser() {
+  const modal = document.querySelector('#template-chooser');
+  const list = document.querySelector('#template-list');
+  list.textContent = '';
+  for (const template of listTemplates(lang)) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'template-row';
+    button.textContent = template.name;
+    button.dataset.template = template.id;
+    button.addEventListener('click', async () => {
+      modal.hidden = true;
+      await createFromTemplate(template.id);
+    });
+    list.appendChild(button);
+  }
+  modal.hidden = false;
+}
+
+async function createFromTemplate(id) {
+  const filled = fillTemplate(id, {
+    date: new Date().toISOString().slice(0, 10),
+    lang,
+  });
+  await flushChange();
+  const result = await window.api.newFromTemplate(filled.body);
+  if (!result || !result.ok) {
+    flash('Could not create the document');
+    return null;
+  }
+  return { id: filled.id, name: filled.name, body: filled.body };
 }
 
 async function openExportPanel(format = 'pdf') {
@@ -8035,6 +8070,12 @@ window.__mdpad = {
       bytes: image.getAttribute('src') ? image.getAttribute('src').length : 0,
     };
   },
+  templateState: () => ({
+    open: !document.querySelector('#template-chooser').hidden,
+    rows: [...document.querySelectorAll('#template-list .template-row')].map((row) => row.dataset.template),
+  }),
+  openTemplateChooser: () => openTemplateChooser(),
+  createFromTemplate: (id) => createFromTemplate(id),
   exportPanelState: () => ({
     open: !document.querySelector('#export-modal').hidden,
     format: exportFormat,
