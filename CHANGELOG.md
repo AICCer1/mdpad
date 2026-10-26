@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.10.0
+
+Style hints, kept quiet on purpose.
+
+- **The structure report flags hedge words and possible passive constructions.** Hedges are counted;
+  passives are shown with their sentence so the writer can judge.
+- **Adjectival forms are excluded**: "is red" (three-letter minimum) and "was tired" (adjective list),
+  because a hint that fires on every adjective is noise. Participial adjectives not on the list can
+  still appear; that limitation is documented.
+- 347 smoke checks (one new: `style-hints` asserts the hedge counts, two passives found, and that the
+  adjective sentences are not reported), 208 unit tests (six new).
+
 ## 2.9.0
 
 The mechanical half of an editing pass.

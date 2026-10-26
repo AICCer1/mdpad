@@ -402,6 +402,12 @@ A small strip above the document offers three tips on first use — the command 
 list, and dropping images. Dismissing one ("Got it" or ×) records it and shows the next; once all
 three are seen the strip never returns.
 
+### Style hints
+
+The structure report also lists **hedge words** that weaken a sentence and **possible passive
+constructions** with their sentence. It deliberately errs on the quiet side: adjectives such as "was
+tired" and "is red" are not reported, and a hint is never a correction.
+
 ### Repetition
 
 The structure report has a **Repetition** section: content words used three or more times, words

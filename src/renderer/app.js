@@ -3546,6 +3546,23 @@ function statsMarkdown(payload) {
   if (!report.skips.length && !report.duplicates.length) lines.push('No structural problems.');
   for (const skip of report.skips) lines.push('- Heading "' + skip.text + '" jumps from H' + skip.from + ' to H' + skip.to);
   for (const duplicate of report.duplicates) lines.push('- Duplicate heading "' + duplicate.text + '"');
+  if (report.style) {
+    const style = report.style;
+    const hasAny = style.weak.length || style.passive.length;
+    lines.push('', '## Style', '');
+    if (!hasAny) {
+      lines.push('No hedge words or passive constructions worth flagging.');
+    } else {
+      if (style.weak.length) {
+        lines.push('Hedge words that weaken a sentence:');
+        for (const entry of style.weak) lines.push('- ' + entry.word + ' — ' + entry.count + '×');
+      }
+      if (style.passive.length) {
+        lines.push('', 'Possible passive constructions (' + style.passiveCount + '):');
+        for (const entry of style.passive) lines.push('- "' + entry.text.trim() + '"');
+      }
+    }
+  }
   if (report.repetition) {
     const r = report.repetition;
     const hasAny = r.words.length || r.doubled.length || r.repeated.length || r.cjkRepeated.length;

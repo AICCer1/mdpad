@@ -18,6 +18,7 @@ const { checkDirs } = require('./preflight');
 const { parseFileArgs } = require('./cli');
 const { analyzeSentences } = require('./sentence');
 const { analyzeRepetition } = require('./repetition');
+const { analyzeStyle } = require('./style');
 const { isLargeExport, describeSize } = require('./export-limits');
 const { buildExportName } = require('./filename');
 const { fitBounds } = require('./window-bounds');
@@ -2191,6 +2192,12 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
           .replace(/^\s*\d+\.\s+/gm, '')
       ),
       repetition: analyzeRepetition(
+        text
+          .replace(/^\s*(?:\x60{3,}|~{3,})[\s\S]*?^\s*(?:\x60{3,}|~{3,})/gm, ' ')
+          .replace(/\x60[^\x60\n]*\x60/g, ' ')
+          .replace(/^\s*#{1,6}\s+.*$/gm, ' ')
+      ),
+      style: analyzeStyle(
         text
           .replace(/^\s*(?:\x60{3,}|~{3,})[\s\S]*?^\s*(?:\x60{3,}|~{3,})/gm, ' ')
           .replace(/\x60[^\x60\n]*\x60/g, ' ')
@@ -14260,6 +14267,47 @@ async function runSmoke() {
       repetitionStats.repeated.some((entry) => entry.phrase === 'in spite of' && entry.count === 3) &&
       !repetitionStats.words.some((entry) => entry.word === 'the'),
     repetitionStats
+  );
+
+  // 178. hedge words and passive constructions are reported as hints
+  const styleHints = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'style-hints.md');
+    fs.writeFileSync(
+      doc,
+      [
+        '# Style',
+        '',
+        'This is very good and really simple. It is very clearly written by hand.',
+        '',
+        'The report was written yesterday. The decision was quickly made.',
+        '',
+        'The sky is red and she was tired.',
+        '',
+      ].join(nl),
+      'utf8'
+    );
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('was quickly made')");
+      if (ready === true) break;
+    }
+    await sleep(400);
+    const structure = await jsOf('window.api.docStructure()');
+    return structure && structure.style;
+  })();
+  step(
+    'style-hints',
+    styleHints &&
+      styleHints.weak.some((entry) => entry.word === 'very' && entry.count === 2) &&
+      styleHints.passive.some((entry) => /was written/.test(entry.text)) &&
+      styleHints.passive.some((entry) => /was quickly made/.test(entry.text)) &&
+      !styleHints.passive.some((entry) => /sky is red/.test(entry.text)) &&
+      !styleHints.passive.some((entry) => /was tired/.test(entry.text)),
+    styleHints
   );
 
   // 30k. the settings filter narrows the visible fields

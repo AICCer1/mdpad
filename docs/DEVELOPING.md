@@ -718,3 +718,10 @@ panel and the structure report read the same object.
 The tokeniser keeps words down to two letters so phrases like "in spite of" can exist; stop words are
 filtered only from the single-word list, because "that that" is exactly the typo worth showing. `doc:structure`
 strips fences, inline code and heading lines first.
+
+## Style hints
+
+`analyzeStyle(text, {limit})` returns `{weak, passive, sentences, passiveCount}`. Passive detection is
+`be-verb + optional adverb + participle`, where participles are `-ed`/`-en` words or an irregular list;
+an adjective list and the three-letter minimum keep "was tired" and "is red" out. Known limitation:
+participial adjectives not on the list ("was excited") will still be reported.
