@@ -732,3 +732,10 @@ participial adjectives not on the list ("was excited") will still be reported.
 limit clamped to 8–120). `doc:structure` builds the payload, then deletes the disabled sections and
 returns it, so the renderer never has to filter. The modal loads the options on open and saves on change,
 then reopens the report.
+
+## Report trend
+
+`rememberReport` stores `avgSentence`, `longSentences`, `passive` and `repeated` beside the old counts.
+`reportTrend(report)` compares them with `report.previous` and returns `{items, worse}`; the modal renders
+chips, the markdown renders "Trend vs previous report". A missing metric from an older report simply
+produces no chip.

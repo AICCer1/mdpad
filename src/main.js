@@ -1949,10 +1949,15 @@ ipcMain.handle('doc:exportToPath', async (event, { kind = 'pdf', path: target } 
   function rememberReport(file, summary) {
     if (!file || !summary) return;
     const index = readReportIndex();
+    const metric = (value) => (Number.isFinite(Number(value)) ? Number(value) : null);
     index[file] = {
       issues: Number(summary.issues) || 0,
       words: Number(summary.words) || 0,
       headings: Number(summary.headings) || 0,
+      avgSentence: metric(summary.avgSentence),
+      longSentences: metric(summary.longSentences),
+      passive: metric(summary.passive),
+      repeated: metric(summary.repeated),
       at: new Date().toISOString(),
     };
     try {
@@ -14392,6 +14397,77 @@ async function runSmoke() {
         long: reportOptionsTest.reduced.sentences.long.length,
       },
       ui: reportOptionsTest.ui,
+    }
+  );
+
+  // 180. a saved report becomes the baseline: metrics show direction, not a score
+  const reportTrendTest = await (async () => {
+    const jsOf = (code) => win.webContents.executeJavaScript(code).catch((err) => ({ __error: err.message }));
+    const nl = String.fromCharCode(10);
+    const doc = path.join(dir, 'report-trend.md');
+    const firstPass = ['# Trend', '', 'Short one. Short two. Short three.', ''].join(nl);
+    fs.writeFileSync(doc, firstPass, 'utf8');
+    const session = sessions.get(win.webContents.id);
+    await session.loadDocument(doc);
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('Short three')");
+      if (ready === true) break;
+    }
+    await sleep(400);
+    const first = await jsOf('window.api.docStructure()');
+    // save this report as the baseline, exactly as Save report… does
+    const saved = await jsOf(`(async () => {
+      const report = await window.api.docStructure();
+      const summary = {
+        issues: report.skips.length + report.duplicates.length,
+        words: report.words,
+        headings: report.headings.length,
+        avgSentence: report.sentences ? report.sentences.avgWords : undefined,
+        longSentences: report.sentences ? report.sentences.long.length : undefined,
+        passive: report.style ? report.style.passiveCount : undefined,
+        repeated: report.repetition ? report.repetition.words.length + report.repetition.repeated.length : undefined,
+        savedAt: Date.now(),
+      };
+      const target = ${JSON.stringify(path.join(dir, 'report-trend-structure.md'))};
+      return window.api.writeReportTo(target, '# baseline' + String.fromCharCode(10), summary);
+    })()`);
+    // longer sentences and a passive construction in the second pass
+    const secondPass = [
+      '# Trend',
+      '',
+      'This sentence is considerably longer than the ones in the first pass because it keeps going.',
+      '',
+      'The report was written yesterday and the decision was quickly made by the committee.',
+      '',
+    ].join(nl);
+    fs.writeFileSync(doc, secondPass, 'utf8');
+    await session.reloadFromDisk();
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await sleep(200);
+      const ready = await jsOf("window.__mdpad.getMarkdown().includes('committee')");
+      if (ready === true) break;
+    }
+    await sleep(400);
+    const second = await jsOf('window.api.docStructure()');
+    const markdown = await jsOf('window.__mdpad.structureMarkdownFor ? window.__mdpad.structureMarkdownFor() : null');
+    return { first, saved, second, markdown };
+  })();
+  step(
+    'report-trend',
+    reportTrendTest.saved &&
+      reportTrendTest.saved.ok === true &&
+      reportTrendTest.second.previous &&
+      reportTrendTest.second.previous.avgSentence === reportTrendTest.first.sentences.avgWords &&
+      reportTrendTest.second.sentences.avgWords > reportTrendTest.first.sentences.avgWords &&
+      reportTrendTest.second.style.passiveCount >= 1 &&
+      reportTrendTest.second.words > 0,
+    {
+      saved: reportTrendTest.saved,
+      previous: reportTrendTest.second.previous,
+      firstAvg: reportTrendTest.first.sentences.avgWords,
+      secondAvg: reportTrendTest.second.sentences.avgWords,
+      passive: reportTrendTest.second.style.passiveCount,
     }
   );
 

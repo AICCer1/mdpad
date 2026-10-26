@@ -451,7 +451,7 @@ async function openExportPanel(format = 'pdf') {
   setExportFormat(format);
   refreshExportSummary();
   refreshExportThumb();
-  renderExportHistory();
+  await renderExportHistory();
   await refreshExportNameHintFor('#export-name', '#export-name-hint');
   document.querySelector('#export-modal').hidden = false;
 }
@@ -3472,7 +3472,40 @@ function structureSummary(report) {
     issues: report.skips.length + report.duplicates.length + (report.longestParagraph && report.longestParagraph.chars > 1200 ? 1 : 0),
     words: report.words,
     headings: report.headings.length,
+    // metrics for the trend line; missing sections simply stay undefined
+    avgSentence: report.sentences ? report.sentences.avgWords : undefined,
+    longSentences: report.sentences ? report.sentences.long.length : undefined,
+    passive: report.style ? report.style.passiveCount : undefined,
+    repeated: report.repetition ? report.repetition.words.length + report.repetition.repeated.length : undefined,
+    savedAt: Date.now(),
   };
+}
+
+// Change since the previous saved report. Only direction and size, never a score: the point is "is this
+// draft longer, heavier, more passive than the last one".
+function reportTrend(report) {
+  const previous = report && report.previous;
+  if (!previous) return null;
+  const short = (name, before, after, unit) => {
+    if (typeof before !== 'number' || typeof after !== 'number') return null;
+    const delta = Math.round((after - before) * 10) / 10;
+    if (!delta) return { name, delta: 0, text: name + ': unchanged' };
+    return {
+      name,
+      delta,
+      text: name + ': ' + (delta > 0 ? '+' : '') + delta + (unit ? ' ' + unit : '') + ' (was ' + before + ')',
+    };
+  };
+  const items = [
+    short('Words', previous.words, report.words),
+    short('Headings', previous.headings, report.headings.length),
+    short('Issues', previous.issues, report.skips.length + report.duplicates.length),
+    short('Average sentence', previous.avgSentence, report.sentences ? report.sentences.avgWords : undefined, 'words'),
+    short('Passive sentences', previous.passive, report.style ? report.style.passiveCount : undefined),
+    short('Repeated words/phrases', previous.repeated, report.repetition ? report.repetition.words.length + report.repetition.repeated.length : undefined),
+  ].filter(Boolean);
+  const worse = items.filter((item) => item.delta > 0 && /Average sentence|Passive|Repeated/.test(item.name));
+  return { items, worse };
 }
 
 async function saveStructureReport(report) {
@@ -3599,6 +3632,14 @@ function statsMarkdown(payload) {
       for (const entry of s.long.slice(0, 5)) lines.push('  - ' + entry.words + ' words — "' + entry.text.slice(0, 100) + '"');
     }
   }
+  const trend = reportTrend(report);
+  if (trend && trend.items.length) {
+    lines.push('', '## Trend vs previous report', '');
+    for (const item of trend.items) lines.push('- ' + item.text);
+    if (trend.worse.length) {
+      lines.push('', 'Worth a look: ' + trend.worse.map((item) => item.name.toLowerCase()).join(', ') + ' went up.');
+    }
+  }
   lines.push('', '## Last 14 days', '', '| Date | Words |', '| --- | --- |');
   for (const day of history.days) lines.push('| ' + day.date + ' | ' + day.words + ' |');
   lines.push('', 'Streak: ' + history.streak + ' day(s) · Best: ' + history.best + ' · Total: ' + history.total);
@@ -3709,6 +3750,18 @@ async function openStructureReport() {
       ? ' · previous report: ' + report.previous.issues + ' issue(s)'
       : '');
   list.textContent = '';
+  const trend = reportTrend(report);
+  if (trend && trend.items.length) {
+    const box = document.createElement('div');
+    box.className = 'structure-trend';
+    for (const item of trend.items) {
+      const chip = document.createElement('span');
+      chip.className = 'structure-trend-chip' + (item.delta > 0 ? ' is-up' : item.delta < 0 ? ' is-down' : '');
+      chip.textContent = item.text;
+      box.appendChild(chip);
+    }
+    list.appendChild(box);
+  }
 
   const issues = [];
   for (const skip of report.skips) {

@@ -2464,3 +2464,9 @@ html.table-dragging-column, html.table-dragging-column * { cursor: col-resize !i
 .structure-options { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; padding: 4px 2px 8px; font-size: 12px; color: var(--muted); }
 .structure-options label { display: flex; gap: 6px; align-items: center; }
 .structure-options input[type="number"] { width: 58px; }
+
+/* ---- structure report trend ---- */
+.structure-trend { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 2px 8px; }
+.structure-trend-chip { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--muted); }
+.structure-trend-chip.is-up { color: #b45309; }
+.structure-trend-chip.is-down { color: #15803d; }

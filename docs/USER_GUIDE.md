@@ -402,6 +402,12 @@ A small strip above the document offers three tips on first use — the command 
 list, and dropping images. Dismissing one ("Got it" or ×) records it and shows the next; once all
 three are seen the strip never returns.
 
+### Trend since the last report
+
+Saving a report records its numbers. The next report shows chips such as `Average sentence: +3.2 words
+(was 18)` and calls out metrics that went up (average sentence, passives, repeated words). It is a
+comparison, not a grade.
+
 ### Report options
 
 At the top of the structure report you can switch **Style hints** and **Repetition** off and set the

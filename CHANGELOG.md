@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.12.0
+
+Reports now have a memory.
+
+- **Saving a structure report stores its metrics** (words, average sentence length, long sentences,
+  passives, repeated words); the next report shows the **change** as chips and names what went up.
+  The markdown report gains a "Trend vs previous report" section.
+- Older reports simply produce fewer chips: a missing metric is skipped, never shown as zero.
+- 349 smoke checks (one new: `report-trend` saves a baseline, rewrites the document with longer, passive
+  sentences, reloads and asserts the stored baseline and the higher average), 208 unit tests.
+- Three self-inflicted bugs, all caught by that check or the existing ones: the modal chip block was
+  inserted into `renderExportHistory` (where `report` does not exist) and broke the export panel, the
+  report writer dropped the new metrics from its index, and a `loadDocument` on an already-open file did
+  not reload it.
+
 ## 2.11.0
 
 A report that fits the writer, not the other way round.
